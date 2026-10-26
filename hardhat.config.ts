@@ -23,14 +23,15 @@ export default defineConfig({
           }
         }
       },
+      // The same settings as default, so a task that builds with the production profile (such as
+      // source verification) produces exactly the bytecode that the deploy script deployed.
       production: {
         version: "0.8.28",
         settings: {
           optimizer: {
             enabled: true,
-            runs: 500
-          },
-          viaIR: true
+            runs: 200
+          }
         }
       }
     }

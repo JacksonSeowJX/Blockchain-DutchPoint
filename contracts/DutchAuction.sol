@@ -131,8 +131,13 @@ contract DutchAuction is Ownable, ReentrancyGuard {
             revert InvalidPrices();
         }
         // The whole supply must be worth at least 1 wei at the reserve price, otherwise the
-        // auction could never clear.
-        if (saleSupply_ == 0 || Math.mulDiv(saleSupply_, reservePrice_, TOKEN_SCALE) == 0) {
+        // auction could never clear. Every ETH amount the auction accepts is at most the supply's
+        // value at the start price, so saleSupply * startPrice must also fit in 256 bits.
+        if (
+            saleSupply_ == 0 ||
+            startPrice_ > type(uint256).max / saleSupply_ ||
+            Math.mulDiv(saleSupply_, reservePrice_, TOKEN_SCALE) == 0
+        ) {
             revert InvalidSaleSupply();
         }
 

@@ -1,5 +1,11 @@
 import { formatEther, formatUnits, parseEther } from "ethers";
 
+/** `wei` in ETH, rounded up to `places` decimals: for an input that must not fall short of the amount. */
+export function formatEthUp(wei: bigint, places = 6): string {
+  const step = 10n ** BigInt(18 - places);
+  return trimDecimal(formatEther(((wei + step - 1n) / step) * step), places);
+}
+
 export function trimDecimal(value: string, places = 4): string {
   if (!value.includes(".")) {
     return value;

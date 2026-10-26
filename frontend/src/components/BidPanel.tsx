@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Position } from "../hooks/useAuction";
 import { Status, View, quoteBid } from "../lib/auctionMath";
-import { formatEth, formatPrice, formatToken, parseEthInput, trimDecimal } from "../lib/format";
+import { formatEth, formatEthUp, formatPrice, formatToken, parseEthInput, trimDecimal } from "../lib/format";
 
 type Props = {
   view: View;
@@ -103,8 +103,8 @@ export function BidPanel({
         ))}
         <button
           className="chip accent"
-          onClick={() => setInput(trimDecimal(formatEther(view.capacity), 6))}
-          title="Fill in the ETH that buys all remaining GVRA at the current price"
+          onClick={() => setInput(formatEthUp(view.capacity))}
+          title="Fill in the ETH that buys all remaining GVRA at the current price, rounded up; any extra comes straight back"
         >
           Sell-out amount
         </button>
