@@ -11,7 +11,8 @@ Token: Gavora (GVRA). Every evidence commit cited below is in the history of the
 Three AI tools built and reviewed DutchPoint in sequence: **ChatGPT** wrote the plan, **Codex** wrote the
 first implementation, and **Claude Code** reviewed both, then fixed and extended them. A team member then
 ran a third pass over the code, an independent review with **Codex**, which found six defects in the Claude Code frontend
-(A1-A5, A7). Each defect below was reproduced with a test that fails on the code that contained it and
+(A1-A5, A7). As that review recommended, A1 was then fixed in the contract itself with an on-chain minimum
+per bid, and checking that change end to end exposed one more frontend defect (C1). Each defect below was reproduced with a test that fails on the code that contained it and
 passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 
 | ID | Severity | Finding (in the Codex implementation unless noted) | Status |
@@ -22,16 +23,17 @@ passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 | F4 | Medium | Issuer proceeds stay locked until every bidder claims; one inactive bidder strands revenue | Fixed (`20e24b1`) |
 | F5 | Low | State written after external calls (dead "restore then revert" code) - flagged High by Slither | Fixed (`20e24b1`) |
 | F6 | Low | The reentrancy "demonstration" could not fail, so it proved nothing | Fixed (`031b753`) |
-| A1 | Medium | *(Claude Code frontend, independent Codex review)* The bid quote promised a minimum that a partly accepted bid does not get | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
+| A1 | Medium | *(Claude Code frontend, independent Codex review)* The bid quote promised a minimum that a partly accepted bid does not get | Fixed: reworded ([`11`](evidence/11-independent-codex-review.txt)), then enforced on-chain ([`12`](evidence/12-bid-protection.txt)) |
 | A2 | Medium | *(same)* A read still in flight when the network changed leaked the old chain's history into the new one | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
 | A3 | Medium | *(same)* An out-of-order wallet response could show the previous account | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
 | A5 | Medium | *(same)* History said "Refunded" for a surplus that was only credited | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
 | A7 | Medium | *(same)* A refund the bidder's wallet rejected could only be retried to that same wallet | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
 | A4 | Low | *(same)* Negative amounts enabled a "Bid -1 ETH" button | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
+| C1 | Low | *(Claude Code frontend, found while verifying the A1 contract fix)* Contract errors from failed transactions were never decoded, so every failed bid, claim or withdrawal showed a generic message | Fixed ([`12`](evidence/12-bid-protection.txt)) |
 
-Validation: 53 tests (46 Mocha + 3 fuzz tests x 1,000 runs + 4 invariants x 256 runs), **100% line and
-statement coverage** of `DutchAuction.sol` and `GavoraToken.sol`, a mutation check, a gas-scaling test
-(1 to 100 bidders), 10 frontend unit tests (Vitest) for hooks and components, Slither before and after, an
+Validation: 61 tests (52 Mocha + 4 fuzz tests x 1,000 runs + 5 invariants x 256 runs), **100% line and
+statement coverage** of `DutchAuction.sol` and `GavoraToken.sol`, mutation checks, a gas-scaling test
+(1 to 100 bidders), 15 frontend unit tests (Vitest) for hooks, components and error messages, Slither before and after, an
 end-to-end run of the real UI in headless Chrome, manual runs with the real MetaMask extension by two team
 members, a public Sepolia run, and an independent audit by a team member using Codex.
 
@@ -423,7 +425,7 @@ browser runs and two MetaMask sessions.
 
 | ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
 | --- | --- | --- | --- | --- |
-| A1 | It applied a true rule ("accepted ETH can only buy more as the price falls") to a bid that was not yet mined. Time alone can shrink the remaining room before inclusion | A 1 ETH bid quoted at 88.89 GVRA can be only partly accepted and claim 69.77. The UI, FAQ, README and demo script all promised a minimum | The quote reads *If fully accepted, at least*, explains partial acceptance, and every document was reworded. A real guarantee would need an on-chain minimum-tokens check | `A1` test fails, then passes; the browser shows the new label |
+| A1 | It applied a true rule ("accepted ETH can only buy more as the price falls") to a bid that was not yet mined. Time alone can shrink the remaining room before inclusion | A 1 ETH bid quoted at 88.89 GVRA can be only partly accepted and claim 69.77. The UI, FAQ, README and demo script all promised a minimum | The quote reads *If fully accepted, at least*, explains partial acceptance, and every document was reworded. A real guarantee would need an on-chain minimum-tokens check, which was added next (below) | `A1` test fails, then passes; the browser shows the new label |
 | A2 | Refresh serialisation was designed for overlapping block events on *one* provider; nothing invalidated work when the provider changed | After a network switch the page could show the old chain's bids and block, and stop fetching the new chain's history | Read contexts: outdated reads finish without writing state; per-context block-time cache; queued refreshes run the current context's read | `A2` test: snapshot block 12,000,000 before the fix, 100 after; new-chain logs queried |
 | A3 | It assumed wallet responses complete in the order they were requested | The header could show account A while the wallet signs as B | Numbered syncs, newest wins. Every transaction also checks the signer and network just before sending | `A3` test: the stale answer overwrote B before the fix, not after |
 | A4 | Validation checked `amount === 0n`; ethers parses "-1" into a negative bigint | The form offered "Bid -1 ETH" and passed a negative value onwards | Amounts must be above 0 and fit uint256, with a field message | `A4` tests: negative rejected; a normal positive bid still works |
@@ -435,23 +437,58 @@ exact balance, which ETH forced in from outside (e.g. a `selfdestruct` payout) w
 real fault. It now asserts `balance >= owed`, and exactly `owed + forced ETH`. The handler forces ETH in,
 and also lets holders burn their own GVRA, which changes `totalSupply` independently of the auction.
 
+### Follow-up: an on-chain minimum for A1, and finding C1
+
+Relabelling the quote made it honest but not useful: a bidder still could not stop a bid from being filled
+below what they expected. The review itself noted that "a genuine user-specified minimum would require an
+on-chain limit that reverts if it cannot be met". This is the standard slippage protection of token swaps,
+and Gnosis Auction bids carry a minimum buy amount too. It was the one change from the
+[platform comparison](../design/architecture.md#dutchpoint-and-production-launch-platforms) worth building.
+
+- **Contract.** `contributeWithMinimum(minTokens)` reverts with `MinimumTokensNotMet(minimum, actual)` unless
+  the accepted part of the bid buys at least `minTokens` at the price when it is mined. The final price can
+  only be at or below that price, so the claim for the bid is at least `minTokens`. The check runs before
+  any state changes. It is a new function rather than a new parameter on `contribute()`, so the F1-F4
+  regression tests and the crowd-out proof of concept still run unchanged against the code they were
+  written for.
+- **Frontend.** A normal bid is sent with what it buys at the displayed price, less 1%. The page estimates
+  chain time from the latest block, and a block's timestamp can trail real time by a few seconds, so a
+  minimum at exactly the displayed price could cancel a bid that was in fact fully accepted. A sell-out bid
+  is sent without a minimum: the room left shrinks every second, so it is almost always partly filled, and
+  buying whatever is left is its purpose. The quote now reads *This bid buys at least*.
+- **Evidence** ([`evidence/12`](evidence/12-bid-protection.txt)). Tests were committed failing first
+  (`cdadc79`), then the change (`5b7be42`). Sanjeev's exact scenario now reverts with
+  `MinimumTokensNotMet(88.89 GVRA, 69.77 GVRA)` instead of filling. A fuzz property and an invariant check
+  that a protected bid either gets its minimum or reverts, and that allocations always cover every accepted
+  minimum. Mutation M4 (the check disabled) fails 4 tests. A protected bid costs 581 gas more than a plain
+  one, and a plain bid 86 more than before. Slither reports no Medium or High results; the one new Low
+  result is the `timestamp` detector on the check, which compares a time-based price by design.
+
+Checking the change end to end on a local node, with ethers and the frontend's ABI, exposed a defect that
+had been in the Claude Code frontend since the second pass:
+
+| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| C1 | It assumed ethers decodes custom errors for every failure. ethers v6 does so only for read calls; for a transaction the raw revert data sits in `error.data`, or nested inside the wallet's or node's error. The table of friendly messages was never exercised by a failing transaction | No friendly contract-error message could appear for a failed transaction. A bid cancelled by its minimum would have said "Transaction failed.", and a bid after sell-out "could not coalesce error" | `describeError` finds the revert data wherever it is nested and decodes it against the auction ABI. A transaction that reverted after mining, with no data, gets a plain explanation | Error shapes recorded from the node; 3 of 4 `errors.test.ts` tests fail on `689c41f` and pass on `2765efa` |
+
 ## 6. Validation Process & Testing Strategy
 
 | Layer | What | Result |
 | --- | --- | --- |
 | Regression tests | F1-F4 encoded as tests, run before and after the fix | 4 failing → 4 passing ([`01`](evidence/01-regressions-before-fix.txt), [`03`](evidence/03-regressions-after-fix.txt)) |
-| Unit and scenario tests (Mocha) | Configuration, price, bidding, crossing bid, both clearing modes, status machine, claims, dust burn, refunds (incl. ETH-rejecting bidder), issuer access control, conservation, token, gas scaling | 46 passing |
-| Fuzz tests (Solidity, forge-std) | Price monotonic and bounded; random bidders/amounts/times settle uniformly, fairly and conservatively; exact time-clearing price | 3 tests × 1,000 runs |
-| Invariant tests | Handler drives random bids, time jumps, finalization, claims and withdrawals (incl. a rejecting bidder), forced ETH and holder burns. Invariants: ETH fully backed (at least what is owed, exactly owed + forced ETH), tokens conserved, demand ≤ supply, one uniform price | 4 invariants × 256 runs × depth 50 |
-| Mutation check | Plant M1 (round time-clearing price down) and M2 (issuer withdraws raw balance), confirm failures, restore | M1: 6/7 property tests fail; M2: 3/7 fail ([`06`](evidence/06-mutation-check.txt)) |
-| Gas scaling | The same five calls (new bid, crossing bid with refund, finalize, claim, issuer withdrawal) measured after 1, 10, 50 and 100 earlier bidders, with a 1% tolerance. Mutation M3 plants a loop over bidders in `claimTokens` | Identical gas at every crowd size (spread 0). Under M3 the claim grows from 163,417 to 410,719 gas and the test fails ([`09`](evidence/09-gas-scaling.txt)) |
-| Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers) and components (quote wording, amount validation, surplus states, refund recipient) | 10 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)) |
+| Unit and scenario tests (Mocha) | Configuration, price, bidding, crossing bid, both clearing modes, status machine, claims, dust burn, refunds (incl. ETH-rejecting bidder), issuer access control, conservation, token, gas scaling, bid protection | 52 passing |
+| Fuzz tests (Solidity, forge-std) | Price monotonic and bounded; random bidders/amounts/times settle uniformly, fairly and conservatively; exact time-clearing price; a protected bid gets its minimum or reverts | 4 tests × 1,000 runs |
+| Invariant tests | Handler drives random bids and protected bids, time jumps, finalization, claims and withdrawals (incl. a rejecting bidder), forced ETH and holder burns. Invariants: ETH fully backed (at least what is owed, exactly owed + forced ETH), tokens conserved, demand ≤ supply, one uniform price, allocations cover every accepted minimum | 5 invariants × 256 runs × depth 50 |
+| Mutation check | Plant M1 (round time-clearing price down), M2 (issuer withdraws raw balance) and M4 (bid minimum not enforced), confirm failures, restore | M1: 6/7 property tests fail; M2: 3/7 fail ([`06`](evidence/06-mutation-check.txt)); M4: 4 tests fail ([`12`](evidence/12-bid-protection.txt)) |
+| Gas scaling | The same six calls (new bid, protected bid, crossing bid with refund, finalize, claim, issuer withdrawal) measured after 1, 10, 50 and 100 earlier bidders, with a 1% tolerance. Mutation M3 plants a loop over bidders in `claimTokens` | Identical gas at every crowd size (spread 0). Under M3 the claim grows from 163,417 to 410,719 gas and the test fails ([`09`](evidence/09-gas-scaling.txt), [`12`](evidence/12-bid-protection.txt)) |
+| Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers), components (quote and its on-chain minimum, amount validation, surplus states, refund recipient) and error decoding for failed transactions | 15 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)), as did the bid-protection and error tests ([`12`](evidence/12-bid-protection.txt)) |
 | Independent review | A team member ran Codex as auditor, plus a MetaMask functional test ([`independent-review/`](independent-review/README.md)) | 6 findings, all confirmed and fixed; MetaMask scenarios all passed |
 | Coverage | `npm run coverage` | `DutchAuction.sol` and `GavoraToken.sol`: 100% lines and statements ([`07`](evidence/07-test-suite-and-coverage.txt)) |
-| Static analysis | Slither 0.11.6 on original and current code, token, and vulnerable demo | Original: 19 results incl. High `reentrancy-eth`. Current: 0 High; 4 Medium `incorrect-equality` false positives annotated inline; remaining Low/Info are by design ([`08`](evidence/08-slither.txt)) |
-| Dependency audit | `npm audit`, and `npm audit --omit=dev` for runtime-only packages; each advisory traced to the package that pulls it in and what it is used for | Before: 10 (2 high, 8 low), all in build or verification tooling, none in the contracts or the shipped site. After patch updates and the dependency split: 0 ([`10`](evidence/10-dependency-audit.txt)) |
+| Static analysis | Slither 0.11.6 on original and current code, token, and vulnerable demo | Original: 19 results incl. High `reentrancy-eth`. Current: 0 High; 4 Medium `incorrect-equality` false positives annotated inline; remaining Low/Info are by design ([`08`](evidence/08-slither.txt)). With bid protection: 15 results, the new one a Low `timestamp` ([`12`](evidence/12-bid-protection.txt)) |
+| Dependency audit | `npm audit`, and `npm audit --omit=dev` for runtime-only packages; each advisory traced to the package that pulls it in and what it is used for | Before: 10 (2 high, 8 low), all in build or verification tooling, none in the contracts or the shipped site. After patch updates and the dependency split: 0 ([`10`](evidence/10-dependency-audit.txt)). Re-check on 26 Oct: 3 new advisories in Hardhat and Mocha tooling, none reachable, 0 in runtime packages. Fixes wait for the two-week rule on new releases; `npm ci` on npm 10 verified |
 | Reentrancy demo | Same attacker vs. vulnerable and real auction | 11 ETH drained vs. 0.75 ETH own refund ([`05`](evidence/05-reentrancy-demo.txt)) |
 | End-to-end UI | Local node + deploy + seeded bids; headless Chrome with an injected test wallet clicks Connect, sell-out bid, Finalize, Claim | All steps confirmed; screenshots in [`screenshots/`](../demo/screenshots/) |
+| End-to-end bid protection | Local node; ethers v6 with the frontend's ABI: a protected bid after the auction filled further, the same bid forced through, a fresh protected bid, a sell-out bid | Cancelled in both paths with nothing committed; fresh bid and sell-out accepted. Exposed C1 ([`12`](evidence/12-bid-protection.txt)) |
 | Manual MetaMask run | A student drove the local dApp with the real MetaMask extension: network switch (from BNB Chain), imported test accounts, a 1 ETH bid, a sell-out bid, +20 min, finalize, claim, issuer withdrawal. The chain state was then read back | All steps worked. 11.75 ETH sent, 11.5 ETH accepted and 0.25 ETH refunded in the same transaction. Both bids settled at 0.0125 ETH/GVRA (the 1 ETH bid got 80 GVRA, against the 72 quoted as its minimum). 1,000 GVRA claimed, and 12.5 ETH withdrawn by the issuer |
 | Visual checks | Light/dark mode, 1280/820/390 px widths | No horizontal page scroll at 390 px after fix |
 | CI | `.github/workflows/ci.yml`: compile, coverage, typecheck, build, demo, Slither | Passing on GitHub Actions for the PR and for every push to `main` |
@@ -461,7 +498,7 @@ and also lets holders burn their own GVRA, which changes `totalSupply` independe
 - `incorrect-equality` (Medium, 4): the flagged comparisons are zero-guards on internal accounting values,
   not balances an attacker can steer. The one balance check (`burnRemainderAfterAllClaimed`) can only be
   affected by donations, which just add tokens to burn. Annotated inline.
-- `timestamp` (Low, 10): the auction is time-based by design. After the Merge, slots are fixed at 12 s,
+- `timestamp` (Low, 11 with bid protection): the auction is time-based by design. After the Merge, slots are fixed at 12 s,
   so a proposer cannot meaningfully move `block.timestamp`.
 - `reentrancy-benign` (Low, 1): explained under F5.
 - `low-level-calls` (Info, 3): `call` is used deliberately so contract wallets receive ETH with enough
@@ -481,6 +518,8 @@ and also lets holders burn their own GVRA, which changes `totalSupply` independe
 - Proceeds withdrawable at finalization, with refunds tracked separately.
 - `GavoraToken` with a fixed supply, no mint function and no owner.
 - Constructor rejects parameters under which the auction could never clear.
+- Bid protection: `contributeWithMinimum(minTokens)` reverts rather than fill a bid below the bidder's
+  minimum, so the dApp's quote is a guarantee rather than an estimate (A1).
 
 **Testing and tooling**
 - Fuzz and invariant suite plus the mutation check, a regression suite, and a reentrancy demonstration
@@ -498,7 +537,9 @@ and also lets holders burn their own GVRA, which changes `totalSupply` independe
 - Status, price and countdown derived from a BigInt mirror of the contract rules.
 - Sell-out quote that previews the immediate refund; demand-vs-supply meter; clearing point on the chart.
 - Event-based bid history that tags the bid which cleared the auction.
-- Owner-only issuer panel and readable error messages.
+- Owner-only issuer panel and readable error messages, decoded from the revert data of failed transactions
+  too (C1).
+- Every bid except a sell-out carries an on-chain minimum: today's price, less 1%.
 - Network switching that offers to add the local chain; read-only view before connecting.
 - Local time-travel tools for the demo; dark mode and a mobile layout.
 - From the manual MetaMask run: a light/dark theme toggle, an *Add GVRA to your wallet* button (EIP-747),
@@ -539,6 +580,9 @@ and also lets holders burn their own GVRA, which changes `totalSupply` independe
   unusual timing (a network switch mid-read, out-of-order wallet answers, a bid mined seconds after it
   was quoted) or an unusual wallet (one that rejects ETH). Happy-path testing, even with a real wallet,
   does not reach them.
+- **Untested failure paths.** The table of friendly contract-error messages was never exercised by a
+  failing transaction, so nobody saw that ethers v6 only decodes custom errors for read calls (C1). It
+  surfaced only when a failure was triggered on purpose.
 
 **Recommendations for AI-driven dApp development**
 1. Have a second, different model review the plan and the code, and treat disagreements between them as
@@ -551,6 +595,8 @@ and also lets holders burn their own GVRA, which changes `totalSupply` independe
 6. Never accept an AI's claim of a fix, or of a finding, without reproducible evidence.
 7. Rotate the auditor: a different person running a different model found what the builder's model
    missed in its own code. Re-check the auditor's findings too; here all six held up.
+8. When the interface promises something, enforce it in the contract. Rewording made the A1 quote honest;
+   an on-chain minimum made it true. Then trigger the failure on purpose to see what the user is told.
 
 ---
 
@@ -568,7 +614,7 @@ each deck: Module 2 Lectures 3-4 (Bitcoin mining and consensus), Module 3 Lectur
 | Gas limit per transaction; running out of gas aborts it; gas deters denial of service (M3 L2, slides 13-15) | No function loops over bidders. Each bidder claims for themselves, so the gas cost of every call is independent of how many people bid, and no bidder can make settlement too expensive for others. Measured: each call costs exactly the same after 1 or 100 earlier bidders ([`evidence/09`](evidence/09-gas-scaling.txt)) |
 | Contract code is immutable; a fix means a new instance (M3 L2, slide 18) | One auction per deployment, no upgrade proxy, and immutable sale parameters. A deployed bug cannot be patched, which is why the audit in §5 happened before any deployment |
 | A block's timestamp only has to be later than its parent's (M3 L1, slide 8) | The price is a pure function of `block.timestamp`. On proof-of-stake Ethereum each 12-second slot fixes the timestamp, and a whole slot moves the price by 12 / 1,200 = 1% of the start-to-reserve range (0.00015 ETH per GVRA at the default prices). No producer can shift it further |
-| Miners order transactions by priority and fee, and may delay a transaction (M2 L3, slide 16; M2 L4, slide 12) | A uniform falling price removes the reason to race: waiting only lowers the price, and everyone pays the clearing price. The one race left is at sell-out, where the first bid to arrive gets the remaining capacity. It only concerns the last slice of supply, and it is listed as a known limitation in [`assumptions.md`](../design/assumptions.md#known-limitations) |
+| Miners order transactions by priority and fee, and may delay a transaction (M2 L3, slide 16; M2 L4, slide 12) | A uniform falling price removes the reason to race: waiting only lowers the price, and everyone pays the clearing price. The one race left is at sell-out, where the first bid to arrive gets the remaining capacity. It only concerns the last slice of supply, and it is listed as a known limitation in [`assumptions.md`](../design/assumptions.md#known-limitations). Because a bid's result depends on what is mined before it, `contributeWithMinimum` lets the bidder set the least it must buy; otherwise it reverts |
 | Ether sent to a designated burn address is lost forever (M3 L1, slide 25) | Unsold GVRA goes further than a burn address: `ERC20Burnable.burn` lowers `totalSupply`, so the tokens leave the supply itself, not just circulation |
 | A malicious ERC20 can lie in `transfer` (invited talk, slide 34) | The auction trusts its token, so it is only deployed with `GavoraToken`: unmodified OpenZeppelin ERC20 code with no owner, no mint and no hooks. `start()` refuses to open unless the auction holds the full sale supply, and claims use `SafeERC20` |
 | ERC20 allowance workflow, `approve` then `transferFrom` (invited talk, slides 29-30) | Not needed. The issuer funds the auction with a direct `transfer`, and bidders pay in ETH, so the UI never asks anyone to approve a token spend |

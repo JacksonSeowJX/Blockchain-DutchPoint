@@ -90,7 +90,8 @@ credits are tracked separately, so proceeds can never consume ETH owed to bidder
   the clearing price, and the race only concerns the last slice of supply. Removing it entirely would need
   batch settlement (for example, settling all bids in the final period together), which is out of scope.
   The AI's original pro-rata rule did not remove it either, and it let a late whale crowd out earlier
-  bidders (audit finding F1).
+  bidders (audit finding F1). A bidder can bound the outcome, though: `contributeWithMinimum` reverts
+  rather than fill a bid below the bidder's minimum, and the dApp sends every bid except a sell-out that way.
 - The auction trusts its token contract. It must be paired with a standard ERC20 such as `GavoraToken`.
   A token with transfer hooks or a dishonest `balanceOf` is out of scope.
 - The price follows `block.timestamp`. On proof-of-stake Ethereum the timestamp of each 12-second slot is

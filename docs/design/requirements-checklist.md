@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | ERC20 project token | `GavoraToken` (OpenZeppelin ERC20), fixed supply, no mint, no owner | `GavoraToken.test.ts` |
 | Auction engine in separate contract(s) | `DutchAuction` holds the sale inventory; `GavoraToken` holds token logic | Deployment fixtures; `scripts/deploy.ts` |
-| Bid for tokens using Ether | `contribute()` and plain transfers via `receive()` | `accepts plain ETH transfers…`, bidding tests |
+| Bid for tokens using Ether | `contribute()`, `contributeWithMinimum(minTokens)` (reverts below the bidder's minimum) and plain transfers via `receive()` | `accepts plain ETH transfers…`, bidding tests |
 | Descending price via a decay function | `priceAt()`: linear decay on `block.timestamp`, floored at reserve | `decays linearly over exactly 1,200 seconds`, `is monotonic and never falls below reserve`, fuzz `testFuzz_PriceIsMonotonicAndBounded` |
 | Exactly 20 minutes | `AUCTION_DURATION = 20 minutes`; bids rejected at `endTime`; finalize only from `endTime` | `rejects contributions… after closing`, `rejects early and repeated finalization` |
 | Clears when committed ETH meets supply | Crossing bid clears at the current price; time-based clearing at `ceil(C/S)` | `accepts a crossing bid only up to capacity…`, `finds the exact clearing point…`, fuzz `testFuzz_TimeClearingPriceIsExact` |

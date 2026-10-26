@@ -23,7 +23,7 @@ fails on the audited code and passes after the fix. See
 
 | Finding | Verdict | Fix |
 | --- | --- | --- |
-| A1: the unmined bid quote promised a minimum the auction does not guarantee | Confirmed (88.89 GVRA quoted, 69.77 claimed) | The quote now reads *If fully accepted, at least*, with the partial-acceptance case explained; the FAQ, README, demo script and testing guide were reworded to match |
+| A1: the unmined bid quote promised a minimum the auction does not guarantee | Confirmed (88.89 GVRA quoted, 69.77 claimed) | First the quote was relabelled *If fully accepted, at least* (`fe44d91`). Then, as the report recommended, the minimum was enforced on-chain: `contributeWithMinimum(minTokens)` reverts instead of filling below it, and the dApp sends every bid except a sell-out with one (`5b7be42`, [evidence 12](../evidence/12-bid-protection.txt)). The quote now reads *This bid buys at least* |
 | A2: a read still in flight when the network changes corrupted the new network's history and cursor | Confirmed | Each provider/deployment pair is a read context; outdated reads finish without touching state, and queued refreshes run the current context's read |
 | A3: an older wallet response could restore the previous account | Confirmed | Wallet syncs are numbered and only the newest may update state. Transactions also check the signer and network just before sending |
 | A4: negative amounts enabled a "Bid -1 ETH" button | Confirmed | Amounts must be above 0 and fit in uint256, with a field-level message |

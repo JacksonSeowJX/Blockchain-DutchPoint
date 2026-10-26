@@ -35,6 +35,7 @@
 | --- | --- | --- |
 | `start()` | issuer | Requires the sale supply to be deposited; opens the 20-minute window |
 | `contribute()` / `receive()` | anyone | Accepts up to capacity; a crossing bid clears and gets its surplus pushed back (credited if the push fails) |
+| `contributeWithMinimum(minTokens)` | anyone | The same, but reverts with `MinimumTokensNotMet` unless the accepted part buys at least `minTokens` at the price when mined |
 | `finalize()` | anyone, after 20 min | Records time-based clearing if any, fixes `finalPrice`, burns unsold supply |
 | `claimTokens()` | bidders | `commitment / finalPrice` GVRA, once |
 | `withdrawRefundTo(recipient)` | bidders with a credit | Fallback for refunds a contract bidder rejected |
@@ -43,6 +44,9 @@
 | `status()`, `currentPrice()`, `clearingState()`, `priceAt()`, `maxCommitmentAt()`, `remainingCapacity()`, `tokensOwed()`, `endTime()` | views | All account for clearing caused by time passing |
 
 **Security controls**
+- Bid protection: a bidder can set the least GVRA a bid must buy. The final price can only be at or below
+  the price when the bid is mined, so the claim for that bid is at least the minimum. The check runs before
+  any state changes.
 - Checks-effects-interactions on every ETH transfer, plus OpenZeppelin `ReentrancyGuard` on every
   state-changing entry point.
 - Aggregate accounting, so no function loops over bidders.
@@ -66,9 +70,9 @@
 | `hooks/useTheme.ts` | Auto / Light / Dark choice, applied as `data-theme` on `<html>` and remembered in `localStorage`; an inline script in `index.html` applies it before the first paint |
 | `hooks/useAuction.ts` | Reads all auction state in one batch; refreshes on new blocks (15 s fallback); incremental bid history from `ContributionReceived` events, scanned in 10,000-block chunks because public RPCs cap the `eth_getLogs` range; serialises concurrent refreshes; flags an unreachable RPC (`offline`) |
 | `hooks/useNow.ts` | 1-second clock used to extrapolate chain time between blocks |
-| `lib/auctionMath.ts` | BigInt mirror of `priceAt`, `maxCommitmentAt`, time-based clearing and `status`, so the countdown, price and status update every second without extra RPC calls |
+| `lib/auctionMath.ts` | BigInt mirror of `priceAt`, `maxCommitmentAt`, time-based clearing and `status`, so the countdown, price and status update every second without extra RPC calls. `quoteBid` also sets the bid's on-chain minimum: what it buys at the current price, less 1% because the page's chain-time estimate can run a few seconds ahead of the block that includes the bid. A sell-out bid has no minimum, since it buys whatever is left |
 | `lib/contracts.ts` | ABIs and deployments: `deployments.json` (public, committed) merged with `deployments.local.json` (local, gitignored); the default chain and read-only RPC from `VITE_DEFAULT_CHAIN_ID` / `VITE_READ_RPC_URL` |
-| `lib/errors.ts` | Maps wallet errors and custom contract errors to readable messages; recognises connection failures (timeouts, refused or failed requests) |
+| `lib/errors.ts` | Maps wallet errors and custom contract errors to readable messages. ethers v6 decodes a custom error only for read calls, so for a failed transaction the raw revert data (possibly nested in the wallet's or node's error) is decoded against the auction ABI. Also recognises connection failures (timeouts, refused or failed requests) |
 | `components/` | Header (with the theme toggle), PriceChart, DemandMeter, BidPanel, PositionPanel (allocation, share of supply, add-to-wallet), SettlementPanel, BidHistory (Etherscan links on public networks), SaleInfo (contract addresses with copy and explorer links, sale window), HowItWorks, Faq, NotDeployed (empty state), DevTools (local chain only) |
 
 Before a wallet connects, the app reads through a read-only RPC (the local node by default, or
@@ -113,11 +117,29 @@ the updated `deployments.json` committed, the hosted site shows the `NotDeployed
 | --- | --- |
 | `test/DutchAuction.test.ts` | Configuration, price, bidding and crossing bids, both clearing modes, status machine, claims, dust, refunds, issuer access, conservation, edge cases |
 | `test/AuditRegressions.test.ts` | F1-F4, written to fail on the original AI code |
+| `test/BidProtection.test.ts` | `contributeWithMinimum`: the A1 scenario reverts instead of under-filling, full fills always meet an earlier quote, the minimum is inclusive, crossing bids still clear and refund |
 | `test/Reentrancy.test.ts` | Vulnerable vs. secure auction under the same attacker |
 | `test/GavoraToken.test.ts` | Token metadata, fixed supply, no mint/owner, burn rules |
-| `test/solidity/DutchAuctionFuzz.t.sol` | Fuzz: price bounds, uniform/fair/conserving settlement, exact time-clearing price |
-| `test/solidity/DutchAuctionInvariant.t.sol` | Invariants under random bid/warp/finalize/claim/withdraw sequences, plus forced ETH and holder burns |
-| `frontend/src/**/*.test.ts(x)` | Vitest + React Testing Library (jsdom): `useAuction` against an in-memory fake chain (stale reads after a network switch, refund events), `useWallet` (out-of-order answers), and the bid, history and position components (findings A1-A5, A7) |
+| `test/solidity/DutchAuctionFuzz.t.sol` | Fuzz: price bounds, uniform/fair/conserving settlement, exact time-clearing price, protected bids get their minimum or revert |
+| `test/solidity/DutchAuctionInvariant.t.sol` | Invariants under random bid/protected-bid/warp/finalize/claim/withdraw sequences, plus forced ETH and holder burns; allocations always cover every accepted minimum |
+| `frontend/src/**/*.test.ts(x)` | Vitest + React Testing Library (jsdom): `useAuction` against an in-memory fake chain (stale reads after a network switch, refund events), `useWallet` (out-of-order answers), the bid, history and position components (findings A1-A5, A7), and error decoding for failed transactions |
+
+## DutchPoint and production launch platforms
+
+Real token launches add machinery that a single-auction project does not need. This table records what
+DutchPoint adopted, what it leaves as the production path, and what it leaves out on purpose.
+
+| Element | Where it is used | DutchPoint | Reasoning |
+| --- | --- | --- | --- |
+| Minimum tokens per bid (slippage protection) | Uniswap swaps take an `amountOutMin`; Gnosis Auction bids carry a minimum buy amount | **Built**: `contributeWithMinimum(minTokens)`. The UI sends what the bid buys at today's price, less 1% | A bid can be mined after the auction has filled further. The bidder, not the timing, should decide whether a smaller fill is acceptable (independent-review finding A1) |
+| Multisig issuer | Admin keys are commonly held in a multisig wallet such as Safe | One issuer key (`Ownable`) | The issuer can only start the sale and withdraw proceeds after finalization. In production, `initialOwner` would be a Safe address; the contract needs no change |
+| Event indexer | Many dApps query an indexer such as The Graph | The browser reads `ContributionReceived` and `RefundCredited` logs itself, in 10,000-block chunks | No backend to run or trust. A long-lived platform would index events instead, as history grows |
+| One factory, many auctions | Sushi MISO (a factory), Gnosis Auction (one contract hosting many auctions) | One auction per deployment | The brief asks for one auction. A factory adds per-sale parameter checks and shared state for no gain here |
+| Emergency pause | Many token contracts (e.g. OpenZeppelin `Pausable`) | None | A pause would let the issuer freeze bidders' ETH. Without one, the rules cannot change after deployment, so the audit happens before deployment instead |
+| Claim deadline | Many airdrops and sales let the issuer reclaim unclaimed tokens after a deadline | None: claims stay open forever | A deadline would let the issuer take back tokens a bidder paid for. The cost is that rounding dust can only be burned once everyone has claimed |
+| Batch or sealed-bid settlement | Gnosis Auction, CoW Protocol | Bids settle in arrival order | Batching removes the race at sell-out, at the cost of a second phase and far more complexity. The remaining race is a [known limitation](assumptions.md#known-limitations); protected bids let a bidder bound its outcome |
+| Allowlists and KYC | CoinList-hosted sales such as Algorand's 2019 Dutch auction required verified participants | None | Out of scope for a public testnet demo. Per-wallet caps would be bypassed with extra addresses |
+| Verified source on a block explorer | Standard for public launches | The deploy script prints the `npm run verify:sepolia` commands | Needs an Etherscan API key in the Hardhat keystore |
 
 ## Tooling
 

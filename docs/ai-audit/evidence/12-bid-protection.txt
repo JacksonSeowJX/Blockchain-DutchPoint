@@ -1,0 +1,151 @@
+Evidence 12 - Bid protection: an on-chain minimum for bids (A1, structural fix), and contract errors decoded for transactions.
+Recorded 2026-10-26. Tests committed failing in cdadc79, contract and frontend in 5b7be42;
+error-decoding test committed failing in 689c41f, fixed in 2765efa.
+
+The first fix for independent-review finding A1 (fe44d91, evidence 11) made the quote honest: "If fully
+accepted, at least". This change makes it true. contributeWithMinimum(minTokens) reverts with
+MinimumTokensNotMet(minimum, actual) unless the accepted part of the bid buys at least minTokens at the price
+when it is mined. The final price can only be at or below that price, so the claim for the bid is at least
+minTokens. contribute() and plain ETH transfers keep their behaviour (no minimum), so the F1-F4 regression
+tests and the crowd-out proof of concept are untouched.
+
+== 1. Before: the tests run against the unchanged contract (6e33da2 + tests)
+Hardhat compiles the Solidity tests even for a Mocha run, so the Mocha run was made with the Solidity test
+changes set aside (git stash), then restored.
+$ npm run test:mocha -- test/BidProtection.test.ts test/Gas.test.ts
+  Bid protection (minimum tokens)
+    1) A1: the reported bid reverts instead of buying 69.77 GVRA against a quote of 88.89
+    ✔ A1: without a minimum the same bid is partly filled and buys 69.77 GVRA
+    2) a fully accepted bid always meets a minimum quoted at an earlier price
+    3) the minimum is inclusive: exactly what the bid buys passes, one unit more reverts
+    4) a crossing bid that meets its minimum clears the auction and refunds the surplus
+    5) a minimum of zero accepts the bid exactly like contribute()
+  Gas scaling
+    6) keeps the cost of bidding and settlement independent of the number of bidders
+  1 passing
+  6 failing
+  1) Bid protection (minimum tokens)
+     TypeError: f.auction.connect(...).contributeWithMinimum is not a function
+  (2-6: the same TypeError)
+The one passing test documents the behaviour A1 reported: without a minimum, the bid is partly filled.
+
+$ npm run test:solidity
+TypeError: Member "MinimumTokensNotMet" not found or not visible after argument-dependent lookup in type(contract DutchAuction).
+Error HHE910: Compilation failed
+
+$ npx vitest run --root frontend src/components/BidPanel.test.tsx
+     × A1: sends the quoted minimum with the bid, for the contract to enforce
+     × A1: sends a sell-out bid without a minimum, because it buys whatever is left
+     × A4: still accepts a normal positive amount          (onBid now also receives the minimum)
+      Tests  3 failed | 1 passed (4)
+
+== 2. After (5b7be42)
+$ npm test
+    ✔ testFuzz_ProtectedBidGetsItsMinimumOrReverts(uint256,uint256,uint256,uint256,uint256) (runs: 1000)
+    ✔ invariant_ProtectedBidsGetTheirMinimum() (runs: 256)
+  Bid protection (minimum tokens)
+    ✔ A1: the reported bid reverts instead of buying 69.77 GVRA against a quote of 88.89
+    ✔ A1: without a minimum the same bid is partly filled and buys 69.77 GVRA
+    ✔ a fully accepted bid always meets a minimum quoted at an earlier price
+    ✔ the minimum is inclusive: exactly what the bid buys passes, one unit more reverts
+    ✔ a crossing bid that meets its minimum clears the auction and refunds the surplus
+    ✔ a minimum of zero accepts the bid exactly like contribute()
+  52 passing
+61 passing (9 solidity, 52 mocha)
+$ npm run test:frontend
+ Test Files  6 passed (6)
+      Tests  15 passed (15)          (after 2765efa; 11 at 5b7be42)
+$ npm run coverage
+contracts/GavoraToken.sol   100.00 % lines, 100.00 % statements
+contracts/DutchAuction.sol  100.00 % lines, 100.00 % statements
+
+What the new Solidity tests check:
+- Fuzz: an earlier bid of random size, a quote at a random moment, the bid mined after a random delay, and
+  a random minimum of 0-120% of the quote. Either the bid reverts with exactly
+  MinimumTokensNotMet(minimum, tokens) and changes nothing, or it is accepted and the eventual claim is at
+  least the minimum. A fully accepted bid can only fall short of a minimum above its quote.
+- Invariant: protected bids join the random sequences (bids, time jumps, finalize, claims, withdrawals,
+  forced ETH, holder burns). Every actor's allocation (tokensOwed, at the current, clearing or final price)
+  always covers the summed minimums of their accepted protected bids. No protected bid may revert for any
+  other reason.
+
+== 3. The tests can fail: mutation M4 (minimum not enforced)
+In _requireMinimum, `revert MinimumTokensNotMet(...)` was replaced by `return;`. The tests were run, and
+the contract was restored with git checkout (git diff empty for the contract afterwards).
+$ npm test
+  1) DutchAuctionFuzzTest#testFuzz_ProtectedBidGetsItsMinimumOrReverts
+    Error: next call did not revert as expected
+  2) DutchAuctionInvariantTest#invariant_ProtectedBidsGetTheirMinimum()
+    Error: assertion failed: 162600 < 189412
+  1) A1: the reported bid reverts instead of buying 69.77 GVRA against a quote of 88.89
+     AssertionError: Expected transaction to be reverted with custom error 'MinimumTokensNotMet', but it didn't revert
+  2) the minimum is inclusive: exactly what the bid buys passes, one unit more reverts
+     AssertionError: (the same)
+57 passing (7 solidity, 50 mocha)
+4 failing (2 solidity, 2 mocha)
+
+== 4. Gas
+$ GAS_REPORT=1 npm run test:mocha -- test/Gas.test.ts
+      Operation                          1 prior    10 prior    50 prior   100 prior   spread
+      Bid (new bidder)                    74,092      74,092      74,092      74,092        0
+      Protected bid (new bidder)          74,673      74,673      74,673      74,673        0
+      Crossing bid + surplus refund      126,458     126,458     126,458     126,458        0
+      Finalize                            84,549      84,549      84,549      84,549        0
+      Claim tokens                       153,762     153,762     153,762     153,762        0
+      Withdraw proceeds                   59,506      59,506      59,506      59,506        0
+Compared with evidence 09: a plain bid costs 86 gas more (74,006 -> 74,092; one more function in the
+dispatcher and the zero-minimum branch), a crossing bid 86 more (126,372 -> 126,458). A protected bid costs
+581 gas more than a plain one. Finalize, claim and withdrawal are unchanged. Still identical at every crowd size.
+$ npm run gas    (per-function statistics, production contracts)
+| contribute            | min 51,893 | median 74,092 | max 127,542 |
+| contributeWithMinimum | min 74,673 | median 91,205 | max 128,135 |
+DutchAuction deployment 1,808,335 -> 1,844,641 gas; bytecode 7,868 -> 8,036 bytes (limit 24,576).
+
+== 5. Static analysis
+$ npm run slither
+INFO:Slither:contracts/DutchAuction.sol analyzed (13 contracts with 102 detectors), 15 result(s) found
+INFO:Slither:contracts/GavoraToken.sol analyzed (9 contracts with 102 detectors), 0 result(s) found
+No Medium or High results. Against evidence 08 (14 results), the one new result is Low `timestamp`:
+  DutchAuction._requireMinimum(uint256,uint256,uint256) uses timestamp for comparisons
+  	Dangerous comparisons:
+  	- tokens < minTokens
+The check compares tokens computed from the time-based price, which is the design (as for the other
+timestamp results). A first version with the check inline in _contribute also raised Informational
+`cyclomatic-complexity` (13); moving the check into _requireMinimum removed it.
+
+== 6. End to end on a local node (Hardhat node, npm run deploy:local, ethers v6 with the frontend's ABI)
+Room left: 0.5 ETH. Bob's 0.45 ETH bid quoted the way the page does (price now, less 1%):
+Bob quoted at 0.0199875 ETH/GVRA: minimum 22.288930581613508442 GVRA for 0.45 ETH
+after 20 s, room is 0.2375 ETH
+simulation path: CALL_EXCEPTION revert undefined undefined          <- the wallet's gas estimate fails; nothing sent
+mined path: UNKNOWN_ERROR | shortMessage: could not coalesce error  <- sent anyway: the node mines and rejects it
+Bob's commitment 0.0
+protected bid accepted: 0.1 ETH                                     <- a fresh quote, sent at once
+Bids read back from ContributionReceived:
+  0x709979 amount 19.5 accepted 19.5     (Alice leaves 0.5 ETH of room)
+  0x3C44Cd amount 0.1  accepted 0.1      (Bob, protected)
+  0x90F79b amount 1.0  accepted 0.1      (Carol, sell-out without a minimum: buys what is left; status Cleared)
+
+Finding (C1): `revert undefined` above. ethers v6 decodes a custom error into `error.revert` only for read
+calls. For a transaction, the raw revert data is in `error.data` (gas-estimate failure) or nested in
+`error.error.data` (node rejection), so describeError, which only read `revert.name`, never matched any entry
+in its table of contract errors. A bid cancelled by its minimum would have shown "Transaction failed.", and a
+bid after sell-out "could not coalesce error". This predates bid protection: it affected every transaction
+since the frontend was written (second pass).
+
+$ npx vitest run --root frontend src/lib/errors.test.ts     (689c41f, before the fix)
+     × names the contract error when the wallet's gas estimate fails
+       AssertionError: expected 'Transaction failed.' to match /would have bought less than its minimum/
+     × names the contract error when the node rejects a transaction it mined
+       Expected: "The auction has already sold out, so new bids are closed."  Received: "could not coalesce error"
+     × explains a transaction that reverted on-chain without revert data
+       AssertionError: expected 'transaction execution reverted' to match /reverted when it was mined/
+     ✓ falls back to the wallet's message for data that is not an auction error
+      Tests  3 failed | 1 passed (4)
+$ npm run test:frontend                                      (2765efa, after)
+      Tests  15 passed (15)
+
+== 7. The page (headless Chrome, local node, wallet not connected)
+The bid panel shows "PRICE NOW 0.019512 ETH / GVRA" and "THIS BID BUYS AT LEAST 50.73 GVRA" for 1 ETH
+(50.73 = 1 / 0.019512, less 1%), with the note "Guaranteed on-chain: if the auction fills up before your bid
+is mined and it would buy less, the bid is cancelled and your ETH stays with you."

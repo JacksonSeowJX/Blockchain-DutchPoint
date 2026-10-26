@@ -26,9 +26,9 @@ explanation at the bottom. Click the theme button (top right) once or twice to s
 1. Run `npm run seed:local`. Alice, Bob and Carol bid; the bid history and demand meter update.
    Run it just before this segment: seeding moves the clock to minute 7, and the 8 ETH of seeded bids
    sell the auction out by falling price alone at minute 16, about 9 real minutes later.
-2. Connect as Dave. Point at the quote: "If fully accepted, at least …". Accepted ETH can only buy more
-   GVRA as the price falls; a bid that arrives after the auction has filled is only partly accepted, and
-   the rest is refunded.
+2. Connect as Dave. Point at the quote: "This bid buys at least …". It is sent with the bid as an on-chain
+   minimum (today's price, less 1%): if the auction fills up before the bid is mined and it would buy less,
+   the contract cancels it. The final price can only be lower, so accepted ETH usually buys more.
 3. Click **Sell-out amount**, then add 1 ETH and bid. Point out the green callout: the extra ETH comes back in
    the same transaction. The status flips to *Sold out*, the chart marks the clearing point, and the
    history tags Dave's bid *Cleared*.

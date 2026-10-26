@@ -390,3 +390,35 @@ Notes: npm 10.9.2 crashed while resolving Vitest's optional peers (`edgesOut`), 
 installed with npm 11.21.0, the npm line that CI's Node 24 uses. A RejectingReceiver crossing bid in the
 browser check was credited 0.7625 ETH rather than the intended 0.75, because the price fell between
 reading the capacity and mining the bid: A1 reproduced live.
+
+## 2026-10-26 (continued) - On-chain bid minimum, finding C1, dependency re-check
+
+The team chose to build the one architecture element recommended for building (an on-chain minimum per
+bid, the structural fix for A1), to document the rest in
+[`architecture.md`](../design/architecture.md#dutchpoint-and-production-launch-platforms), and to re-check
+installation and advisories.
+
+| Commit | Change |
+| --- | --- |
+| `cdadc79` | Tests for `contributeWithMinimum`: 6 Mocha tests (incl. Sanjeev's A1 scenario), a fuzz property, an invariant, a gas measurement and frontend tests. They fail: the function does not exist |
+| `5b7be42` | `contributeWithMinimum(minTokens)` and `MinimumTokensNotMet`; the frontend sends each bid except a sell-out with today's quote less 1%; FAQ reworded |
+| `689c41f` | C1, found during the end-to-end check: tests showing that contract errors from failed transactions are never decoded (3 fail) |
+| `2765efa` | C1 fix: `describeError` decodes raw revert data against the auction ABI |
+
+Decisions and observations:
+- **A new function, not a new parameter.** Changing `contribute()` would have meant editing the F1-F4
+  regression tests and the proof of concept that caught the original defects. `contribute()` and plain
+  transfers keep working, without a minimum.
+- **1% tolerance.** The page's chain time is the latest block's timestamp plus elapsed seconds. On Sepolia
+  a block's timestamp can trail real time by a few seconds, so a minimum at exactly the displayed price
+  could cancel a bid that was fully accepted.
+- **No minimum on sell-out bids.** The room left shrinks every second, so a sell-out bid is almost always
+  partly filled, and buying whatever is left is its purpose.
+- **Slither** flagged `_contribute`'s cyclomatic complexity (13, Informational) once the check was added
+  inline. Moving it into `_requireMinimum` removed that result; one Low `timestamp` result remains, as the
+  check compares a time-based price.
+- **Mutation M4** (the check disabled) fails 4 tests: the fuzz property, the invariant and 2 Mocha tests.
+- **npm 10:** a fresh copy of the submission zip installs with npm 10.9.2 (`npm ci`) and passes
+  `npm run check`. **Advisories:** three new ones in Hardhat and Mocha tooling, none reachable from the
+  contracts or the site; the undici fix becomes eligible under the two-week rule on 29 Oct (evidence 10).
+- The Sepolia auction deployed on 23 Oct predates this change, so the team run needs a redeployment.

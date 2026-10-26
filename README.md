@@ -96,12 +96,14 @@ dashboard has history. It also moves the chain clock forward 7 minutes.
 
 1. The dashboard shows the live auction even before you connect: the falling price, the 20-minute
    countdown, the price chart and the demand meter.
-2. As a bidder, enter an ETH amount (or click a quick amount) and click *Bid … ETH*. The quote shows the
-   least GVRA you get *if the whole bid is accepted*: the final price can only be at or below the current
-   price. If the auction fills up before the bid is mined, only part of it is accepted and the rest is
-   refunded in the same transaction.
+2. As a bidder, enter an ETH amount (or click a quick amount) and click *Bid … ETH*. *This bid buys at
+   least* shows the minimum the bid is sent with: what it buys at today's price, less 1%. The contract
+   enforces it: if the auction fills up before the bid is mined and it would buy less, the bid is cancelled
+   and no ETH is committed. The final price can only be at or below today's, so you usually get more.
 3. To sell out the auction, click *Sell-out amount* (it fills in the ETH that buys everything left) and
-   add a little more. The callout shows how much comes straight back in the same transaction. Once the bid is mined, the status changes to *Sold out*.
+   add a little more. The callout shows how much comes straight back in the same transaction. A sell-out
+   bid is sent without a minimum: it buys whatever is left when it is mined. Once the bid is mined, the
+   status changes to *Sold out*.
 4. In the *Local demo tools* card, click **+20 min**. The status becomes *Ready to finalize*.
 5. Click *Finalize auction*, then *Claim …* under *Your position*. The GVRA arrives in your wallet;
    *Add GVRA to your wallet* lists the token in MetaMask without typing its address.
@@ -144,9 +146,9 @@ It needs no node, wallet or browser. The narrated video plan is in
 
 | Command | What it runs |
 | --- | --- |
-| `npm test` | All 53 tests: 46 Mocha tests, plus 3 Solidity fuzz tests (1,000 runs each) and 4 invariants (256 runs, depth 50) |
+| `npm test` | All 61 tests: 52 Mocha tests, plus 4 Solidity fuzz tests (1,000 runs each) and 5 invariants (256 runs, depth 50) |
 | `npm run test:mocha` / `npm run test:solidity` | Only the Mocha tests, or only the Solidity fuzz and invariant tests |
-| `npm run test:frontend` | 10 frontend unit tests (Vitest, React Testing Library): hooks against an in-memory fake chain, and components |
+| `npm run test:frontend` | 15 frontend unit tests (Vitest, React Testing Library): hooks against an in-memory fake chain, components, and error messages |
 | `npm run gas` | Gas-scaling table (each call costs the same with 1 or 100 earlier bidders) and per-function gas statistics |
 | `npm run coverage` | All tests, with coverage - `DutchAuction.sol` and `GavoraToken.sol` are at 100% lines and statements |
 | `npm run slither` | Slither static analysis; fails on any Medium or High finding (needs `slither-analyzer` and `solc` 0.8.28) |
@@ -236,10 +238,10 @@ Every script in `package.json`, run from the repository root.
 | `npm run export:frontend` | Compile and copy the ABIs into `frontend/src/generated/` without deploying |
 | `npm run check` | `compile`, `test`, `test:frontend`, `typecheck` and `build` in sequence |
 | **Tests and analysis** | |
-| `npm test` | All 53 tests (Mocha, fuzz and invariants) |
-| `npm run test:mocha` | The 46 Mocha tests |
-| `npm run test:solidity` | The 3 fuzz tests and 4 invariants |
-| `npm run test:frontend` | The 10 frontend unit tests (Vitest) |
+| `npm test` | All 61 tests (Mocha, fuzz and invariants) |
+| `npm run test:mocha` | The 52 Mocha tests |
+| `npm run test:solidity` | The 4 fuzz tests and 5 invariants |
+| `npm run test:frontend` | The 15 frontend unit tests (Vitest) |
 | `npm run coverage` | All tests with a coverage report (`coverage/`) |
 | `npm run gas` | Mocha tests with the gas-scaling table and per-function gas statistics |
 | `npm run slither` | Slither on both contracts |
@@ -262,6 +264,7 @@ contracts/                   On-chain code
 test/
   DutchAuction.test.ts       Scenario and unit tests
   AuditRegressions.test.ts   Regression tests for audit findings F1-F4
+  BidProtection.test.ts      Bids with an on-chain minimum (contributeWithMinimum)
   Reentrancy.test.ts         Vulnerable vs. secure reentrancy demonstration
   GavoraToken.test.ts        Token tests
   Gas.test.ts                Gas-scaling test (cost independent of the number of bidders)
@@ -291,7 +294,8 @@ Generated and gitignored: `artifacts/`, `cache/`, `coverage/`, `frontend/dist/`,
   auction. There is no mint function and no owner, so the supply can only go down (by burning).
 - **`DutchAuction`**:
   - `start()` (issuer only) opens the 20-minute window.
-  - `contribute()` / plain ETH transfers place bids.
+  - `contribute()` / plain ETH transfers place bids. `contributeWithMinimum(minTokens)` places a bid that
+    reverts unless it buys at least `minTokens` GVRA; the dApp uses it for every bid except a sell-out.
   - `finalize()` (anyone, after the window) fixes the price and burns unsold GVRA.
   - `claimTokens()` pays each bidder `commitment / finalPrice` GVRA.
   - `withdrawRefundTo()` is a fallback for refunds a bidder contract rejected.
@@ -306,7 +310,7 @@ Generated and gitignored: `artifacts/`, `cache/`, `coverage/`, `frontend/dist/`,
 | Document | Contents |
 | --- | --- |
 | [`docs/ai-audit/report.md`](docs/ai-audit/report.md) | **AI Audit Report** (8 sections, findings F1-F6 with evidence, and an appendix linking the design to the lectures) |
-| [`docs/ai-audit/evidence/`](docs/ai-audit/evidence/) | Evidence 01-11: before/after regression runs, crowd-out PoC, reentrancy demo, mutation check, test suite and coverage, Slither, gas scaling, dependency audit, independent-review fixes |
+| [`docs/ai-audit/evidence/`](docs/ai-audit/evidence/) | Evidence 01-12: before/after regression runs, crowd-out PoC, reentrancy demo, mutation check, test suite and coverage, Slither, gas scaling, dependency audit, independent-review fixes, bid protection |
 | [`docs/ai-audit/independent-review/`](docs/ai-audit/independent-review/README.md) | A team member's independent Codex audit and MetaMask test, and what happened to each finding |
 | [`docs/ai-audit/prompts/`](docs/ai-audit/prompts/README.md) | Prompt logs for ChatGPT, Codex and Claude Code |
 | [`docs/ai-audit/development-log.md`](docs/ai-audit/development-log.md) | Chronological AI development log |
