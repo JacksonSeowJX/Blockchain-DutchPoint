@@ -132,10 +132,9 @@ export function BidPanel({
         </p>
       ) : (
         <p className="hint">
-          The contract guarantees this minimum. If the auction fills up before your bid is mined and it would
-          buy less, the bid is cancelled and none of your ETH is committed. The minimum is 1% below today's
-          price, to allow for the time your bid takes to be mined. Everyone pays the final clearing price,
-          which can only be lower, so you usually get more.
+          Guaranteed on-chain: if the auction fills up before your bid is mined and it would buy less, the bid
+          is cancelled and your ETH stays with you. This is today's price less 1% for mining time; the final
+          price can only be lower, so you usually get more.
         </p>
       )}
 
