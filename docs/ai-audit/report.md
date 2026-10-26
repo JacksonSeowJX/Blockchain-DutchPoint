@@ -1,7 +1,8 @@
 # DutchPoint - AI Audit Report
 
 **DutchPoint: A Decentralized Dutch Auction Platform** - SC4053 Blockchain Technology, AY2026-27 Semester 1, Option 2 (Dutch Auction).
-Token: Gavora (GVRA). Every evidence commit cited below is in the history of the `main` branch.
+Token: Gavora (GVRA). Group DutchPoint: Seow Jia Xian, Alfred Fong Wei Hao and Kalaiselvan Sanjeev.
+Every evidence commit cited below is in the history of the `main` branch.
 
 > Items marked **TODO (team)** need facts only the team has (roles, original prompts). They are left
 > blank on purpose rather than guessed.
@@ -131,8 +132,8 @@ Each step is a separate commit, so the history is itself part of the evidence.
 
 ### Division of labour
 
-**TODO (team):** who owned which part (contracts, frontend, testing, report), and how AI output was
-reviewed between members before merging.
+All three members contributed equally. **TODO (team):** each member's role (contracts, frontend,
+testing, report), and how AI output was reviewed between members before merging.
 
 ## 3. Specification Engineering & Prompt Logs
 
