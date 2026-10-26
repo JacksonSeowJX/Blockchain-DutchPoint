@@ -9,6 +9,7 @@
     "test": "mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home hardhat test",
     "test:mocha": "mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home hardhat test mocha",
     "test:solidity": "mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home hardhat test solidity",
+    "test:frontend": "vitest run --root frontend",
     "coverage": "mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home hardhat test --coverage",
     "gas": "mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home GAS_REPORT=1 hardhat test mocha --gas-stats",
     "slither": "slither contracts/DutchAuction.sol --config-file slither.config.json --fail-medium && slither contracts/GavoraToken.sol --config-file slither.config.json --fail-medium",
@@ -24,7 +25,7 @@
     "dev": "vite frontend --host 127.0.0.1",
     "typecheck": "tsc --noEmit -p frontend && tsc --noEmit -p tsconfig.hardhat.json",
     "build": "tsc -b frontend && vite build frontend",
-    "check": "npm run compile && npm run test && npm run typecheck && npm run build",
+    "check": "npm run compile && npm run test && npm run test:frontend && npm run typecheck && npm run build",
     "package": "sh scripts/package.sh"
   },
   "dependencies": {
@@ -35,6 +36,8 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-mocha-ethers": "4.0.0",
     "@openzeppelin/contracts": "5.6.1",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
     "@types/mocha": "10.0.10",
     "@types/node": "26.6.2",
     "@types/react": "19.3.0",
@@ -42,7 +45,9 @@
     "@vitejs/plugin-react": "6.1.1",
     "forge-std": "github:foundry-rs/forge-std#v1.9.7",
     "hardhat": "3.18.0",
+    "jsdom": "30.1.2",
     "typescript": "7.0.2",
-    "vite": "8.3.5"
+    "vite": "8.3.5",
+    "vitest": "5.0.3"
   }
 }
