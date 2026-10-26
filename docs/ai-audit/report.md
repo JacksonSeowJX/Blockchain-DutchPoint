@@ -4,7 +4,7 @@
 Token: Gavora (GVRA). Group DutchPoint: Seow Jia Xian, Alfred Fong Wei Hao and Kalaiselvan Sanjeev.
 Every evidence commit cited below is in the history of the `main` branch.
 
-> Items marked **TODO (team)** need facts only the team has (roles, original prompts). They are left
+> Items marked **TODO (team)** need facts only the team has (the original prompts). They are left
 > blank on purpose rather than guessed.
 
 ## Summary
@@ -130,10 +130,9 @@ The working rule was **"the AI proposes, tests decide"**:
 
 Each step is a separate commit, so the history is itself part of the evidence.
 
-### Division of labour
+### Team
 
-All three members contributed equally. **TODO (team):** each member's role (contracts, frontend,
-testing, report), and how AI output was reviewed between members before merging.
+All three members contributed equally.
 
 ## 3. Specification Engineering & Prompt Logs
 

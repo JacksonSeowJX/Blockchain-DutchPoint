@@ -322,10 +322,5 @@ Generated and gitignored: `artifacts/`, `cache/`, `coverage/`, `frontend/dist/`,
 
 ## Team
 
-Group **DutchPoint**. All three members contributed equally.
-
-| Member | Role |
-| --- | --- |
-| Seow Jia Xian | **TODO (team)** |
-| Alfred Fong Wei Hao | **TODO (team)** |
-| Kalaiselvan Sanjeev | **TODO (team)** |
+Group **DutchPoint**: Seow Jia Xian, Alfred Fong Wei Hao and Kalaiselvan Sanjeev. All three members
+contributed equally.
