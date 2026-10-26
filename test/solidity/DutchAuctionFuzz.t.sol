@@ -105,6 +105,58 @@ contract DutchAuctionFuzzTest is Test {
         assertEq(address(auction).balance, auction.refundLiability());
     }
 
+    /// A protected bid quoted at one moment and mined later, after someone else's bid, either buys at
+    /// least its minimum or reverts leaving nothing changed. A fully accepted bid always meets a minimum
+    /// at or below its quote, and whatever is accepted, the eventual claim covers the minimum.
+    function testFuzz_ProtectedBidGetsItsMinimumOrReverts(
+        uint256 earlier,
+        uint256 quotedAt,
+        uint256 delay,
+        uint256 amount,
+        uint256 minimumBps
+    ) public {
+        earlier = bound(earlier, 0, auction.maxCommitmentAt(START_PRICE) - 1);
+        if (earlier != 0) {
+            auction.contribute{value: earlier}();
+        }
+
+        quotedAt = bound(quotedAt, 0, DURATION - 1);
+        vm.warp(start + quotedAt + bound(delay, 0, DURATION - 1 - quotedAt));
+        if (auction.status() != DutchAuction.Status.Active) {
+            return;
+        }
+
+        amount = bound(amount, 1, 8 ether);
+        uint256 quote = (amount * 1e18) / auction.priceAt(start + quotedAt);
+        uint256 minimum = (quote * bound(minimumBps, 0, 12_000)) / 10_000;
+
+        uint256 room = auction.remainingCapacity();
+        uint256 accepted = amount < room ? amount : room;
+        uint256 tokens = (accepted * 1e18) / auction.priceAt(block.timestamp);
+
+        address bidder = address(0xB1D0FF);
+        vm.deal(bidder, amount);
+        if (tokens < minimum) {
+            assertTrue(accepted < amount || minimum > quote, "a full fill missed its quote");
+            vm.prank(bidder);
+            vm.expectRevert(abi.encodeWithSelector(DutchAuction.MinimumTokensNotMet.selector, minimum, tokens));
+            auction.contributeWithMinimum{value: amount}(minimum);
+            assertEq(bidder.balance, amount);
+            assertEq(auction.commitments(bidder), 0);
+            return;
+        }
+
+        vm.prank(bidder);
+        auction.contributeWithMinimum{value: amount}(minimum);
+        assertEq(auction.commitments(bidder), accepted);
+
+        vm.warp(start + DURATION);
+        auction.finalize();
+        vm.prank(bidder);
+        auction.claimTokens();
+        assertGe(token.balanceOf(bidder), minimum, "claim below the minimum");
+    }
+
     /// A single early bid that is too small to clear immediately clears later purely through
     /// falling prices, at the exact price where it buys the whole supply.
     function testFuzz_TimeClearingPriceIsExact(uint256 amount) public {

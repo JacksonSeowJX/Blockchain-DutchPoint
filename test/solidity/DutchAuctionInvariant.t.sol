@@ -15,10 +15,14 @@ contract AuctionHandler is Test {
     GavoraToken public token;
     DutchAuction public auction;
     RejectingReceiver public rejecter;
-    address[] internal actors;
+    address[] public actors;
 
     /// Ghost counter: claims that did not match commitment / finalPrice.
     uint256 public nonUniformClaims;
+    /// Ghost: the minimums of each actor's accepted protected bids, summed.
+    mapping(address account => uint256 tokens) public promisedTokens;
+    /// Ghost counter: protected bids that reverted for any reason other than an unmet minimum.
+    uint256 public unexpectedReverts;
     /// Ghost: ETH forced into the auction without calling it (a selfdestruct payout, a block reward).
     uint256 public forcedEth;
     /// Ghost: GVRA that holders burned themselves after claiming (ERC20Burnable lets anyone burn their own).
@@ -46,6 +50,30 @@ contract AuctionHandler is Test {
         vm.deal(actor, actor.balance + amount);
         vm.prank(actor);
         auction.contribute{value: amount}();
+    }
+
+    /// A protected bid with a minimum of up to 120% of its quote at the current price, so some must revert.
+    function contributeWithMinimum(uint256 actorSeed, uint256 amount, uint256 minimumBps) external {
+        if (auction.status() != DutchAuction.Status.Active) {
+            return;
+        }
+        address actor = actors[actorSeed % actors.length];
+        amount = bound(amount, 1, 6 ether);
+        uint256 quote = (amount * 1e18) / auction.priceAt(block.timestamp);
+        uint256 minimum = (quote * bound(minimumBps, 0, 12_000)) / 10_000;
+        vm.deal(actor, actor.balance + amount);
+        vm.prank(actor);
+        try auction.contributeWithMinimum{value: amount}(minimum) {
+            promisedTokens[actor] += minimum;
+        } catch (bytes memory reason) {
+            if (bytes4(reason) != DutchAuction.MinimumTokensNotMet.selector) {
+                unexpectedReverts += 1;
+            }
+        }
+    }
+
+    function actorCount() external view returns (uint256) {
+        return actors.length;
     }
 
     /// A contract bidder that rejects ETH, so crossing surpluses become refund credits.
@@ -158,5 +186,16 @@ contract DutchAuctionInvariantTest is Test {
 
     function invariant_ClaimsUseOneUniformPrice() public view {
         assertEq(handler.nonUniformClaims(), 0);
+    }
+
+    /// A protected bid's minimum is a promise: each actor's allocation (at the current, clearing or final
+    /// price) always covers the minimums of all their accepted protected bids.
+    function invariant_ProtectedBidsGetTheirMinimum() public view {
+        assertEq(handler.unexpectedReverts(), 0);
+        for (uint256 i; i < handler.actorCount(); i++) {
+            address actor = handler.actors(i);
+            (uint256 owed, ) = auction.tokensOwed(actor);
+            assertGe(owed, handler.promisedTokens(actor));
+        }
     }
 }

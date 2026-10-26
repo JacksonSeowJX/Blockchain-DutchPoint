@@ -4,7 +4,7 @@ import { network } from "hardhat";
 // Gas scaling: no auction call may cost more as the number of bidders grows (no loops over
 // bidders, so nobody can make bidding or settlement too expensive for others).
 //
-// For each crowd size the same five calls are measured at the same point in the auction's
+// For each crowd size the same six calls are measured at the same point in the auction's
 // life, so their storage writes match (e.g. the measured claim is always the first claim).
 // A loop touching each bidder would cost at least 2,100 gas (a cold storage read) per extra
 // bidder, i.e. more than 200,000 gas between 1 and 100 bidders, so a 1% tolerance cannot hide one.
@@ -14,11 +14,17 @@ const DURATION = 1200n;
 const CROWD_SIZES = [1, 10, 50, 100];
 const TOLERANCE_BPS = 100n; // 1%
 
-type Operation = "Bid (new bidder)" | "Crossing bid + surplus refund" | "Finalize" | "Claim tokens" | "Withdraw proceeds";
+type Operation =
+  | "Bid (new bidder)"
+  | "Protected bid (new bidder)"
+  | "Crossing bid + surplus refund"
+  | "Finalize"
+  | "Claim tokens"
+  | "Withdraw proceeds";
 
 async function measure(priorBidders: number): Promise<Record<Operation, bigint>> {
   const { ethers, networkHelpers } = await network.create();
-  const [issuer, newcomer, crosser] = await ethers.getSigners();
+  const [issuer, newcomer, protector, crosser] = await ethers.getSigners();
 
   const saleSupply = ethers.parseUnits("1000", 18);
   const token = (await (await ethers.getContractFactory("GavoraToken")).deploy(saleSupply, issuer.address)) as any;
@@ -47,6 +53,11 @@ async function measure(priorBidders: number): Promise<Record<Operation, bigint>>
   const gasOf = async (txPromise: Promise<any>) => BigInt((await (await txPromise).wait()).gasUsed);
 
   const bid = await gasOf(auction.connect(newcomer).contribute({ value: ethers.parseEther("0.01") }));
+  // The same bid with a minimum: what 0.01 ETH buys at the current price.
+  const minimum = (ethers.parseEther("0.01") * 10n ** 18n) / BigInt(await auction.currentPrice());
+  const protectedBid = await gasOf(
+    auction.connect(protector).contributeWithMinimum(minimum, { value: ethers.parseEther("0.01") })
+  );
 
   // Overshoot the remaining capacity by 1 ETH: the bid clears the auction and is refunded the excess.
   const capacity = BigInt(await auction.remainingCapacity());
@@ -60,6 +71,7 @@ async function measure(priorBidders: number): Promise<Record<Operation, bigint>>
 
   return {
     "Bid (new bidder)": bid,
+    "Protected bid (new bidder)": protectedBid,
     "Crossing bid + surplus refund": crossing,
     "Finalize": finalize,
     "Claim tokens": claim,
