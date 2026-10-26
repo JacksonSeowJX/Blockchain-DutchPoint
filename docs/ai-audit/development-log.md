@@ -422,3 +422,6 @@ Decisions and observations:
   `npm run check`. **Advisories:** three new ones in Hardhat and Mocha tooling, none reachable from the
   contracts or the site; the undici fix becomes eligible under the two-week rule on 29 Oct (evidence 10).
 - The Sepolia auction deployed on 23 Oct predates this change, so the team run needs a redeployment.
+- Sanjeev's evidence (reproduction scripts and outputs, Slither runs, screenshots, on-chain checks, and a
+  third report verifying the 23 Oct changes) was added unchanged in his original folder layout (`deb54db`),
+  after checking it for keys and personal data. All links in his reports now resolve.

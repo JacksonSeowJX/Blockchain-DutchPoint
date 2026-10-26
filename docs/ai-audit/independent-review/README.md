@@ -2,17 +2,19 @@
 
 On 23 October 2026 a team member (Sanjeev) independently reviewed `main` at commit `2e2c2a5` with OpenAI
 Codex. This was the third AI pass over the code, after Codex (first build) and Claude Code (review and
-remediation); ChatGPT had written the plan before any code. Both reports are committed **unchanged**, as received:
+remediation); ChatGPT had written the plan before any code. Everything he produced is committed
+**unchanged**, in the folder layout of his own copy of the repository, so every link in his reports works:
 
 | Report | What it covers |
 | --- | --- |
-| [`codex-audit-report.md`](codex-audit-report.md) | A defect audit: six confirmed findings (A1-A5, A7), all in the frontend; contract probes across 36 deterministic scenarios; a fresh Slither run including suppressed findings; and a note on the invariant tests' domain |
-| [`metamask-test-report.md`](metamask-test-report.md) | A wallet integration test with the real MetaMask extension: rejected connection and bid, network switching, repeat bids, a sell-out with surplus refund, and an undersubscribed sale with burn and late claim. All scenarios behaved as expected |
+| [`audit/2026-10-23/report.md`](audit/2026-10-23/report.md) | A defect audit: six confirmed findings (A1-A5, A7), all in the frontend; contract probes across 36 deterministic scenarios; a fresh Slither run including suppressed findings; and a note on the invariant tests' domain. Beside it are the frontend reproduction script, the contract probes and the Slither output |
+| [`testing/2026-10-23/results.md`](testing/2026-10-23/results.md) | A check of the 23 October changes, following the friends' testing guide: a fresh run of the full test suite, gas test and demo; a read-only check of the finished Sepolia auction against the chain; and screenshots of the live and local site. Its one finding is A1 |
+| [`testing/metamask/2026-10-23/report.md`](testing/metamask/2026-10-23/report.md) | A wallet integration test with the real MetaMask extension: rejected connection and bid, network switching, repeat bids, a sell-out with surplus refund, and an undersubscribed sale with burn and late claim. All scenarios behaved as expected. Five screenshots and two scripts that check each wallet transaction against the chain |
 
-**Linked files.** Both reports link to reproduction scripts, logs, screenshots and on-chain evidence
-(`frontend-reproductions.*`, `contract-probes.*`, `slither-*.txt`, `evidence/*`). Sanjeev keeps these in his
-own copy of the repository; they will be added here when he pushes them. Until then those links do not
-resolve.
+**About the scripts.** They were run against `2e2c2a5` from his original location (`docs/audit/...` and
+`docs/testing/...`), and their relative paths assume it. They record what he ran. The frontend and quote
+reproductions target code that has since been fixed, so re-running them now would show the fixes rather than
+the defects, and the verification scripts read the chain state of his own sessions.
 
 ## What happened to each finding
 
