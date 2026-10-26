@@ -19,6 +19,10 @@ contract AuctionHandler is Test {
 
     /// Ghost counter: claims that did not match commitment / finalPrice.
     uint256 public nonUniformClaims;
+    /// Ghost: ETH forced into the auction without calling it (a selfdestruct payout, a block reward).
+    uint256 public forcedEth;
+    /// Ghost: GVRA that holders burned themselves after claiming (ERC20Burnable lets anyone burn their own).
+    uint256 public holderBurned;
 
     constructor() {
         token = new GavoraToken(SUPPLY, address(this));
@@ -84,6 +88,26 @@ contract AuctionHandler is Test {
         }
     }
 
+    /// Unsolicited ETH can reach any address without running its code. No function may pay it out.
+    function forceEth(uint256 amount) external {
+        amount = bound(amount, 1, 2 ether);
+        vm.deal(address(auction), address(auction).balance + amount);
+        forcedEth += amount;
+    }
+
+    /// A holder burns some of their own claimed GVRA, which lowers totalSupply outside the auction.
+    function burnOwnTokens(uint256 actorSeed, uint256 amount) external {
+        address actor = actors[actorSeed % actors.length];
+        uint256 balance = token.balanceOf(actor);
+        if (balance == 0) {
+            return;
+        }
+        amount = bound(amount, 1, balance);
+        vm.prank(actor);
+        token.burn(amount);
+        holderBurned += amount;
+    }
+
     function withdrawProceeds() external {
         if (auction.finalized() && auction.totalCommitted() > auction.issuerProceedsWithdrawn()) {
             auction.withdrawIssuerProceeds(payable(address(this)));
@@ -103,19 +127,21 @@ contract DutchAuctionInvariantTest is Test {
         targetContract(address(handler));
     }
 
-    /// The auction always holds exactly the unwithdrawn proceeds plus outstanding refund credits.
+    /// The auction always holds at least what it owes: the unwithdrawn proceeds plus outstanding refund
+    /// credits. Anything above that can only be ETH forced in from outside, which nothing pays out, so
+    /// the balance is exactly what is owed plus that forced ETH.
     function invariant_EthIsFullyBacked() public view {
-        assertEq(
-            address(auction).balance,
-            auction.totalCommitted() - auction.issuerProceedsWithdrawn() + auction.refundLiability()
-        );
+        uint256 owed = auction.totalCommitted() - auction.issuerProceedsWithdrawn() + auction.refundLiability();
+        assertGe(address(auction).balance, owed);
+        assertEq(address(auction).balance, owed + handler.forcedEth());
     }
 
     /// Every GVRA unit of the sale is held by the auction, claimed, or burned - nothing else.
     function invariant_TokensAreConserved() public view {
         uint256 supply = handler.SUPPLY();
         assertEq(token.balanceOf(address(auction)) + auction.totalTokensClaimed() + auction.burnedUnsold(), supply);
-        assertEq(token.totalSupply(), supply - auction.burnedUnsold());
+        // Holders may also burn their own claimed GVRA; the auction's accounting is unaffected by that.
+        assertEq(token.totalSupply(), supply - auction.burnedUnsold() - handler.holderBurned());
     }
 
     /// Committed ETH can never buy more than the sale supply at the price that applies to it.
