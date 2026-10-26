@@ -31,6 +31,24 @@ if remote="$(git remote get-url origin 2>/dev/null)"; then
   git -C "$work/$name" remote set-url origin "$remote"
 fi
 
+# Matriculation numbers are personal data, so they are never committed: the repository is public. The
+# submitted copy of the AI Audit Report gets them from a private file kept outside the repository
+# (default ../DutchPoint-team-details.md, or TEAM_DETAILS=path), which replaces the report's
+# <!-- team-details --> line.
+details="${TEAM_DETAILS:-$root/../DutchPoint-team-details.md}"
+report="$work/$name/docs/ai-audit/report.md"
+if [ -f "$details" ]; then
+  if ! grep -qx '<!-- team-details -->' "$report"; then
+    echo "The report has no <!-- team-details --> line to replace." >&2
+    exit 1
+  fi
+  awk -v f="$details" '$0 == "<!-- team-details -->" { while ((getline line < f) > 0) print line; next } { print }' \
+    "$report" > "$report.tmp" && mv "$report.tmp" "$report"
+  echo "Added the team details from $details to the report in the zip (not committed)."
+else
+  echo "Note: $details not found, so the report in the zip has no matriculation numbers." >&2
+fi
+
 rm -f "$root/$name.zip"
 (cd "$work" && zip -qr "$root/$name.zip" "$name")
 

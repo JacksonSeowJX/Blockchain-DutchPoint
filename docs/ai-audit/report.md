@@ -4,6 +4,8 @@
 Token: Gavora (GVRA). Group DutchPoint: Seow Jia Xian, Alfred Fong Wei Hao and Kalaiselvan Sanjeev.
 Every evidence commit cited below is in the history of the `main` branch.
 
+<!-- team-details -->
+
 > Items marked **TODO (team)** need facts only the team has (the original prompts). They are left
 > blank on purpose rather than guessed.
 
