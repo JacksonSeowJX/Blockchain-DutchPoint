@@ -1,0 +1,11 @@
+Downloading solc 0.8.28
+Downloading solc 0.8.28 (WASM build)
+
+REPRODUCED: the pre-submission quote is not a guaranteed minimum.
+At t=700s: a 1 ETH bid is quoted at 88.888888888888888888 GVRA.
+At t=740s: its transaction lands; only 0.75 ETH fits, and 0.25 ETH is refunded.
+At t=1200s: actual claim is 69.767441860465116279 GVRA.
+Cause: remaining ETH capacity falls while the wallet approval/transaction is pending.
+Contract accounting remains correct. BidPanel/FAQ/guide should describe this as an estimate,
+or qualify the minimum as applying only to ETH already accepted by the contract.
+This test observes the issue without changing auction or frontend source code.

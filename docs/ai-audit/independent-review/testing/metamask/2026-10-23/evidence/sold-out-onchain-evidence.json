@@ -1,0 +1,139 @@
+{
+  "result": "PASS",
+  "chainId": "31337",
+  "address": "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+  "gasCostWei": "634316004440212",
+  "transactions": [
+    {
+      "hash": "0xbb4fc356c13b3d7dc5850f78fad37d71a782db86c4c2529027dc83c1c622790b",
+      "valueWei": "0",
+      "block": 2211,
+      "events": [
+        {
+          "name": "AuctionStarted",
+          "args": [
+            "1792759637",
+            "1792760837"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0xdbe0f5ffe063697e2a487ba5856679e6ae6817c045b0ef58e2720d7e9a624f90",
+      "valueWei": "1000000000000000000",
+      "block": 2223,
+      "events": [
+        {
+          "name": "ContributionReceived",
+          "args": [
+            "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+            "1000000000000000000",
+            "1000000000000000000",
+            "19712500000000000",
+            "1000000000000000000"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0xf04a0cf240417e12b546e567eeb7e042c63598af407adc52901924bfa28bf099",
+      "valueWei": "500000000000000000",
+      "block": 2235,
+      "events": [
+        {
+          "name": "ContributionReceived",
+          "args": [
+            "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+            "500000000000000000",
+            "500000000000000000",
+            "19437500000000000",
+            "1500000000000000000"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0x5540bc70f22d98f96dbd97eae703fcf1d74f502d63962fe5c7a2f0c29cf0244e",
+      "valueWei": "20000000000000000000",
+      "block": 2250,
+      "events": [
+        {
+          "name": "ContributionReceived",
+          "args": [
+            "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+            "20000000000000000000",
+            "17575000000000000000",
+            "19075000000000000",
+            "19075000000000000000"
+          ]
+        },
+        {
+          "name": "AuctionCleared",
+          "args": [
+            "1792759711",
+            "19075000000000000",
+            "19075000000000000000"
+          ]
+        },
+        {
+          "name": "SurplusRefunded",
+          "args": [
+            "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+            "2425000000000000000"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0x69dfdcdecee054e1cee4f9acd5eea0e542fa139a7b2ea62b7c25a03126c643f1",
+      "valueWei": "0",
+      "block": 2270,
+      "events": [
+        {
+          "name": "AuctionFinalized",
+          "args": [
+            "true",
+            "19075000000000000",
+            "1000000000000000000000"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0xbe8e49a6443438e5aa55176ca97f412105bc889f3a1b2c64e6578d374f9b9e3a",
+      "valueWei": "0",
+      "block": 2275,
+      "events": [
+        {
+          "name": "TokensClaimed",
+          "args": [
+            "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+            "1000000000000000000000"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0xcbe529a53a68242d005cf0fe0a39d2128255beaf8c72aafb640bd6f664f6a34c",
+      "valueWei": "0",
+      "block": 2294,
+      "events": [
+        {
+          "name": "IssuerProceedsWithdrawn",
+          "args": [
+            "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+            "19075000000000000000"
+          ]
+        }
+      ]
+    }
+  ],
+  "assertions": [
+    "All seven MetaMask transactions mined successfully from the selected wallet",
+    "Crossing surplus of 2.425 ETH returned",
+    "Exactly 1200-second configuration unchanged",
+    "1000 GVRA claimed; one participant despite repeated bids",
+    "19.075 ETH issuer proceeds withdrawn; no refund liabilities; auction ETH zero",
+    "Wallet final ETH equals initial 200 ETH minus transaction gas"
+  ]
+}

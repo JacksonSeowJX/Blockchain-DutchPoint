@@ -1,0 +1,4 @@
+Multiple frameworks detected: solc, Solc-json. Using solc (highest priority). Use --compile-force-framework to override.
+'.hardhat-home/Library/Caches/hardhat-nodejs/compilers-v3/macosx-amd64/solc-macosx-amd64-v0.8.28+commit.7893614a --version' running
+'.hardhat-home/Library/Caches/hardhat-nodejs/compilers-v3/macosx-amd64/solc-macosx-amd64-v0.8.28+commit.7893614a @openzeppelin/=node_modules/@openzeppelin/ contracts/GavoraToken.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/Users/sanjeevkalaiselvan/Documents/ChatGPT/blockchain project/contracts' running
+INFO:Slither:contracts/GavoraToken.sol analyzed (9 contracts with 102 detectors), 0 result(s) found

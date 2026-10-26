@@ -1,0 +1,5 @@
+
+> dutchpoint@0.1.0 slither
+> slither contracts/DutchAuction.sol --config-file slither.config.json --fail-medium && slither contracts/GavoraToken.sol --config-file slither.config.json --fail-medium
+
+sh: slither: command not found

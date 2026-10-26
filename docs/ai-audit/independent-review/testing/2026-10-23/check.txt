@@ -1,0 +1,127 @@
+
+> dutchpoint@0.1.0 check
+> npm run compile && npm run test && npm run typecheck && npm run build
+
+
+> dutchpoint@0.1.0 compile
+> mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home hardhat compile
+
+
+Compiled 7 Solidity files with solc 0.8.28 (evm target: cancun)
+
+> dutchpoint@0.1.0 test
+> mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home hardhat test
+
+No contracts to compile
+
+Running Solidity tests
+
+  test/solidity/DutchAuctionFuzz.t.sol:DutchAuctionFuzzTest
+    ✔ testFuzz_TimeClearingPriceIsExact(uint256) (runs: 1000)
+    ✔ testFuzz_SettlementIsUniformFairAndConserving(uint256[6],uint256[6]) (runs: 1000)
+    ✔ testFuzz_PriceIsMonotonicAndBounded(uint256,uint256) (runs: 1000)
+
+  test/solidity/DutchAuctionInvariant.t.sol:DutchAuctionInvariantTest
+    ✔ invariant_TokensAreConserved() (runs: 256)
+    ✔ invariant_EthIsFullyBacked() (runs: 256)
+    ✔ invariant_DemandNeverExceedsSupply() (runs: 256)
+    ✔ invariant_ClaimsUseOneUniformPrice() (runs: 256)
+
+Running Mocha tests
+
+
+  Audit regressions
+    ✔ F1: a late oversized bid cannot crowd out earlier bidders (3110ms)
+    ✔ F2: status and price reflect clearing caused by time passing (159ms)
+    ✔ F3: a cleared auction reports AwaitingFinalization once the window ends (46ms)
+    ✔ F4: issuer proceeds are withdrawable at finalization without waiting for bidders (88ms)
+
+  DutchPoint DutchAuction
+    configuration
+      ✔ rejects invalid constructor parameters (112ms)
+      ✔ only starts once, only by the owner, and only when funded (44ms)
+    price
+      ✔ decays linearly over exactly 1,200 seconds (100ms)
+      ✔ is monotonic and never falls below reserve (103ms)
+    bidding
+      ✔ rejects contributions before opening, of zero value, and after closing (68ms)
+      ✔ accepts plain ETH transfers as contributions (53ms)
+      ✔ aggregates multiple contributions by one wallet (48ms)
+      ✔ accepts a crossing bid only up to capacity and refunds the surplus in the same transaction (84ms)
+      ✔ rejects bids once the auction has cleared by a crossing bid (156ms)
+      ✔ rejects bids once falling prices alone have cleared the auction (48ms)
+      ✔ reports remaining capacity while active and zero once cleared (71ms)
+    status and views
+      ✔ moves through Pending, Active, Cleared, AwaitingFinalization and Finalized (88ms)
+      ✔ quotes a lower-bound allocation before finalization and the exact one after (62ms)
+    edge cases
+      ✔ returns neutral values from every view before the auction starts (44ms)
+      ✔ quotes the live price while active and the final price after finalization (41ms)
+      ✔ rejects the zero address as a refund or proceeds recipient (38ms)
+      ✔ keeps proceeds available when the issuer's recipient rejects ETH (70ms)
+      ✔ refuses to burn remaining tokens before finalization (91ms)
+      ✔ never dates a time-based clearing before the commitment that funded it (69ms)
+    finalization
+      ✔ rejects early and repeated finalization (66ms)
+      ✔ burns the full inventory when nobody bids (44ms)
+      ✔ settles an undersubscribed sale at reserve and burns unsold tokens (78ms)
+      ✔ locks a crossing-bid clearing before the deadline but settles only after 1,200 seconds (103ms)
+      ✔ finds the exact clearing point when falling prices alone clear the auction (133ms)
+      ✔ rounds a time-based clearing price up so claims never exceed supply (145ms)
+    claims
+      ✔ fills earlier bidders in full and charges everyone the same final price (160ms)
+      ✔ keeps claims independent of claim order (94ms)
+      ✔ rejects claims before finalization, without a commitment, and twice (56ms)
+      ✔ burns rounding dust only after every participant has claimed (142ms)
+    refunds
+      ✔ credits the surplus when a bidder rejects ETH, and allows withdrawal to another address once (108ms)
+      ✔ blocks an attacker that re-enters refund withdrawal (103ms)
+    issuer proceeds
+      ✔ lets only the owner withdraw, only after finalization, and only once (84ms)
+      ✔ keeps credited refunds solvent after the issuer withdraws (78ms)
+    conservation
+      ✔ accounts for every token and every wei across a full lifecycle (89ms)
+
+  Gas scaling
+    ✔ keeps the cost of bidding and settlement independent of the number of bidders (8167ms)
+
+  GavoraToken
+    ✔ is the Gavora (GVRA) ERC20 with 18 decimals and a fixed supply
+    ✔ exposes no mint function and no owner
+    ✔ rejects a zero initial supply (1163ms)
+    ✔ lets holders burn their own tokens, reducing total supply (326ms)
+    ✔ does not let anyone burn another holder's tokens without an allowance (52ms)
+
+  Reentrancy demonstration
+    ✔ drains a naive auction whose refund sends ETH before clearing the credit (120ms)
+    ✔ pays the same attacker only its own refund from DutchAuction (93ms)
+
+
+  46 passing (16s)
+
+
+53 passing (7 solidity, 46 mocha)
+
+
+> dutchpoint@0.1.0 typecheck
+> tsc --noEmit -p frontend && tsc --noEmit -p tsconfig.hardhat.json
+
+
+> dutchpoint@0.1.0 build
+> tsc -b frontend && vite build frontend
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 186 modules transformed.
+rendering chunks...
+computing gzip size...
+frontend/dist/index.html                   1.20 kB │ gzip:   0.67 kB
+frontend/dist/assets/index-GGkRh6lF.css   12.05 kB │ gzip:   3.15 kB
+frontend/dist/assets/index-BUA4aNwM.js   529.82 kB │ gzip: 176.29 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.30s

@@ -1,0 +1,197 @@
+
+> dutchpoint@0.1.0 gas
+> mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home GAS_REPORT=1 hardhat test mocha --gas-stats
+
+No contracts to compile
+
+Running Mocha tests
+
+
+  Audit regressions
+    ✔ F1: a late oversized bid cannot crowd out earlier bidders (2471ms)
+    ✔ F2: status and price reflect clearing caused by time passing (80ms)
+    ✔ F3: a cleared auction reports AwaitingFinalization once the window ends (129ms)
+    ✔ F4: issuer proceeds are withdrawable at finalization without waiting for bidders (181ms)
+
+  DutchPoint DutchAuction
+    configuration
+      ✔ rejects invalid constructor parameters (88ms)
+      ✔ only starts once, only by the owner, and only when funded (54ms)
+    price
+      ✔ decays linearly over exactly 1,200 seconds (53ms)
+      ✔ is monotonic and never falls below reserve (60ms)
+    bidding
+      ✔ rejects contributions before opening, of zero value, and after closing (91ms)
+      ✔ accepts plain ETH transfers as contributions (106ms)
+      ✔ aggregates multiple contributions by one wallet (112ms)
+      ✔ accepts a crossing bid only up to capacity and refunds the surplus in the same transaction (124ms)
+      ✔ rejects bids once the auction has cleared by a crossing bid (59ms)
+      ✔ rejects bids once falling prices alone have cleared the auction (130ms)
+      ✔ reports remaining capacity while active and zero once cleared (179ms)
+    status and views
+      ✔ moves through Pending, Active, Cleared, AwaitingFinalization and Finalized (155ms)
+      ✔ quotes a lower-bound allocation before finalization and the exact one after (58ms)
+    edge cases
+      ✔ returns neutral values from every view before the auction starts (42ms)
+      ✔ quotes the live price while active and the final price after finalization (83ms)
+      ✔ rejects the zero address as a refund or proceeds recipient (87ms)
+      ✔ keeps proceeds available when the issuer's recipient rejects ETH (127ms)
+      ✔ refuses to burn remaining tokens before finalization (49ms)
+      ✔ never dates a time-based clearing before the commitment that funded it (63ms)
+    finalization
+      ✔ rejects early and repeated finalization (47ms)
+      ✔ burns the full inventory when nobody bids (45ms)
+      ✔ settles an undersubscribed sale at reserve and burns unsold tokens (48ms)
+      ✔ locks a crossing-bid clearing before the deadline but settles only after 1,200 seconds (91ms)
+      ✔ finds the exact clearing point when falling prices alone clear the auction (112ms)
+      ✔ rounds a time-based clearing price up so claims never exceed supply (84ms)
+    claims
+      ✔ fills earlier bidders in full and charges everyone the same final price (902ms)
+      ✔ keeps claims independent of claim order (345ms)
+      ✔ rejects claims before finalization, without a commitment, and twice (106ms)
+      ✔ burns rounding dust only after every participant has claimed (102ms)
+    refunds
+      ✔ credits the surplus when a bidder rejects ETH, and allows withdrawal to another address once (61ms)
+      ✔ blocks an attacker that re-enters refund withdrawal (129ms)
+    issuer proceeds
+      ✔ lets only the owner withdraw, only after finalization, and only once (260ms)
+      ✔ keeps credited refunds solvent after the issuer withdraws (396ms)
+    conservation
+      ✔ accounts for every token and every wei across a full lifecycle (157ms)
+
+  Gas scaling
+
+      Gas used per call, by number of earlier bidders
+      Operation                          1 prior    10 prior    50 prior   100 prior   spread
+      Bid (new bidder)                    74,006      74,006      74,006      74,006        0
+      Crossing bid + surplus refund      126,372     126,372     126,372     126,372        0
+      Finalize                            84,549      84,549      84,549      84,549        0
+      Claim tokens                       153,762     153,762     153,762     153,762        0
+      Withdraw proceeds                   59,506      59,506      59,506      59,506        0
+    ✔ keeps the cost of bidding and settlement independent of the number of bidders (1400ms)
+
+  GavoraToken
+    ✔ is the Gavora (GVRA) ERC20 with 18 decimals and a fixed supply (149ms)
+    ✔ exposes no mint function and no owner
+    ✔ rejects a zero initial supply
+    ✔ lets holders burn their own tokens, reducing total supply (106ms)
+    ✔ does not let anyone burn another holder's tokens without an allowance
+
+  Reentrancy demonstration
+    ✔ drains a naive auction whose refund sends ETH before clearing the credit (59ms)
+    ✔ pays the same attacker only its own refund from DutchAuction (63ms)
+
+
+  46 passing (9s)
+
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║                                Gas Usage Statistics                                 ║
+╚═════════════════════════════════════════════════════════════════════════════════════╝
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║ contracts/DutchAuction.sol:DutchAuction                                             ║
+╟──────────────────────────────┬─────────┬─────────┬─────────┬─────────┬──────────────╢
+║ Function name                │ Min     │ Average │ Median  │ Max     │ #calls       ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ AUCTION_DURATION             │ 21381   │ 21381   │ 21381   │ 21381   │ 1            ║
+║ burnedUnsold                 │ 23393   │ 23393   │ 23393   │ 23393   │ 6            ║
+║ burnRemainderAfterAllClaimed │ 47874   │ 56424   │ 56424   │ 64974   │ 2            ║
+║ claimTokens                  │ 114762  │ 137652  │ 148962  │ 153762  │ 20           ║
+║ cleared                      │ 23433   │ 23433   │ 23433   │ 23433   │ 4            ║
+║ clearingPrice                │ 23437   │ 23437   │ 23437   │ 23437   │ 1            ║
+║ clearingState                │ 25755   │ 29709   │ 29709   │ 33662   │ 2            ║
+║ clearingTime                 │ 23392   │ 23392   │ 23392   │ 23392   │ 6            ║
+║ commitments                  │ 23985   │ 23995   │ 23997   │ 23997   │ 6            ║
+║ contribute                   │ 51807   │ 81820   │ 74006   │ 127456  │ 218          ║
+║ currentPrice                 │ 25595   │ 29116   │ 27911   │ 34514   │ 5            ║
+║ endTime                      │ 23469   │ 24561   │ 24561   │ 25652   │ 2            ║
+║ finalize                     │ 84549   │ 105811  │ 92006   │ 169459  │ 24           ║
+║ finalPrice                   │ 23414   │ 23414   │ 23414   │ 23414   │ 5            ║
+║ issuerProceedsWithdrawn      │ 23502   │ 23502   │ 23502   │ 23502   │ 4            ║
+║ maxCommitmentAt              │ 21829   │ 21829   │ 21829   │ 21829   │ 1            ║
+║ participantCount             │ 23459   │ 23459   │ 23459   │ 23459   │ 2            ║
+║ priceAt                      │ 25908   │ 26312   │ 26508   │ 26508   │ 14           ║
+║ refundCredits                │ 23964   │ 23967   │ 23964   │ 23976   │ 4            ║
+║ refundLiability              │ 23482   │ 23482   │ 23482   │ 23482   │ 4            ║
+║ remainingCapacity            │ 23710   │ 32096   │ 33456   │ 36640   │ 7            ║
+║ start                        │ 77875   │ 77875   │ 77875   │ 77875   │ 41           ║
+║ startTime                    │ 23502   │ 23502   │ 23502   │ 23502   │ 41           ║
+║ status                       │ 23576   │ 28038   │ 26089   │ 35105   │ 7            ║
+║ tokensClaimed                │ 23986   │ 23992   │ 23992   │ 23998   │ 2            ║
+║ tokensOwed                   │ 26365   │ 29570   │ 28665   │ 35504   │ 5            ║
+║ totalCommitted               │ 23416   │ 23416   │ 23416   │ 23416   │ 5            ║
+║ totalTokensClaimed           │ 23481   │ 23481   │ 23481   │ 23481   │ 2            ║
+║ totalTokensSold              │ 23436   │ 23436   │ 23436   │ 23436   │ 5            ║
+║ withdrawIssuerProceeds       │ 59506   │ 59819   │ 59506   │ 62006   │ 8            ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ Deployment                   │ Min     │ Average │ Median  │ Max     │ #deployments ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║                              │ 1808215 │ 1808329 │ 1808335 │ 1808335 │ 43           ║
+╟──────────────────────────────┼─────────┼─────────┴─────────┴─────────┴──────────────╢
+║ Bytecode size                │ 7868    │                                            ║
+╚══════════════════════════════╧═════════╧════════════════════════════════════════════╝
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║ contracts/GavoraToken.sol:GavoraToken                                               ║
+╟──────────────────────────────┬─────────┬─────────┬─────────┬─────────┬──────────────╢
+║ Function name                │ Min     │ Average │ Median  │ Max     │ #calls       ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ balanceOf                    │ 23979   │ 23989   │ 23991   │ 23991   │ 13           ║
+║ burn                         │ 33792   │ 33792   │ 33792   │ 33792   │ 1            ║
+║ decimals                     │ 21329   │ 21329   │ 21329   │ 21329   │ 1            ║
+║ name                         │ 24150   │ 24150   │ 24150   │ 24150   │ 1            ║
+║ symbol                       │ 24215   │ 24215   │ 24215   │ 24215   │ 1            ║
+║ totalSupply                  │ 23389   │ 23389   │ 23389   │ 23389   │ 5            ║
+║ transfer                     │ 46835   │ 46846   │ 46847   │ 46847   │ 43           ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ Deployment                   │ Min     │ Average │ Median  │ Max     │ #deployments ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║                              │ 580197  │ 580209  │ 580209  │ 580209  │ 48           ║
+╟──────────────────────────────┼─────────┼─────────┴─────────┴─────────┴──────────────╢
+║ Bytecode size                │ 1939    │                                            ║
+╚══════════════════════════════╧═════════╧════════════════════════════════════════════╝
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║ contracts/mocks/ReentrancyAttacker.sol:ReentrancyAttacker                           ║
+╟──────────────────────────────┬─────────┬─────────┬─────────┬─────────┬──────────────╢
+║ Function name                │ Min     │ Average │ Median  │ Max     │ #calls       ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ attack                       │ 81694   │ 111295  │ 81694   │ 170497  │ 3            ║
+║ contribute                   │ 58329   │ 142202  │ 184139  │ 184139  │ 3            ║
+║ reentryAttempts              │ 23380   │ 23380   │ 23380   │ 23380   │ 2            ║
+║ reentrySuccesses             │ 23403   │ 23403   │ 23403   │ 23403   │ 3            ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ Deployment                   │ Min     │ Average │ Median  │ Max     │ #deployments ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║                              │ 437951  │ 467575  │ 482387  │ 482387  │ 3            ║
+╟──────────────────────────────┼─────────┼─────────┴─────────┴─────────┴──────────────╢
+║ Bytecode size                │ 1629    │                                            ║
+╚══════════════════════════════╧═════════╧════════════════════════════════════════════╝
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║ contracts/mocks/RejectingReceiver.sol:RejectingReceiver                             ║
+╟──────────────────────────────┬─────────┬─────────┬─────────┬─────────┬──────────────╢
+║ Function name                │ Min     │ Average │ Median  │ Max     │ #calls       ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ contribute                   │ 214287  │ 214287  │ 214287  │ 214287  │ 2            ║
+║ withdrawTo                   │ 41492   │ 41492   │ 41492   │ 41492   │ 2            ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ Deployment                   │ Min     │ Average │ Median  │ Max     │ #deployments ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║                              │ 234802  │ 234802  │ 234802  │ 234802  │ 3            ║
+╟──────────────────────────────┼─────────┼─────────┴─────────┴─────────┴──────────────╢
+║ Bytecode size                │ 836     │                                            ║
+╚══════════════════════════════╧═════════╧════════════════════════════════════════════╝
+╔═════════════════════════════════════════════════════════════════════════════════════╗
+║ contracts/mocks/VulnerableAuction.sol:VulnerableAuction                             ║
+╟──────────────────────────────┬─────────┬─────────┬─────────┬─────────┬──────────────╢
+║ Function name                │ Min     │ Average │ Median  │ Max     │ #calls       ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ contribute                   │ 51310   │ 59855   │ 59855   │ 68399   │ 2            ║
+║ refundCredits                │ 23945   │ 23945   │ 23945   │ 23945   │ 1            ║
+║ totalCommitted               │ 23345   │ 23345   │ 23345   │ 23345   │ 1            ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║ Deployment                   │ Min     │ Average │ Median  │ Max     │ #deployments ║
+╟──────────────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────────╢
+║                              │ 240655  │ 240655  │ 240655  │ 240655  │ 1            ║
+╟──────────────────────────────┼─────────┼─────────┴─────────┴─────────┴──────────────╢
+║ Bytecode size                │ 863     │                                            ║
+╚══════════════════════════════╧═════════╧════════════════════════════════════════════╝
+
+

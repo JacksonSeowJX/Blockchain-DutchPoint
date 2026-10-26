@@ -1,0 +1,16 @@
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+CONFIRMED A2: switching chains during a read leaves old-chain bid history.
+  Current snapshot block: 100; history: old-chain; new-chain log requests: 0.
+  The old cursor is 12,000,000; refreshing the new chain at block 100 never queries its bids.
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+CONFIRMED A3: a stale eth_accounts response overwrites the newer wallet account.
+  Wallet changed to 0x2222222222222222222222222222222222222222; hook reverted to 0x1111111111111111111111111111111111111111 after the old response completed.
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+CONFIRMED A4: entering -1 enables Bid -1 ETH and passes a negative transaction value to ethers.
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+DISCARDED CANDIDATE: isolated PositionPanel retains its add-token flag after a prop update.
+  This is not a confirmed app defect: App clears the snapshot and unmounts the panel on a provider/deployment change.
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+CONFIRMED A5: bid history labels a 0.75 ETH surplus as Refunded even if the refund was credited, not paid.
+  BidHistory has only ContributionReceived fields, so it cannot distinguish SurplusRefunded from RefundCredited.
+All reproduction assertions passed against the unmodified production source.

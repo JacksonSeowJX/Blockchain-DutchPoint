@@ -1,0 +1,9 @@
+
+PASS: 36 seeded scenarios with fractional supplies, wei-scale through 10 ETH/token prices.
+PASS: late finalization (7 days) preserves the deadline result in every scenario.
+PASS: reversed claims, supply conservation, immediate refunds and complete proceeds accounting.
+PASS: an unsolicited 1 ETH is excluded from proceeds; tracked claims still succeed.
+COVERAGE LIMIT: raw balance equality is not universal after forced ETH; token totalSupply also falls when a holder burns tokens.
+PASS: rejected automatic refund emits RefundCredited, not SurplusRefunded (0.75 ETH).
+PASS: same-address recovery reverts and preserves credit; alternate-address recovery succeeds after issuer withdrawal.
+CONFIRMED A7: the frontend hardcodes same-address recovery (App.tsx:262), which cannot recover this refund.

@@ -1,0 +1,41 @@
+
+> dutchpoint@0.1.0 demo
+> mkdir -p .hardhat-home && HOME=$PWD/.hardhat-home hardhat run scripts/demo.ts
+
+
+DutchPoint deterministic local demo
+Falling prices. One clearing price.
+-----------------------------------
+
+1. Sale clears early; the crossing bid's surplus is refunded automatically
+Carol sent 2 ETH; 0.75 ETH surplus returned in the same transaction
+Clearing price locked at t=700s: 0.01125 ETH/GVRA
+Alice: committed 6.0 ETH -> 533.333333333333333333 GVRA
+Bob: committed 4.0 ETH -> 355.555555555555555555 GVRA
+Carol: committed 1.25 ETH -> 111.111111111111111111 GVRA
+Issuer proceeds withdrawn: 11.25 ETH
+Rounding dust burned: 1 token units
+
+2. Undersubscribed sale settles at reserve and burns unsold GVRA
+Final reserve price: 0.005 ETH/GVRA
+Tokens claimed: 200.0 GVRA
+Tokens burned: 800.0 GVRA
+GVRA total supply now: 200.0
+
+3. Bidder contract that rejects ETH keeps its surplus as a withdrawable credit
+Credited instead of pushed: 0.75 ETH
+Withdrawal to the rejecting contract reverted; credit preserved
+Credit after withdrawing to another address: 0 wei
+
+4. Reentrancy attack drains a deliberately vulnerable auction
+Attacker's legitimate refund: 1.0 ETH
+Re-entry attempts: 10, successful: 10
+Attacker walked away with: 11.0 ETH
+Vulnerable auction balance: 0.0 ETH (Alice's and Bob's bids are gone)
+
+5. The same attack against DutchPoint's auction is blocked
+Re-entry attempts: 1, successful: 0
+Attacker received only its own refund: 0.75 ETH
+Auction still holds every bidder's ETH: 11.25 ETH
+
+Demo complete. All scenarios used local Hardhat accounts and test ETH.

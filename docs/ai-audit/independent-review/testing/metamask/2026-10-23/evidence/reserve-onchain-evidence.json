@@ -1,0 +1,83 @@
+{
+  "result": "PASS",
+  "chainId": "31337",
+  "deployment": {
+    "chainId": 31337,
+    "networkName": "localhost",
+    "token": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+    "auction": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+    "deployedAtBlock": 2342,
+    "explorer": null
+  },
+  "transactions": [
+    {
+      "hash": "0x29a207b33f3afbbc4c3fec45b5d3efed9c3b284ee7749788a1fcbc57c2e1a32d",
+      "block": 2361,
+      "events": [
+        {
+          "name": "AuctionStarted",
+          "args": [
+            "1792761122",
+            "1792762322"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0x84a7a5b217e6bca6bf25cd2563df811ab54b34b94f1aaa8c266758596234b031",
+      "block": 2368,
+      "events": [
+        {
+          "name": "ContributionReceived",
+          "args": [
+            "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+            "1000000000000000000",
+            "1000000000000000000",
+            "19837500000000000",
+            "1000000000000000000"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0xed1a5797c0dc3543b8e84efacb9ee85bd5115ce646cfafbcf44a6c50e7e23787",
+      "block": 2380,
+      "events": [
+        {
+          "name": "TokensBurned",
+          "args": [
+            "800000000000000000000"
+          ]
+        },
+        {
+          "name": "AuctionFinalized",
+          "args": [
+            "false",
+            "5000000000000000",
+            "200000000000000000000"
+          ]
+        }
+      ]
+    },
+    {
+      "hash": "0xc967c19024ca0edc149898c15bc178bef4838a998e7dbc5e25465bd3802f77a2",
+      "block": 2390,
+      "events": [
+        {
+          "name": "TokensClaimed",
+          "args": [
+            "0x87887B3bF82e8ac2a3551720a3775d4cD2843817",
+            "200000000000000000000"
+          ]
+        }
+      ]
+    }
+  ],
+  "assertions": [
+    "All four transactions mined successfully from MetaMask wallet",
+    "Duration remains 1200 seconds",
+    "1 ETH accepted at reserve price 0.005 ETH/token",
+    "800 GVRA burned and 200 GVRA subsequently claimed",
+    "Token supply conserved; auction inventory zero; 1 ETH issuer proceeds still held"
+  ]
+}

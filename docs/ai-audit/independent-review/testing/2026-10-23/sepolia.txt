@@ -1,0 +1,17 @@
+READ-ONLY SEPOLIA VERIFICATION: PASS
+Snapshot: block 11976354, 2026-10-23T11:25:24.000Z
+Auction: 0xe0f23743C959A9b9774114838A5fbD20d75C6FC0
+Status: Finalized; duration: 1200 seconds
+Window: 2026-10-23T09:13:48.000Z to 2026-10-23T09:33:48.000Z
+Final price: 0.00002 ETH/GVRA
+Committed: 0.015 ETH; bids: 2; participants: 1
+Sold: 750.0 GVRA; claimed: 750.0 GVRA
+Burned: 250.0 GVRA; inventory: 0.0 GVRA
+Proceeds withdrawn: 0.015 ETH
+Refund liabilities: 0.0 ETH; contract balance: 0.0 ETH
+Bid: sent 0.01 ETH, accepted 0.01 ETH, submission price 0.0000968 ETH/GVRA
+  https://sepolia.etherscan.io/tx/0x5be76690b28dd658e23b2522155e935f56d794c29e200ba1146f156d65e2c85a
+Bid: sent 0.005 ETH, accepted 0.005 ETH, submission price 0.0000584 ETH/GVRA
+  https://sepolia.etherscan.io/tx/0xc6bccbff49828febc70b37cf434ec1e38fdc6dbfb4f2c7c854c1a97b17e89131
+Claim: https://sepolia.etherscan.io/tx/0xf1d4c0b8c15f0b26923c40de0a6e8bedcfd28098b0000943a8078d35860f8b39
+Checks: exact duration, reserve settlement, bid/claim event totals, token conservation, ETH solvency.
