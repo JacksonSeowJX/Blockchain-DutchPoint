@@ -2,14 +2,15 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { parseEther } from "ethers";
 import { describe, expect, it, vi } from "vitest";
 
+import { View } from "../lib/auctionMath";
 import { position, viewAfter } from "../test/fixtures";
 import { BidPanel } from "./BidPanel";
 
-function renderPanel() {
+function renderPanel(view: View = viewAfter(700n, { totalCommitted: parseEther("10") })) {
   const onBid = vi.fn();
   render(
     <BidPanel
-      view={viewAfter(700n, { totalCommitted: parseEther("10") })}
+      view={view}
       position={position()}
       connected
       wrongNetwork={null}
@@ -46,6 +47,18 @@ describe("BidPanel", () => {
 
     fireEvent.click(bidButton());
     expect(onBid).toHaveBeenCalledWith(parseEther("5"), 0n);
+  });
+
+  // Independent review (Alfred) finding C02: the sell-out shortcut truncated the room left to 6 decimals, so the
+  // amount fell just short of selling out, and with bid protection it was also sent with a minimum.
+  it("B1: the sell-out shortcut rounds up, so the bid sells out and carries no minimum", () => {
+    // 1.126543211 ETH of room left at t = 700s.
+    const onBid = renderPanel(viewAfter(700n, { totalCommitted: parseEther("10.123456789") }));
+    fireEvent.click(screen.getByRole("button", { name: "Sell-out amount" }));
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("1.126544");
+
+    fireEvent.click(bidButton());
+    expect(onBid).toHaveBeenCalledWith(parseEther("1.126544"), 0n);
   });
 
   // Codex audit finding A4: a negative amount must be rejected, not offered as a bid.

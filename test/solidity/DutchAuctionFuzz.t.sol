@@ -157,6 +157,20 @@ contract DutchAuctionFuzzTest is Test {
         assertGe(token.balanceOf(bidder), minimum, "claim below the minimum");
     }
 
+    /// Every configuration the constructor accepts can value its whole supply at the start price, so no bid
+    /// can fail on arithmetic (independent review finding P04).
+    function testFuzz_AcceptedConfigurationsCanPriceTheirSupply(uint256 supply, uint256 high, uint256 low) public {
+        supply = bound(supply, 1, type(uint256).max);
+        high = bound(high, 2, type(uint256).max);
+        low = bound(low, 1, high - 1);
+
+        try new DutchAuction(token, supply, high, low, address(this)) returns (DutchAuction fresh) {
+            fresh.maxCommitmentAt(high);
+        } catch {
+            // Rejected configurations are fine; only accepted ones must work.
+        }
+    }
+
     /// A single early bid that is too small to clear immediately clears later purely through
     /// falling prices, at the exact price where it buys the whole supply.
     function testFuzz_TimeClearingPriceIsExact(uint256 amount) public {

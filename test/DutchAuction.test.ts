@@ -110,6 +110,18 @@ describe("DutchPoint DutchAuction", function () {
       ).to.be.revertedWithCustomError(f.auction, "InvalidSaleSupply");
     });
 
+    // Independent review (Alfred) finding P04: a supply and start price whose value does not fit in 256 bits
+    // were accepted, and every bid would then fail on arithmetic.
+    it("B2: rejects a supply and start price whose product does not fit in 256 bits", async function () {
+      const f = await deployAuction();
+      const tokenAddress = await f.token.getAddress();
+
+      // 2^250 units at 2^80 wei per token: the start-price value of the supply is about 2^270 wei.
+      await expect(
+        f.Auction.deploy(tokenAddress, 2n ** 250n, 2n ** 80n, f.ethers.parseEther("1"), f.issuer.address)
+      ).to.be.revertedWithCustomError(f.auction, "InvalidSaleSupply");
+    });
+
     it("only starts once, only by the owner, and only when funded", async function () {
       const f = await deployAuction({ fund: false });
 
