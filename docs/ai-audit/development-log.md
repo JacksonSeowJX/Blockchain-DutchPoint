@@ -372,3 +372,21 @@ Observations:
   directly. Every DutchPoint action worked in both modes. `onlyOwner` held because the delegated EOA,
   not the helper, was `msg.sender`. That makes this a real-world check that the contract and UI work
   with smart-account wallets.
+
+## 2026-10-26 - Independent Codex review (third pass) and fixes
+
+A team member (Sanjeev) audited `2e2c2a5` with Codex and also ran a MetaMask functional test. Both
+reports are in `docs/ai-audit/independent-review/`. All six findings were confirmed before anything
+changed: A1 and A4 by recomputing the report's numbers, the rest by reading the code.
+
+| Commit | Change |
+| --- | --- |
+| `fdf1368` | Both reports, committed unchanged |
+| `272727a` | Frontend test layer (Vitest 5.0.3, React Testing Library, jsdom) and 10 tests for A1-A5, A7. 9 fail on this commit; this was re-checked by stashing the fixes and running the committed state |
+| `08dd9a9` | Invariants: `balance >= owed` and exactly `owed + forced ETH`; the handler forces ETH in and lets holders burn their own GVRA |
+| `fe44d91` | The fixes for A1-A5 and A7, plus pre-send signer and network checks; wording in the FAQ, README and demo script; audit report §5 third-pass section; evidence 11 |
+
+Notes: npm 10.9.2 crashed while resolving Vitest's optional peers (`edgesOut`), so the packages were
+installed with npm 11.21.0, the npm line that CI's Node 24 uses. A RejectingReceiver crossing bid in the
+browser check was credited 0.7625 ETH rather than the intended 0.75, because the price fell between
+reading the capacity and mining the bid: A1 reproduced live.

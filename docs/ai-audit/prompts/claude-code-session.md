@@ -418,3 +418,22 @@ Prompts 41-52 guided the student through the deployment and the run, so they are
   The withdrawal itself landed a few blocks later.
 - Wrote a testing guide for friends, then recorded the full run with Etherscan links in report §6 and the
   development log.
+
+---
+
+## Day 5 - independent review by a teammate (26 October)
+
+53. "Once you're done, push to GitHub." The agent confirmed everything was already pushed, and asked
+    whether to add the two guides that are kept outside the repository.
+54. "My groupmate Sanjeev used Codex to analyse DutchPoint; his audit report is
+    `sanjeev_codex_audit_report`. Please check whether we need to make changes because of it."
+55. "Yes, go ahead with the fixes. His MetaMask report is in this folder now. Also, you mentioned adding
+    architecture elements from real Dutch auction and crypto projects; can you go over that first?"
+
+**Agent response:** checked every finding before agreeing with it, recomputing A1's numbers (88.89
+GVRA quoted against 69.77 claimed) and A4's parser behaviour. It proposed nine architecture elements,
+recommending one to build (an on-chain minimum-tokens guarantee) and the rest to document; this awaits the
+team's decision. It then wrote failing tests for each finding first, installed the test tools at
+versions at least two weeks old (working round an npm 10 resolver crash with npm 11), and fixed A1-A5
+and A7. It broadened the invariant tests, checked the result in a browser with a contract wallet that
+rejects ETH, and recorded the third pass in the audit report.
