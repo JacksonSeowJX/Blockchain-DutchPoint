@@ -2,7 +2,7 @@ const QUESTIONS = [
   {
     question: "Why can I end up with more GVRA than the quote showed?",
     answer:
-      "You commit ETH, not a number of tokens. Everyone pays the final clearing price, which can only be at or below the price when you bid, so your ETH buys at least the quoted amount and often more."
+      "You commit ETH, not a number of tokens. Everyone pays the final clearing price, which can only be at or below the price when you bid, so ETH that is accepted buys at least the quoted amount and often more. The one exception: if the auction fills up before your bid is mined, only part of it is accepted, the rest comes straight back, and you get fewer GVRA than quoted for the full amount."
   },
   {
     question: "What happens if the auction doesn't sell out?",

@@ -9,9 +9,10 @@ Token: Gavora (GVRA). Every evidence commit cited below is in the history of the
 ## Summary
 
 Three AI tools built and reviewed DutchPoint in sequence: **ChatGPT** wrote the plan, **Codex** wrote the
-first implementation, and **Claude Code** reviewed both, then fixed and extended them. Each defect
-below was reproduced with a test that fails on the AI's original code and passes after the fix. Both
-outputs are committed under [`evidence/`](evidence/).
+first implementation, and **Claude Code** reviewed both, then fixed and extended them. A team member then
+ran a third pass over the code, an independent review with **Codex**, which found six defects in the Claude Code frontend
+(A1-A5, A7). Each defect below was reproduced with a test that fails on the code that contained it and
+passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 
 | ID | Severity | Finding (in the Codex implementation unless noted) | Status |
 | --- | --- | --- | --- |
@@ -21,11 +22,18 @@ outputs are committed under [`evidence/`](evidence/).
 | F4 | Medium | Issuer proceeds stay locked until every bidder claims; one inactive bidder strands revenue | Fixed (`20e24b1`) |
 | F5 | Low | State written after external calls (dead "restore then revert" code) - flagged High by Slither | Fixed (`20e24b1`) |
 | F6 | Low | The reentrancy "demonstration" could not fail, so it proved nothing | Fixed (`031b753`) |
+| A1 | Medium | *(Claude Code frontend, independent Codex review)* The bid quote promised a minimum that a partly accepted bid does not get | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
+| A2 | Medium | *(same)* A read still in flight when the network changed leaked the old chain's history into the new one | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
+| A3 | Medium | *(same)* An out-of-order wallet response could show the previous account | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
+| A5 | Medium | *(same)* History said "Refunded" for a surplus that was only credited | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
+| A7 | Medium | *(same)* A refund the bidder's wallet rejected could only be retried to that same wallet | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
+| A4 | Low | *(same)* Negative amounts enabled a "Bid -1 ETH" button | Fixed ([`11`](evidence/11-independent-codex-review.txt)) |
 
 Validation: 53 tests (46 Mocha + 3 fuzz tests x 1,000 runs + 4 invariants x 256 runs), **100% line and
 statement coverage** of `DutchAuction.sol` and `GavoraToken.sol`, a mutation check, a gas-scaling test
-(1 to 100 bidders), Slither before and after, an end-to-end run of the real UI in headless Chrome, and a manual run with the real MetaMask
-extension.
+(1 to 100 bidders), 10 frontend unit tests (Vitest) for hooks and components, Slither before and after, an
+end-to-end run of the real UI in headless Chrome, manual runs with the real MetaMask extension by two team
+members, a public Sepolia run, and an independent audit by a team member using Codex.
 
 ---
 
@@ -91,6 +99,7 @@ trace back to them:
 | Codex desktop agent | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`); its log is [`development-log.md`](development-log.md) |
 | Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
+| Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5` and a functional test with the real MetaMask extension. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md)) |
 
 ### Toolchain
 
@@ -403,6 +412,29 @@ The reviewing AI also made mistakes. They were caught by the same process:
 | Bid history fetched every block in one `eth_getLogs` call. The public Sepolia RPC rejects ranges over 50,000 blocks (about a week), so hosted history would have broken a week after deployment | The subagent tested the public RPC directly; fixed in `388399e` with 10,000-block chunks |
 | The page made the browser request `/favicon.ico` from the domain root, the app's only root path, which fails under the Pages sub-path | Headless Chrome console check of the Pages build; fixed in `4d88495` with an inline icon |
 
+### Third pass: independent Codex review (A1-A7)
+
+A team member ran Codex as an independent auditor on `2e2c2a5`
+([report](independent-review/codex-audit-report.md)). Every finding was re-checked before any change. A1
+and A4 were checked by recomputing the report's numbers, the rest by reading the code. Each was then
+encoded as a frontend test that failed first ([`evidence/11`](evidence/11-independent-codex-review.txt)).
+All six were in code written by Claude Code in the second pass, and had passed its own tests, headless
+browser runs and two MetaMask sessions.
+
+| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| A1 | It applied a true rule ("accepted ETH can only buy more as the price falls") to a bid that was not yet mined. Time alone can shrink the remaining room before inclusion | A 1 ETH bid quoted at 88.89 GVRA can be only partly accepted and claim 69.77. The UI, FAQ, README and demo script all promised a minimum | The quote reads *If fully accepted, at least*, explains partial acceptance, and every document was reworded. A real guarantee would need an on-chain minimum-tokens check | `A1` test fails, then passes; the browser shows the new label |
+| A2 | Refresh serialisation was designed for overlapping block events on *one* provider; nothing invalidated work when the provider changed | After a network switch the page could show the old chain's bids and block, and stop fetching the new chain's history | Read contexts: outdated reads finish without writing state; per-context block-time cache; queued refreshes run the current context's read | `A2` test: snapshot block 12,000,000 before the fix, 100 after; new-chain logs queried |
+| A3 | It assumed wallet responses complete in the order they were requested | The header could show account A while the wallet signs as B | Numbered syncs, newest wins. Every transaction also checks the signer and network just before sending | `A3` test: the stale answer overwrote B before the fix, not after |
+| A4 | Validation checked `amount === 0n`; ethers parses "-1" into a negative bigint | The form offered "Bid -1 ETH" and passed a negative value onwards | Amounts must be above 0 and fit uint256, with a field message | `A4` tests: negative rejected; a normal positive bid still works |
+| A5 | History inferred "refunded" from `amount - accepted` and ignored the push-or-credit fallback the contract implements | It reported money as returned that was still held for withdrawal | The history reads `RefundCredited`; the *Surplus* column marks *returned* or *held* | `A5` hook and component tests; the browser shows "0.7625 ETH held" for a rejecting contract |
+| A7 | The UI implemented the common EOA path and hard-coded the connected account as the refund recipient | A wallet that rejects ETH could not recover its refund through the dApp, although the contract supports another recipient | *Send refund to* field, validated, defaulting to the connected account | `A7` tests: other address used, default used, invalid refused |
+
+The review's note on the invariant tests was also accepted. `invariant_EthIsFullyBacked` asserted an
+exact balance, which ETH forced in from outside (e.g. a `selfdestruct` payout) would break without any
+real fault. It now asserts `balance >= owed`, and exactly `owed + forced ETH`. The handler forces ETH in,
+and also lets holders burn their own GVRA, which changes `totalSupply` independently of the auction.
+
 ## 6. Validation Process & Testing Strategy
 
 | Layer | What | Result |
@@ -410,9 +442,11 @@ The reviewing AI also made mistakes. They were caught by the same process:
 | Regression tests | F1-F4 encoded as tests, run before and after the fix | 4 failing → 4 passing ([`01`](evidence/01-regressions-before-fix.txt), [`03`](evidence/03-regressions-after-fix.txt)) |
 | Unit and scenario tests (Mocha) | Configuration, price, bidding, crossing bid, both clearing modes, status machine, claims, dust burn, refunds (incl. ETH-rejecting bidder), issuer access control, conservation, token, gas scaling | 46 passing |
 | Fuzz tests (Solidity, forge-std) | Price monotonic and bounded; random bidders/amounts/times settle uniformly, fairly and conservatively; exact time-clearing price | 3 tests × 1,000 runs |
-| Invariant tests | Handler drives random bids, time jumps, finalization, claims and withdrawals (incl. a rejecting bidder). Invariants: ETH fully backed, tokens conserved, demand ≤ supply, one uniform price | 4 invariants × 256 runs × depth 50 |
+| Invariant tests | Handler drives random bids, time jumps, finalization, claims and withdrawals (incl. a rejecting bidder), forced ETH and holder burns. Invariants: ETH fully backed (at least what is owed, exactly owed + forced ETH), tokens conserved, demand ≤ supply, one uniform price | 4 invariants × 256 runs × depth 50 |
 | Mutation check | Plant M1 (round time-clearing price down) and M2 (issuer withdraws raw balance), confirm failures, restore | M1: 6/7 property tests fail; M2: 3/7 fail ([`06`](evidence/06-mutation-check.txt)) |
 | Gas scaling | The same five calls (new bid, crossing bid with refund, finalize, claim, issuer withdrawal) measured after 1, 10, 50 and 100 earlier bidders, with a 1% tolerance. Mutation M3 plants a loop over bidders in `claimTokens` | Identical gas at every crowd size (spread 0). Under M3 the claim grows from 163,417 to 410,719 gas and the test fails ([`09`](evidence/09-gas-scaling.txt)) |
+| Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers) and components (quote wording, amount validation, surplus states, refund recipient) | 10 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)) |
+| Independent review | A team member ran Codex as auditor, plus a MetaMask functional test ([`independent-review/`](independent-review/README.md)) | 6 findings, all confirmed and fixed; MetaMask scenarios all passed |
 | Coverage | `npm run coverage` | `DutchAuction.sol` and `GavoraToken.sol`: 100% lines and statements ([`07`](evidence/07-test-suite-and-coverage.txt)) |
 | Static analysis | Slither 0.11.6 on original and current code, token, and vulnerable demo | Original: 19 results incl. High `reentrancy-eth`. Current: 0 High; 4 Medium `incorrect-equality` false positives annotated inline; remaining Low/Info are by design ([`08`](evidence/08-slither.txt)) |
 | Dependency audit | `npm audit`, and `npm audit --omit=dev` for runtime-only packages; each advisory traced to the package that pulls it in and what it is used for | Before: 10 (2 high, 8 low), all in build or verification tooling, none in the contracts or the shipped site. After patch updates and the dependency split: 0 ([`10`](evidence/10-dependency-audit.txt)) |
@@ -500,6 +534,11 @@ The reviewing AI also made mistakes. They were caught by the same process:
 - **Visual and layout details.** Overflow and label placement were only caught by rendering the page.
 - **Citing sources.** Codex's log credits the lectures with topics they never cover. An AI's account of
   what it read is a claim to check, like any other.
+- **Timing and wallet edge cases.** The reviewing AI's own frontend passed its tests, headless runs and two
+  MetaMask sessions, yet an independent Codex review found six defects in it (A1-A5, A7). Most needed
+  unusual timing (a network switch mid-read, out-of-order wallet answers, a bid mined seconds after it
+  was quoted) or an unusual wallet (one that rejects ETH). Happy-path testing, even with a real wallet,
+  does not reach them.
 
 **Recommendations for AI-driven dApp development**
 1. Have a second, different model review the plan and the code, and treat disagreements between them as
@@ -510,6 +549,8 @@ The reviewing AI also made mistakes. They were caught by the same process:
 4. Run static analysis on the *original* AI output too: it shows what the tools can and cannot see.
 5. Exercise the real UI end to end. Many defects only exist between layers.
 6. Never accept an AI's claim of a fix, or of a finding, without reproducible evidence.
+7. Rotate the auditor: a different person running a different model found what the builder's model
+   missed in its own code. Re-check the auditor's findings too; here all six held up.
 
 ---
 

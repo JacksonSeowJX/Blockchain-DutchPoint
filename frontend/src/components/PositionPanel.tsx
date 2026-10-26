@@ -1,3 +1,4 @@
+import { getAddress, isAddress } from "ethers";
 import { useState } from "react";
 
 import { Position } from "../hooks/useAuction";
@@ -9,9 +10,12 @@ type Props = {
   position: Position;
   finalPrice: bigint;
   saleSupply: bigint;
+  /** The connected wallet: the default refund recipient. */
+  account: string;
   busy: boolean;
   onClaim: () => void;
-  onWithdrawRefund: () => void;
+  /** Withdraws the held refund to `recipient` (the contract's withdrawRefundTo). */
+  onWithdrawRefund: (recipient: string) => void;
   /** Lists GVRA in the connected wallet; resolves true if the user accepted. */
   onAddToken: () => Promise<boolean>;
 };
@@ -21,12 +25,17 @@ export function PositionPanel({
   position,
   finalPrice,
   saleSupply,
+  account,
   busy,
   onClaim,
   onWithdrawRefund,
   onAddToken
 }: Props) {
   const [tokenAdded, setTokenAdded] = useState(false);
+  const [recipientInput, setRecipientInput] = useState("");
+  // Empty means "my connected wallet"; another address helps when that wallet cannot receive ETH.
+  const recipient = recipientInput.trim() === "" ? account : recipientInput.trim();
+  const recipientValid = isAddress(recipient);
   const finalized = view.status === Status.Finalized;
   const owed = tokensFor(position.commitment, finalized ? finalPrice : view.price);
   const hasBid = position.commitment > 0n;
@@ -85,9 +94,30 @@ export function PositionPanel({
         </button>
       )}
       {position.refundCredit > 0n && (
-        <button className="btn wide" onClick={onWithdrawRefund} disabled={busy}>
-          Withdraw {formatEth(position.refundCredit)} refund
-        </button>
+        <div className="refund">
+          <label className="field">
+            <span>Send refund to</span>
+            <input
+              value={recipientInput}
+              onChange={(event) => setRecipientInput(event.target.value)}
+              placeholder={account}
+              spellCheck={false}
+              aria-invalid={!recipientValid}
+            />
+          </label>
+          {!recipientValid && <p className="field-error">Enter a valid Ethereum address.</p>}
+          <p className="hint">
+            Your wallet refused the automatic refund. Leave this empty to try your connected wallet again, or
+            enter another address you control.
+          </p>
+          <button
+            className="btn wide"
+            onClick={() => onWithdrawRefund(getAddress(recipient))}
+            disabled={busy || !recipientValid}
+          >
+            Withdraw {formatEth(position.refundCredit)} refund
+          </button>
+        </div>
       )}
     </section>
   );

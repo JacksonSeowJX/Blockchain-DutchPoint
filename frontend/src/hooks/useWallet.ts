@@ -1,5 +1,5 @@
 import { BrowserProvider, Eip1193Provider, getAddress } from "ethers";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LOCAL_CHAIN_ID, LOCAL_RPC_URL, chainName } from "../lib/contracts";
 import { describeError } from "../lib/errors";
@@ -25,22 +25,36 @@ export function useWallet(): Wallet {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
 
+  // Wallet answers can arrive out of order (a slow first read, then an account-change event), so
+  // each sync takes a number and only the newest one may update state.
+  const latestSync = useRef(0);
+
   const sync = useCallback(async () => {
     if (!ethereum) {
       return;
     }
-    const accounts = (await ethereum.request({ method: "eth_accounts" })) as string[];
-    const hexChainId = (await ethereum.request({ method: "eth_chainId" })) as string;
-    setChainId(Number(hexChainId));
-    if (accounts.length === 0) {
-      setAccount(null);
-      setProvider(null);
-      return;
+    const id = ++latestSync.current;
+    try {
+      const accounts = (await ethereum.request({ method: "eth_accounts" })) as string[];
+      const hexChainId = (await ethereum.request({ method: "eth_chainId" })) as string;
+      if (id !== latestSync.current) {
+        return;
+      }
+      setChainId(Number(hexChainId));
+      if (accounts.length === 0) {
+        setAccount(null);
+        setProvider(null);
+        return;
+      }
+      // ethers pins a BrowserProvider to the network it first sees, so build a fresh one
+      // whenever the account or chain changes.
+      setProvider(new BrowserProvider(ethereum as Eip1193Provider));
+      setAccount(getAddress(accounts[0]));
+    } catch (err) {
+      if (id === latestSync.current) {
+        setError(describeError(err));
+      }
     }
-    // ethers pins a BrowserProvider to the network it first sees, so build a fresh one
-    // whenever the account or chain changes.
-    setProvider(new BrowserProvider(ethereum as Eip1193Provider));
-    setAccount(getAddress(accounts[0]));
   }, [ethereum]);
 
   useEffect(() => {

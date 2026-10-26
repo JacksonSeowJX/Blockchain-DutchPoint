@@ -1,4 +1,4 @@
-import { formatEther } from "ethers";
+import { MaxUint256, formatEther } from "ethers";
 import { useState } from "react";
 
 import { Position } from "../hooks/useAuction";
@@ -54,7 +54,12 @@ export function BidPanel({
   } catch {
     inputError = "Enter an ETH amount, e.g. 0.5";
   }
-  const quote = quoteBid(view, position?.commitment ?? 0n, amount);
+  if (!inputError && input.trim() !== "" && amount <= 0n) {
+    inputError = "Enter an amount above 0.";
+  } else if (!inputError && amount > MaxUint256) {
+    inputError = "That amount is too large.";
+  }
+  const quote = quoteBid(view, position?.commitment ?? 0n, amount > 0n && amount <= MaxUint256 ? amount : 0n);
   const balance = position?.ethBalance ?? null;
   if (!inputError && balance !== null && amount > balance) {
     inputError = `This wallet only has ${formatEth(balance)}.`;
@@ -69,7 +74,7 @@ export function BidPanel({
     action = {
       label: busy ? "Waiting for wallet…" : `Bid ${trimDecimal(formatEther(amount), 6)} ETH`,
       onClick: () => onBid(amount),
-      disabled: busy || amount === 0n || inputError !== ""
+      disabled: busy || amount <= 0n || inputError !== ""
     };
   }
 
@@ -111,7 +116,7 @@ export function BidPanel({
           <dd>{formatPrice(view.price)} / GVRA</dd>
         </div>
         <div>
-          <dt>You receive at least</dt>
+          <dt>If fully accepted, at least</dt>
           <dd>{formatToken(quote.minTokens)}</dd>
         </div>
       </dl>
@@ -129,8 +134,9 @@ export function BidPanel({
         </p>
       ) : (
         <p className="hint">
-          You'll pay the final clearing price, which can only be at or below today's price, so your GVRA
-          allocation can only grow.
+          If your whole bid is accepted, you get at least this much: everyone pays the final clearing price,
+          which can only be at or below today's price. If the auction fills up before your bid is mined, only
+          part of it is accepted and the rest comes straight back to you.
         </p>
       )}
 

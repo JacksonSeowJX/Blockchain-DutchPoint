@@ -116,10 +116,12 @@ the updated `deployments.json` committed, the hosted site shows the `NotDeployed
 | `test/Reentrancy.test.ts` | Vulnerable vs. secure auction under the same attacker |
 | `test/GavoraToken.test.ts` | Token metadata, fixed supply, no mint/owner, burn rules |
 | `test/solidity/DutchAuctionFuzz.t.sol` | Fuzz: price bounds, uniform/fair/conserving settlement, exact time-clearing price |
-| `test/solidity/DutchAuctionInvariant.t.sol` | Invariants under random bid/warp/finalize/claim/withdraw sequences |
+| `test/solidity/DutchAuctionInvariant.t.sol` | Invariants under random bid/warp/finalize/claim/withdraw sequences, plus forced ETH and holder burns |
+| `frontend/src/**/*.test.ts(x)` | Vitest + React Testing Library (jsdom): `useAuction` against an in-memory fake chain (stale reads after a network switch, refund events), `useWallet` (out-of-order answers), and the bid, history and position components (findings A1-A5, A7) |
 
 ## Tooling
 
 Solidity 0.8.28 (optimizer on, 200 runs), OpenZeppelin Contracts 5.6.1, Hardhat 3.18 with the
-Mocha/ethers toolbox and native Solidity tests (forge-std 1.9.7), Slither 0.11.6, React 19, Vite 8,
+Mocha/ethers toolbox and native Solidity tests (forge-std 1.9.7), Vitest 5 with React Testing Library,
+Slither 0.11.6, React 19, Vite 8,
 ethers 6.17, and GitHub Actions (CI, Slither and GitHub Pages).

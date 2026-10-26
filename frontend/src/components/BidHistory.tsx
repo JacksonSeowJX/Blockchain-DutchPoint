@@ -25,7 +25,7 @@ export function BidHistory({ bids, saleSupply, startTime, account, explorer }: P
               <th scope="col">Bidder</th>
               <th scope="col" className="num">Price</th>
               <th scope="col" className="num">Accepted</th>
-              <th scope="col" className="num">Refunded</th>
+              <th scope="col" className="num">Surplus</th>
             </tr>
           </thead>
           <tbody>
@@ -57,7 +57,24 @@ export function BidHistory({ bids, saleSupply, startTime, account, explorer }: P
                   </td>
                   <td className="num">{formatPrice(bid.price)}</td>
                   <td className="num">{formatEth(bid.accepted)}</td>
-                  <td className="num">{refunded > 0n ? formatEth(refunded) : "-"}</td>
+                  <td className="num">
+                    {refunded > 0n ? (
+                      <>
+                        {formatEth(refunded)}{" "}
+                        {bid.surplusCredited ? (
+                          <span className="tag held" title="The bidder's wallet refused the ETH, so the auction holds it for them to withdraw">
+                            held
+                          </span>
+                        ) : (
+                          <span className="tag returned" title="Sent back in the same transaction">
+                            returned
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                 </tr>
               );
             })}

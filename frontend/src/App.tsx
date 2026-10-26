@@ -86,6 +86,14 @@ export default function App() {
       setTx({ stage: "wallet", label });
       try {
         const signer = await wallet.provider.getSigner();
+        // The page may still show an account or network the wallet has just switched away from.
+        const [signerAddress, network] = await Promise.all([signer.getAddress(), wallet.provider.getNetwork()]);
+        if (wallet.account && signerAddress.toLowerCase() !== wallet.account.toLowerCase()) {
+          throw new Error("Your wallet switched accounts. Check the account shown in MetaMask, then try again.");
+        }
+        if (Number(network.chainId) !== deployment.chainId) {
+          throw new Error(`Your wallet is not on ${chainName(deployment.chainId)}. Switch network, then try again.`);
+        }
         const auction = new Contract(deployment.auction, auctionAbi, signer);
         const response = await action(auction);
         setTx({ stage: "mining", label, hash: response.hash });
@@ -96,7 +104,7 @@ export default function App() {
         setTx({ stage: "failed", label, message: describeError(err) });
       }
     },
-    [wallet.provider, deployment, refresh]
+    [wallet.provider, wallet.account, deployment, refresh]
   );
 
   const txLink = (hash: string) =>
@@ -258,8 +266,9 @@ export default function App() {
                     saleSupply={snapshot.saleSupply}
                     busy={busy}
                     onClaim={() => void run("Claim GVRA", (auction) => auction.claimTokens())}
-                    onWithdrawRefund={() =>
-                      void run("Withdraw refund", (auction) => auction.withdrawRefundTo(account!))
+                    account={account ?? ""}
+                    onWithdrawRefund={(recipient) =>
+                      void run("Withdraw refund", (auction) => auction.withdrawRefundTo(recipient))
                     }
                     onAddToken={() => wallet.watchToken(deployment!.token, "GVRA", 18)}
                   />

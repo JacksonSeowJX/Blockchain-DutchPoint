@@ -43,6 +43,8 @@ export type Bid = {
   accepted: bigint;
   price: bigint;
   totalCommitted: bigint;
+  /** The bidder's wallet rejected the surplus refund, so it is held in the auction for withdrawal. */
+  surplusCredited: boolean;
 };
 
 export type AuctionData = {
@@ -73,6 +75,11 @@ export function useAuction(
   const blockTimes = useRef(new Map<number, bigint>());
   const inFlight = useRef(false);
   const queued = useRef(false);
+  // Each provider/deployment pair is one read context. A read started under an older context finishes
+  // without touching state, so switching network can never mix two chains' data.
+  const context = useRef(0);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
+  const deploymentRef = useRef(deployment);
 
   const contracts = useMemo(() => {
     if (!provider || !deployment) {
@@ -85,23 +92,25 @@ export function useAuction(
   }, [provider, deployment]);
 
   useEffect(() => {
+    context.current += 1;
     setSnapshot(null);
     setBids([]);
     setError("");
     setOffline(false);
     lastBidBlock.current = -1;
-    blockTimes.current.clear();
+    // A new map rather than clear(): a read from the old context keeps writing into its own map.
+    blockTimes.current = new Map();
   }, [contracts]);
 
   const blockTime = useCallback(
-    async (blockNumber: number) => {
-      const cached = blockTimes.current.get(blockNumber);
+    async (cache: Map<number, bigint>, blockNumber: number) => {
+      const cached = cache.get(blockNumber);
       if (cached !== undefined) {
         return cached;
       }
       const block = await provider!.getBlock(blockNumber);
       const timestamp = BigInt(block?.timestamp ?? 0);
-      blockTimes.current.set(blockNumber, timestamp);
+      cache.set(blockNumber, timestamp);
       return timestamp;
     },
     [provider]
@@ -113,8 +122,15 @@ export function useAuction(
     }
     const { auction, token } = contracts;
     const auctionAddress = deployment.auction;
+    const id = context.current;
+    const stale = () => id !== context.current;
+    const times = blockTimes.current;
 
-    if ((await provider.getCode(auctionAddress)) === "0x") {
+    const code = await provider.getCode(auctionAddress);
+    if (stale()) {
+      return;
+    }
+    if (code === "0x") {
       setError(
         deployment.chainId === LOCAL_CHAIN_ID
           ? "No DutchPoint auction is deployed on the local node. Run `npm run deploy:local`."
@@ -164,6 +180,9 @@ export function useAuction(
           ])
         : Promise.resolve(null)
     ]);
+    if (stale()) {
+      return;
+    }
 
     const [
       tokenName,
@@ -237,23 +256,38 @@ export function useAuction(
     let from = Math.max(deployment.deployedAtBlock, lastBidBlock.current + 1);
     while (from <= latest) {
       const to = Math.min(latest, from + LOG_CHUNK_BLOCKS - 1);
-      const logs = await auction.queryFilter(auction.filters.ContributionReceived(), from, to);
+      const [logs, credits] = await Promise.all([
+        auction.queryFilter(auction.filters.ContributionReceived(), from, to),
+        auction.queryFilter(auction.filters.RefundCredited(), from, to)
+      ]);
+      // A surplus the bidder's wallet rejected is credited instead of paid; match it to its bid.
+      const creditedKey = (txHash: string, account: string) => `${txHash}-${account.toLowerCase()}`;
+      const credited = new Set(
+        credits
+          .filter((log): log is EventLog => log instanceof EventLog)
+          .map((log) => creditedKey(log.transactionHash, log.args.account as string))
+      );
       const fresh: Bid[] = [];
       for (const log of logs) {
         if (!(log instanceof EventLog)) {
           continue;
         }
+        const account = log.args.account as string;
         fresh.push({
           key: `${log.transactionHash}-${log.index}`,
           txHash: log.transactionHash,
           blockNumber: log.blockNumber,
-          timestamp: await blockTime(log.blockNumber),
-          account: log.args.account as string,
+          timestamp: await blockTime(times, log.blockNumber),
+          account,
           amount: log.args.amount as bigint,
           accepted: log.args.accepted as bigint,
           price: log.args.price as bigint,
-          totalCommitted: log.args.totalCommitted as bigint
+          totalCommitted: log.args.totalCommitted as bigint,
+          surplusCredited: credited.has(creditedKey(log.transactionHash, account))
         });
+      }
+      if (stale()) {
+        return;
       }
       // Recorded per chunk, so a failed request resumes here instead of rescanning from the start.
       lastBidBlock.current = to;
@@ -262,11 +296,23 @@ export function useAuction(
       }
       from = to + 1;
     }
+    if (stale()) {
+      return;
+    }
     setError("");
     setOffline(false);
   }, [contracts, provider, deployment, account, blockTime]);
 
-  /** Serialises refreshes: block events can arrive while a read is still running. */
+  // Declared before the subscription effect below, so the first refresh already sees the latest load.
+  useEffect(() => {
+    loadRef.current = load;
+    deploymentRef.current = deployment;
+  }, [load, deployment]);
+
+  /**
+   * Serialises refreshes: block events can arrive while a read is still running. A queued refresh runs
+   * the latest context's read, not the one that was in flight when it was queued.
+   */
   const refresh = useCallback(async () => {
     if (inFlight.current) {
       queued.current = true;
@@ -276,18 +322,23 @@ export function useAuction(
     try {
       do {
         queued.current = false;
+        const id = context.current;
+        const chainId = deploymentRef.current?.chainId ?? 0;
         try {
-          await load();
+          await loadRef.current();
         } catch (err) {
+          if (id !== context.current) {
+            continue; // an error from an outdated read says nothing about the current network
+          }
           const unreachable = isConnectionError(err);
           setOffline(unreachable);
           if (!unreachable) {
             setError(describeError(err));
-          } else if (deployment?.chainId === LOCAL_CHAIN_ID) {
+          } else if (chainId === LOCAL_CHAIN_ID) {
             setError("Can't reach the local Hardhat node at 127.0.0.1:8545. Start it with `npm run node`.");
           } else {
             setError(
-              `Can't reach the ${chainName(deployment?.chainId ?? 0)} network right now. ` +
+              `Can't reach the ${chainName(chainId)} network right now. ` +
                 "Check your internet connection; DutchPoint keeps retrying in the background."
             );
           }
@@ -296,7 +347,7 @@ export function useAuction(
     } finally {
       inFlight.current = false;
     }
-  }, [load, deployment]);
+  }, []);
 
   useEffect(() => {
     if (!provider || !contracts) {

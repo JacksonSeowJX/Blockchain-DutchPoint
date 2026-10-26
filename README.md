@@ -97,8 +97,9 @@ dashboard has history. It also moves the chain clock forward 7 minutes.
 1. The dashboard shows the live auction even before you connect: the falling price, the 20-minute
    countdown, the price chart and the demand meter.
 2. As a bidder, enter an ETH amount (or click a quick amount) and click *Bid … ETH*. The quote shows the
-   least GVRA you will receive: the final price can only be at or below the current price, so the
-   allocation can only grow.
+   least GVRA you get *if the whole bid is accepted*: the final price can only be at or below the current
+   price. If the auction fills up before the bid is mined, only part of it is accepted and the rest is
+   refunded in the same transaction.
 3. To sell out the auction, click *Sell-out amount* (it fills in the ETH that buys everything left) and
    add a little more. The callout shows how much comes straight back in the same transaction. Once the bid is mined, the status changes to *Sold out*.
 4. In the *Local demo tools* card, click **+20 min**. The status becomes *Ready to finalize*.
@@ -145,11 +146,12 @@ It needs no node, wallet or browser. The narrated video plan is in
 | --- | --- |
 | `npm test` | All 53 tests: 46 Mocha tests, plus 3 Solidity fuzz tests (1,000 runs each) and 4 invariants (256 runs, depth 50) |
 | `npm run test:mocha` / `npm run test:solidity` | Only the Mocha tests, or only the Solidity fuzz and invariant tests |
+| `npm run test:frontend` | 10 frontend unit tests (Vitest, React Testing Library): hooks against an in-memory fake chain, and components |
 | `npm run gas` | Gas-scaling table (each call costs the same with 1 or 100 earlier bidders) and per-function gas statistics |
 | `npm run coverage` | All tests, with coverage - `DutchAuction.sol` and `GavoraToken.sol` are at 100% lines and statements |
 | `npm run slither` | Slither static analysis; fails on any Medium or High finding (needs `slither-analyzer` and `solc` 0.8.28) |
 | `npm run typecheck` / `npm run build` | Frontend and script type checks; production build |
-| `npm run check` | `compile`, `test`, `typecheck` and `build` in one go |
+| `npm run check` | `compile`, `test`, `test:frontend`, `typecheck` and `build` in one go |
 
 Install Slither the way CI does (Python 3.12), then select the compiler:
 
@@ -232,11 +234,12 @@ Every script in `package.json`, run from the repository root.
 | `npm run typecheck` | Type-check the frontend, `hardhat.config.ts`, `scripts/` and `test/` |
 | `npm run build` | Type-check and build the frontend into `frontend/dist/` |
 | `npm run export:frontend` | Compile and copy the ABIs into `frontend/src/generated/` without deploying |
-| `npm run check` | `compile`, `test`, `typecheck` and `build` in sequence |
+| `npm run check` | `compile`, `test`, `test:frontend`, `typecheck` and `build` in sequence |
 | **Tests and analysis** | |
 | `npm test` | All 53 tests (Mocha, fuzz and invariants) |
 | `npm run test:mocha` | The 46 Mocha tests |
 | `npm run test:solidity` | The 3 fuzz tests and 4 invariants |
+| `npm run test:frontend` | The 10 frontend unit tests (Vitest) |
 | `npm run coverage` | All tests with a coverage report (`coverage/`) |
 | `npm run gas` | Mocha tests with the gas-scaling table and per-function gas statistics |
 | `npm run slither` | Slither on both contracts |
@@ -266,7 +269,8 @@ test/
 scripts/                     deploy, demo, seed-local, advance-time, poc-crowd-out, export-frontend
 frontend/                    Off-chain code: the React + Vite dApp
   index.html, vite.config.ts
-  src/                       components/, hooks/, lib/, generated/ (ABIs and addresses)
+  src/                       components/, hooks/, lib/, generated/ (ABIs and addresses),
+                             *.test.ts(x) beside the code they test, test/ (fixtures, fake chain)
 docs/
   ai-audit/                  AI Audit Report, development log, evidence/, prompts/
   design/                    Spec, architecture, assumptions, requirements checklist
@@ -302,7 +306,8 @@ Generated and gitignored: `artifacts/`, `cache/`, `coverage/`, `frontend/dist/`,
 | Document | Contents |
 | --- | --- |
 | [`docs/ai-audit/report.md`](docs/ai-audit/report.md) | **AI Audit Report** (8 sections, findings F1-F6 with evidence, and an appendix linking the design to the lectures) |
-| [`docs/ai-audit/evidence/`](docs/ai-audit/evidence/) | Evidence 01-10: before/after regression runs, crowd-out PoC, reentrancy demo, mutation check, test suite and coverage, Slither, gas scaling, dependency audit |
+| [`docs/ai-audit/evidence/`](docs/ai-audit/evidence/) | Evidence 01-11: before/after regression runs, crowd-out PoC, reentrancy demo, mutation check, test suite and coverage, Slither, gas scaling, dependency audit, independent-review fixes |
+| [`docs/ai-audit/independent-review/`](docs/ai-audit/independent-review/README.md) | A team member's independent Codex audit and MetaMask test, and what happened to each finding |
 | [`docs/ai-audit/prompts/`](docs/ai-audit/prompts/README.md) | Prompt logs for ChatGPT, Codex and Claude Code |
 | [`docs/ai-audit/development-log.md`](docs/ai-audit/development-log.md) | Chronological AI development log |
 | [`docs/design/spec.md`](docs/design/spec.md) | Requirements and auction mathematics |

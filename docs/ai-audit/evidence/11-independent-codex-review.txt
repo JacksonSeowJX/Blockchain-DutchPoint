@@ -1,0 +1,81 @@
+Evidence 11 - Independent Codex audit (Sanjeev, 23 Oct 2026): frontend findings A1-A5, A7 and the invariant domain note
+Audited commit: 2e2c2a5. The report is in docs/ai-audit/independent-review/. Each finding was first checked
+independently, then encoded as a frontend regression test (Vitest + React Testing Library, jsdom) that fails
+on the unfixed code and passes after the fix.
+
+== 0. Independent check of A1 and A4 before writing tests (node + ethers, numbers from the report)
+A1: 1,000 GVRA, 0.02 -> 0.005 ETH over 1,200 s, 10 ETH committed. A 1 ETH bid quoted at t=700 s: 88.888888888888888888 GVRA.
+    Mined at t=740 s: only 0.75 ETH fits, the auction clears at 0.01075 -> claim 69.767441860465116279 GVRA (below the quote).
+A4: parseEther("-1") = -1000000000000000000n, and the bid button only rejected amount === 0n.
+
+== 1. Before the fixes (tests written against the fixed behaviour, run on the unfixed code)
+$ npm run test:frontend
+     × A3: an older eth_accounts response cannot overwrite a newer account
+     × A7: sends a held refund to another address when one is entered
+     × A7: defaults to the connected account
+     × A7: refuses an invalid address
+     × A5: distinguishes a surplus paid back from one held as a credit
+     × A1: presents the quote as conditional on the whole bid being accepted
+     × A4: rejects a negative amount and keeps the bid button disabled
+     × A2: discards a stale read from the previous network and loads the new one
+     × A5: marks a surplus as held when the refund was credited instead of paid
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/components/BidHistory.test.tsx > BidHistory > A5: distinguishes a surplus paid back from one held as a credit
+TestingLibraryElementError: Unable to find an accessible element with the role "columnheader" and name "Surplus"
+ FAIL  src/components/BidPanel.test.tsx > BidPanel > A1: presents the quote as conditional on the whole bid being accepted
+TestingLibraryElementError: Unable to find an element with the text: If fully accepted, at least. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  src/components/BidPanel.test.tsx > BidPanel > A4: rejects a negative amount and keeps the bid button disabled
+TestingLibraryElementError: Unable to find an element with the text: Enter an amount above 0.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  src/components/PositionPanel.test.tsx > PositionPanel refund recipient > A7: sends a held refund to another address when one is entered
+TestingLibraryElementError: Unable to find a label with the text of: Send refund to
+ FAIL  src/components/PositionPanel.test.tsx > PositionPanel refund recipient > A7: defaults to the connected account
+AssertionError: expected "vi.fn()" to be called with arguments: [ Array(1) ]
+ FAIL  src/components/PositionPanel.test.tsx > PositionPanel refund recipient > A7: refuses an invalid address
+TestingLibraryElementError: Unable to find a label with the text of: Send refund to
+ FAIL  src/hooks/useAuction.test.ts > useAuction > A2: discards a stale read from the previous network and loads the new one
+AssertionError: expected 12000000 to be 100 // Object.is equality
+ FAIL  src/hooks/useAuction.test.ts > useAuction > A5: marks a surplus as held when the refund was credited instead of paid
+AssertionError: expected undefined to be true // Object.is equality
+ FAIL  src/hooks/useWallet.test.ts > useWallet > A3: an older eth_accounts response cannot overwrite a newer account
+AssertionError: expected '0x11111111111111111111111111111111111…' to be '0x22222222222222222222222222222222222…' // Object.is equality
+ Test Files  5 failed (5)
+      Tests  9 failed | 1 passed (10)
+
+== 2. After the fixes
+$ npx vitest run --root frontend --reporter=verbose
+ ✓ src/hooks/useWallet.test.ts > useWallet > A3: an older eth_accounts response cannot overwrite a newer account
+ ✓ src/components/BidHistory.test.tsx > BidHistory > A5: distinguishes a surplus paid back from one held as a credit
+ ✓ src/hooks/useAuction.test.ts > useAuction > A2: discards a stale read from the previous network and loads the new one
+ ✓ src/hooks/useAuction.test.ts > useAuction > A5: marks a surplus as held when the refund was credited instead of paid
+ ✓ src/components/BidPanel.test.tsx > BidPanel > A1: presents the quote as conditional on the whole bid being accepted
+ ✓ src/components/PositionPanel.test.tsx > PositionPanel refund recipient > A7: sends a held refund to another address when one is entered
+ ✓ src/components/PositionPanel.test.tsx > PositionPanel refund recipient > A7: defaults to the connected account
+ ✓ src/components/PositionPanel.test.tsx > PositionPanel refund recipient > A7: refuses an invalid address
+ ✓ src/components/BidPanel.test.tsx > BidPanel > A4: rejects a negative amount and keeps the bid button disabled
+ ✓ src/components/BidPanel.test.tsx > BidPanel > A4: still accepts a normal positive amount
+ Test Files  5 passed (5)
+      Tests  10 passed (10)
+
+== 3. Invariant domain (report note): EthIsFullyBacked is now 'balance >= owed' and exactly 'owed + forced ETH';
+      the handler also forces unsolicited ETH in and lets holders burn their own claimed GVRA (failOnRevert: true).
+$ npm run test:solidity
+    ✔ testFuzz_TimeClearingPriceIsExact(uint256) (runs: 1000)
+    ✔ testFuzz_SettlementIsUniformFairAndConserving(uint256[6],uint256[6]) (runs: 1000)
+    ✔ testFuzz_PriceIsMonotonicAndBounded(uint256,uint256) (runs: 1000)
+    ✔ invariant_TokensAreConserved() (runs: 256)
+    ✔ invariant_EthIsFullyBacked() (runs: 256)
+    ✔ invariant_DemandNeverExceedsSupply() (runs: 256)
+    ✔ invariant_ClaimsUseOneUniformPrice() (runs: 256)
+  7 passing
+
+== 4. Browser checks after the fixes (local node, headless Chrome, mock wallet forwarding reads to the node)
+- Live auction: the quote row reads 'If fully accepted, at least 69.02 GVRA' with the partial-acceptance hint; the
+  history column is 'Surplus'.
+- A RejectingReceiver contract placed the crossing bid: 0.7625 ETH was credited (RefundCredited), not paid. The
+  history shows '0.7625 ETH  held'; Your position shows 'Refund waiting 0.7625 ETH', a 'Send refund to' field
+  (placeholder = connected address) and 'Withdraw 0.7625 ETH refund'. The credit came out at 0.7625 rather than
+  the intended 0.75 because the price fell between reading the capacity and mining the bid: finding A1 in action.
+
+== 5. Full check after the fixes
+$ npm run check   -> compile, 53 contract tests (46 Mocha, 7 Solidity), 10 frontend tests, typecheck, build: exit 0
+$ npm run demo    -> exit 0
