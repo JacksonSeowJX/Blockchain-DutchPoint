@@ -8,6 +8,8 @@ const CONTRACT_ERRORS: Record<string, string> = {
   AuctionAlreadyFinalized: "The auction is already finalized.",
   AuctionNotFinalized: "This opens once the auction is finalized.",
   ZeroContribution: "Enter an amount greater than zero.",
+  MinimumTokensNotMet:
+    "The auction filled up before your bid was mined, so it would have bought less than its minimum. The bid was cancelled and none of your ETH was committed.",
   NoCommitment: "This wallet has no accepted bid.",
   AlreadyClaimed: "You have already claimed your GVRA.",
   NoRefundAvailable: "There is no refund waiting for this wallet.",

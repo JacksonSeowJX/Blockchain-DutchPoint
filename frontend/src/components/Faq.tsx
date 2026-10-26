@@ -2,7 +2,7 @@ const QUESTIONS = [
   {
     question: "Why can I end up with more GVRA than the quote showed?",
     answer:
-      "You commit ETH, not a number of tokens. Everyone pays the final clearing price, which can only be at or below the price when you bid, so ETH that is accepted buys at least the quoted amount and often more. The one exception: if the auction fills up before your bid is mined, only part of it is accepted, the rest comes straight back, and you get fewer GVRA than quoted for the full amount."
+      "You commit ETH, not a number of tokens. Everyone pays the final clearing price, which can only be at or below the price when your bid is mined, so you usually get more than the minimum shown. The minimum itself is enforced by the contract: if the auction fills up before your bid is mined and it would buy less, the bid is cancelled instead. A sell-out bid has no minimum: it buys whatever is left, and the rest of your ETH comes back."
   },
   {
     question: "What happens if the auction doesn't sell out?",

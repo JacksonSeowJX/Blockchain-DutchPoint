@@ -256,7 +256,13 @@ export default function App() {
                   busy={busy}
                   onConnect={() => void wallet.connect()}
                   onSwitchNetwork={switchNetwork}
-                  onBid={(amount) => void run("Bid", (auction) => auction.contribute({ value: amount }))}
+                  onBid={(amount, minimumTokens) =>
+                    void run("Bid", (auction) =>
+                      minimumTokens > 0n
+                        ? auction.contributeWithMinimum(minimumTokens, { value: amount })
+                        : auction.contribute({ value: amount })
+                    )
+                  }
                 />
                 {snapshot.position && (
                   <PositionPanel

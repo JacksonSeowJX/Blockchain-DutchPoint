@@ -22,6 +22,10 @@ interface IBurnableERC20 is IERC20 {
 ///      threshold is accepted only up to the remaining capacity, and its surplus is refunded
 ///      in the same transaction. Bids after clearing are rejected.
 ///
+///      Bid protection: `contributeWithMinimum` reverts unless the bid buys at least `minTokens` at
+///      the price when it is mined. The final price can only be at or below that price, so the
+///      bidder's claim for that bid is at least `minTokens`.
+///
 ///      Supply invariant: totalCommitted * TOKEN_SCALE / finalPrice <= saleSupply, so the sum
 ///      of all claims can never exceed the tokens held for the sale.
 contract DutchAuction is Ownable, ReentrancyGuard {
@@ -86,6 +90,7 @@ contract DutchAuction is Ownable, ReentrancyGuard {
     error AuctionAlreadyFinalized();
     error AuctionNotFinalized();
     error ZeroContribution();
+    error MinimumTokensNotMet(uint256 minimum, uint256 actual);
     error NoCommitment();
     error AlreadyClaimed();
     error NoRefundAvailable();
@@ -138,7 +143,7 @@ contract DutchAuction is Ownable, ReentrancyGuard {
     }
 
     receive() external payable nonReentrant {
-        _contribute(msg.sender, msg.value);
+        _contribute(msg.sender, msg.value, 0);
     }
 
     // ---------------------------------------------------------------------
@@ -196,7 +201,14 @@ contract DutchAuction is Ownable, ReentrancyGuard {
     /// @notice Commits ETH at the current price. Any amount beyond what is needed to buy the
     ///         remaining supply is refunded in the same transaction.
     function contribute() external payable nonReentrant {
-        _contribute(msg.sender, msg.value);
+        _contribute(msg.sender, msg.value, 0);
+    }
+
+    /// @notice Like `contribute`, but reverts unless the accepted part of this bid buys at least
+    ///         `minTokens` GVRA at the current price. It protects a bidder whose bid would be only
+    ///         partly accepted because the auction filled up before it was mined.
+    function contributeWithMinimum(uint256 minTokens) external payable nonReentrant {
+        _contribute(msg.sender, msg.value, minTokens);
     }
 
     /// @notice Transfers the caller's tokens at the final clearing price.
@@ -404,7 +416,7 @@ contract DutchAuction is Ownable, ReentrancyGuard {
     // Internal logic
     // ---------------------------------------------------------------------
 
-    function _contribute(address account, uint256 amount) private {
+    function _contribute(address account, uint256 amount, uint256 minTokens) private {
         if (!started) {
             revert AuctionNotStarted();
         }
@@ -424,6 +436,7 @@ contract DutchAuction is Ownable, ReentrancyGuard {
         uint256 capacity = cap > totalCommitted ? cap - totalCommitted : 0;
         uint256 accepted = amount < capacity ? amount : capacity;
         uint256 surplus = amount - accepted;
+        _requireMinimum(accepted, price, minTokens);
 
         // Effects
         if (accepted != 0) {
@@ -446,6 +459,17 @@ contract DutchAuction is Ownable, ReentrancyGuard {
         // Interaction last: return the surplus of a crossing bid.
         if (surplus != 0) {
             _refundSurplus(account, surplus);
+        }
+    }
+
+    /// @dev Reverts if `accepted` ETH buys fewer than `minTokens` at `price`; zero means no minimum.
+    function _requireMinimum(uint256 accepted, uint256 price, uint256 minTokens) private pure {
+        if (minTokens == 0) {
+            return;
+        }
+        uint256 tokens = Math.mulDiv(accepted, TOKEN_SCALE, price);
+        if (tokens < minTokens) {
+            revert MinimumTokensNotMet(minTokens, tokens);
         }
     }
 

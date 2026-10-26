@@ -126,21 +126,36 @@ export function viewAt(s: AuctionState, now: bigint): View {
   return { status, price, clearing, endTime, remainingSeconds, elapsedSeconds, capacity, demandTarget };
 }
 
+/**
+ * How far below the current price a protected bid's minimum is set, in basis points (1%). The page
+ * estimates chain time from the latest block, whose timestamp can trail real time by a few seconds,
+ * so a bid can be mined at a slightly higher price than the one shown.
+ */
+export const MINIMUM_TOLERANCE_BPS = 100n;
+
 export type BidQuote = {
   accepted: bigint;
   refunded: bigint;
   clearsAuction: boolean;
-  /** Tokens for the wallet's total commitment after this bid, at the current price (a floor). */
-  minTokens: bigint;
+  /** GVRA the accepted part of this bid buys at the current price. */
+  tokens: bigint;
+  /**
+   * The minimum sent with the bid, which the contract enforces: `tokens` less the tolerance. Zero for a
+   * bid that sells out the auction, since it buys whatever is left when it is mined.
+   */
+  minimumTokens: bigint;
 };
 
-export function quoteBid(view: View, existingCommitment: bigint, amount: bigint): BidQuote {
+export function quoteBid(view: View, amount: bigint): BidQuote {
   const accepted = amount < view.capacity ? amount : view.capacity;
+  const clearsAuction = amount > 0n && amount >= view.capacity;
+  const tokens = tokensFor(accepted, view.price);
   return {
     accepted,
     refunded: amount - accepted,
-    clearsAuction: amount > 0n && amount >= view.capacity,
-    minTokens: tokensFor(existingCommitment + accepted, view.price)
+    clearsAuction,
+    tokens,
+    minimumTokens: clearsAuction ? 0n : (tokens * (10_000n - MINIMUM_TOLERANCE_BPS)) / 10_000n
   };
 }
 

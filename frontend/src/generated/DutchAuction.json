@@ -109,6 +109,22 @@
       "type": "error"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "minimum",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "actual",
+          "type": "uint256"
+        }
+      ],
+      "name": "MinimumTokensNotMet",
+      "type": "error"
+    },
+    {
       "inputs": [],
       "name": "NoCommitment",
       "type": "error"
@@ -605,6 +621,19 @@
     {
       "inputs": [],
       "name": "contribute",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "minTokens",
+          "type": "uint256"
+        }
+      ],
+      "name": "contributeWithMinimum",
       "outputs": [],
       "stateMutability": "payable",
       "type": "function"

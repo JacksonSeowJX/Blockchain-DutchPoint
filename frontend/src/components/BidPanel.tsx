@@ -13,7 +13,7 @@ type Props = {
   busy: boolean;
   onConnect: () => void;
   onSwitchNetwork: () => void;
-  onBid: (amount: bigint) => void;
+  onBid: (amount: bigint, minimumTokens: bigint) => void;
 };
 
 const QUICK_AMOUNTS = ["0.1", "0.5", "1", "5"];
@@ -59,7 +59,8 @@ export function BidPanel({
   } else if (!inputError && amount > MaxUint256) {
     inputError = "That amount is too large.";
   }
-  const quote = quoteBid(view, position?.commitment ?? 0n, amount > 0n && amount <= MaxUint256 ? amount : 0n);
+  const quote = quoteBid(view, amount > 0n && amount <= MaxUint256 ? amount : 0n);
+  const sellsOut = quote.clearsAuction && amount > 0n;
   const balance = position?.ethBalance ?? null;
   if (!inputError && balance !== null && amount > balance) {
     inputError = `This wallet only has ${formatEth(balance)}.`;
@@ -73,7 +74,7 @@ export function BidPanel({
   } else {
     action = {
       label: busy ? "Waiting for wallet…" : `Bid ${trimDecimal(formatEther(amount), 6)} ETH`,
-      onClick: () => onBid(amount),
+      onClick: () => onBid(amount, quote.minimumTokens),
       disabled: busy || amount <= 0n || inputError !== ""
     };
   }
@@ -116,27 +117,25 @@ export function BidPanel({
           <dd>{formatPrice(view.price)} / GVRA</dd>
         </div>
         <div>
-          <dt>If fully accepted, at least</dt>
-          <dd>{formatToken(quote.minTokens)}</dd>
+          <dt>{sellsOut ? "Buys what's left, up to" : "This bid buys at least"}</dt>
+          <dd>{formatToken(sellsOut ? quote.tokens : quote.minimumTokens)}</dd>
         </div>
       </dl>
 
-      {quote.clearsAuction && amount > 0n ? (
+      {sellsOut ? (
         <p className="callout success">
-          {quote.refunded > 0n ? (
-            <>
-              This bid sells out the auction. {formatEth(quote.accepted)} is accepted and{" "}
-              {formatEth(quote.refunded)} comes straight back to your wallet in the same transaction.
-            </>
-          ) : (
-            "This bid sells out the auction exactly. Add a little more and the extra comes straight back in the same transaction."
-          )}
+          {quote.refunded > 0n
+            ? `This bid sells out the auction. ${formatEth(quote.accepted)} is accepted and ${formatEth(quote.refunded)} comes straight back to your wallet in the same transaction.`
+            : "This bid sells out the auction exactly. Add a little more and the extra comes straight back in the same transaction."}{" "}
+          If others bid first or the price falls before it is mined, it still buys whatever is left, and more
+          of your ETH comes back.
         </p>
       ) : (
         <p className="hint">
-          If your whole bid is accepted, you get at least this much: everyone pays the final clearing price,
-          which can only be at or below today's price. If the auction fills up before your bid is mined, only
-          part of it is accepted and the rest comes straight back to you.
+          The contract guarantees this minimum. If the auction fills up before your bid is mined and it would
+          buy less, the bid is cancelled and none of your ETH is committed. The minimum is 1% below today's
+          price, to allow for the time your bid takes to be mined. Everyone pays the final clearing price,
+          which can only be lower, so you usually get more.
         </p>
       )}
 
