@@ -1,0 +1,71 @@
+Evidence 13 - Second independent review (Alfred): findings B1 (his C02) and B2 (his P04).
+Recorded 2026-10-26. Tests committed failing in 1ea0479, fixed in 171d16a.
+
+Alfred's review covered the repository at c36cb0c (22 Oct). Of its fifteen items, two were new and still
+present on main: B1 and B2. The others had already been fixed (see the audit report, section 5, fourth pass).
+
+== 1. Before: the new tests on the unfixed code (1ea0479)
+$ npx vitest run --root frontend src/components/BidPanel.test.tsx
+     × B1: the sell-out shortcut rounds up, so the bid sells out and carries no minimum
+AssertionError: expected '1.126543' to be '1.126544' // Object.is equality
+      Tests  1 failed | 4 passed (5)
+The room left is 1.126543211 ETH. Truncating it to 1.126543 ETH falls 0.000000211 ETH short of selling out,
+so the bid panel treats it as a normal bid and sends it with a minimum (bid protection, evidence 12). Mined a
+block or more later, after the room has shrunk, that bid would usually be cancelled instead of selling out.
+
+$ npm test
+  1) DutchAuctionFuzzTest#testFuzz_AcceptedConfigurationsCanPriceTheirSupply(uint256,uint256,uint256)
+    Error: reverted with panic code 0x11 (Arithmetic operation overflowed outside of an unchecked block)
+      at DutchAuction.mulDiv (npm/@openzeppelin/contracts@5.6.1/utils/math/Math.sol:220)
+      at DutchAuction.maxCommitmentAt (contracts/DutchAuction.sol:388)
+    Counterexample:
+      args: 15070762462453209521584687180989510102 [1.507e37], 44820940658047222460144395339515300805194946281075218501371272386 [4.482e64], 1467491648985259623036572472157757083013176363684734 [1.467e51]
+  1) DutchPoint DutchAuction
+       configuration
+         B2: rejects a supply and start price whose product does not fit in 256 bits:
+     AssertionError: Expected transaction to be reverted with custom error 'InvalidSaleSupply', but it didn't revert
+61 passing (9 solidity, 52 mocha)
+2 failing (1 solidity, 1 mocha)
+The fuzzer found a configuration the constructor accepted (supply 1.5e37 units, start price 4.5e64 wei, reserve
+1.5e51 wei) in which valuing the supply at the start price overflows, so every bid at that price would fail.
+Only absurd parameters are affected; the defaults and the Sepolia sale are many orders of magnitude below.
+
+== 2. Fix (171d16a)
+- B1: BidPanel fills the Sell-out amount with formatEthUp(capacity): the room left rounded UP to 6 decimals.
+  The bid always sells out and is sent without a minimum; the rounding excess (under 0.000001 ETH) comes back
+  in the same transaction with the rest of the surplus.
+- B2: the constructor also reverts with InvalidSaleSupply when startPrice > type(uint256).max / saleSupply,
+  i.e. when saleSupply * startPrice does not fit in 256 bits. Every ETH amount the auction accepts is at most
+  that value divided by 10^18.
+  A first version used `(bool fits, ) = Math.tryMul(saleSupply_, startPrice_)`. Slither flagged it:
+    DutchAuction.constructor(...) ignores return value by (fits,None) = Math.tryMul(saleSupply_,startPrice_)
+    Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+    contracts/DutchAuction.sol analyzed (13 contracts with 102 detectors), 16 result(s) found
+  unused-return is Medium, so `npm run slither` (--fail-medium) exited non-zero. The division form has no
+  ignored value and was committed instead.
+- hardhat.config.ts: the unused production compiler profile (500 runs, viaIR) now has the default settings
+  (200 runs), so a task that builds with it, such as source verification, reproduces the deployed bytecode.
+
+== 3. After (171d16a)
+$ npm test
+    ✔ testFuzz_AcceptedConfigurationsCanPriceTheirSupply(uint256,uint256,uint256) (runs: 1000)
+      ✔ B2: rejects a supply and start price whose product does not fit in 256 bits
+63 passing (10 solidity, 53 mocha)
+$ npm run test:frontend
+      Tests  16 passed (16)
+$ npm run coverage
+contracts/GavoraToken.sol   100.00 % lines, 100.00 % statements
+contracts/DutchAuction.sol  100.00 % lines, 100.00 % statements
+$ npm run slither
+INFO:Slither:contracts/DutchAuction.sol analyzed (13 contracts with 102 detectors), 15 result(s) found
+INFO:Slither:contracts/GavoraToken.sol analyzed (9 contracts with 102 detectors), 0 result(s) found
+(the same 15 as in evidence 12; exit 0)
+$ GAS_REPORT=1 npm run test:mocha -- test/Gas.test.ts
+      Bid (new bidder)                    74,092      74,092      74,092      74,092        0
+      Protected bid (new bidder)          74,673      74,673      74,673      74,673        0
+      Crossing bid + surplus refund      126,458     126,458     126,458     126,458        0
+      Finalize                            84,549      84,549      84,549      84,549        0
+      Claim tokens                       153,762     153,762     153,762     153,762        0
+      Withdraw proceeds                   59,506      59,506      59,506      59,506        0
+Runtime gas and bytecode (8,036 bytes) unchanged; the check runs only at deployment, which costs 904 gas more
+(1,844,641 -> 1,845,545). The ABI is unchanged.

@@ -47,12 +47,15 @@
 - Bid protection: a bidder can set the least GVRA a bid must buy. The final price can only be at or below
   the price when the bid is mined, so the claim for that bid is at least the minimum. The check runs before
   any state changes.
-- Checks-effects-interactions on every ETH transfer, plus OpenZeppelin `ReentrancyGuard` on every
-  state-changing entry point.
+- Checks-effects-interactions on every ETH transfer, plus OpenZeppelin `ReentrancyGuard` on every function
+  that sends ETH, transfers tokens or burns them: bids, `finalize`, claims, refund and proceeds withdrawals,
+  and the dust burn. `start()` is not guarded: it is owner-only and its only external call reads the
+  token balance.
 - Aggregate accounting, so no function loops over bidders.
 - `Ownable` restricts only `start` and `withdrawIssuerProceeds`.
 - Custom errors for every failure, decoded into plain messages by the UI.
-- The constructor rejects parameters under which the auction could never clear.
+- The constructor rejects parameters under which the auction could never clear, or under which the supply's
+  value at the start price would not fit in 256 bits.
 
 ### Test-only contracts (`contracts/mocks/`)
 

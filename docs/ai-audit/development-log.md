@@ -171,8 +171,8 @@ Add command outputs here after they are actually run.
 
 ## 2026-10-20 - Cross-model review and remediation (Claude Code)
 
-Tool: Claude Code VS Code extension, model Claude Opus 5.5. Prompts are reproduced verbatim in
-[`prompts/claude-code-session.md`](prompts/claude-code-session.md).
+Tool: Claude Code VS Code extension, model Claude Opus 5.5. The prompts are logged in order, edited for
+grammar, in [`prompts/claude-code-session.md`](prompts/claude-code-session.md).
 
 Inputs reviewed: the brief, the ChatGPT plan ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)), and
 this repository at `0a75a78` (18 tests passing).
@@ -425,3 +425,21 @@ Decisions and observations:
 - Sanjeev's evidence (reproduction scripts and outputs, Slither runs, screenshots, on-chain checks, and a
   third report verifying the 23 Oct changes) was added unchanged in his original folder layout (`deb54db`),
   after checking it for keys and personal data. All links in his reports now resolve.
+
+## 2026-10-26 (continued) - Second independent review (Alfred)
+
+Alfred's AI-assisted review of `c36cb0c` was read in full and each of its fifteen items checked against
+the current code: thirteen were already fixed (F1-F4, the Pages fixes, and A1-A5/A7 found independently by
+both reviewers) or are recorded as known limitations; two were new.
+
+| Commit | Change |
+| --- | --- |
+| `1ea0479` | Failing tests: B1 (his C02, the sell-out shortcut truncates), B2 (his P04, constructor overflow), and a fuzz property that every accepted configuration can price its supply. The fuzzer found a counterexample |
+| `171d16a` | Fixes: the shortcut rounds up; the constructor rejects a supply whose value at the start price does not fit in 256 bits; the unused production compiler profile matches the default |
+
+Notes: the first B2 check used `Math.tryMul` and ignored part of its result, which Slither reports as Medium
+`unused-return`, failing the gate; it was rewritten as a division before committing. His review also caught
+two errors in our documents (the prompt log called verbatim; `ReentrancyGuard` claimed on every
+state-changing function), both corrected, and prompted four new known limitations in `assumptions.md`
+(token decimals, renouncing ownership, reorganisations, briefly mixed reads). His report and companion files
+will be added to `independent-review/` when he sends them.

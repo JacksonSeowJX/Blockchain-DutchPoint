@@ -92,7 +92,18 @@ credits are tracked separately, so proceeds can never consume ETH owed to bidder
   The AI's original pro-rata rule did not remove it either, and it let a late whale crowd out earlier
   bidders (audit finding F1). A bidder can bound the outcome, though: `contributeWithMinimum` reverts
   rather than fill a bid below the bidder's minimum, and the dApp sends every bid except a sell-out that way.
-- The auction trusts its token contract. It must be paired with a standard ERC20 such as `GavoraToken`.
-  A token with transfer hooks or a dishonest `balanceOf` is out of scope.
+- The auction trusts its token contract. It must be paired with a standard ERC20 such as `GavoraToken`,
+  with 18 decimals (prices are per 10^18 units) and a `burn` function. A token with transfer hooks or a
+  dishonest `balanceOf` is out of scope.
+- The issuer is the `Ownable` owner. Transferring ownership hands over `start` and the proceeds withdrawal;
+  renouncing it before withdrawing would lock the proceeds in the contract for good. Bidders never depend on
+  the owner: finalizing, claiming and withdrawing refunds are open to them.
+- The bid history is rebuilt from contract events and cached in the browser. A chain reorganisation (rare
+  on proof-of-stake Ethereum, and a block or two deep) could leave an orphaned bid in the list until the
+  page reloads. Balances, positions and every action read the chain directly, so only the list is affected.
+- The dashboard reads the auction with separate calls at the latest block, so a refresh that straddles a
+  new block can briefly mix two blocks' values. The next refresh corrects it, and every outcome is decided
+  on-chain. Pinning all reads to one block was avoided because load-balanced public RPCs can briefly lag
+  behind the block number they just reported.
 - The price follows `block.timestamp`. On proof-of-stake Ethereum the timestamp of each 12-second slot is
   fixed, so the price can only lag by up to one slot (1% of the start-to-reserve range).
