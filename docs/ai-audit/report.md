@@ -6,8 +6,8 @@ Every evidence commit cited below is in the history of the `main` branch.
 
 <!-- team-details -->
 
-> Items marked **TODO (team)** need facts only the team has (the original prompts). They are left
-> blank on purpose rather than guessed.
+> Items marked **TODO (team)** need facts only the team has (the original prompts, and the tool Alfred
+> used). They are left blank on purpose rather than guessed.
 
 ## Summary
 
@@ -109,6 +109,7 @@ trace back to them:
 | Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
 | Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5` and a functional test with the real MetaMask extension. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md)) |
+| AI agent, run independently by a team member (Alfred); **TODO (team):** name the tool and model | Evidence-focused review of `c36cb0c` in eight stages: what each record can and cannot prove, fifteen findings, and Node checks of the frontend logic ([`independent-review/alfred/`](independent-review/alfred/AI_Audit_Report.md)) |
 
 ### Toolchain
 
@@ -479,8 +480,8 @@ had been in the Claude Code frontend since the second pass:
 
 ### Second independent review (Alfred)
 
-Another team member (Alfred) used an AI assistant to review the repository at `c36cb0c` (22 October),
-before the third pass. His report weighs what each record in the repository can and cannot prove,
+Another team member (Alfred) used an AI agent to review the repository at `c36cb0c` (22 October),
+before the third pass ([his report and working files](independent-review/alfred/AI_Audit_Report.md), kept unchanged). His report weighs what each record in the repository can and cannot prove,
 re-reads the code, and runs small checks on the frontend logic. It could not run the project's own tests in
 its environment. Each of its fifteen items was checked against the current code:
 

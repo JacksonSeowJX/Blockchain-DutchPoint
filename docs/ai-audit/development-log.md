@@ -441,5 +441,13 @@ Notes: the first B2 check used `Math.tryMul` and ignored part of its result, whi
 `unused-return`, failing the gate; it was rewritten as a division before committing. His review also caught
 two errors in our documents (the prompt log called verbatim; `ReentrancyGuard` claimed on every
 state-changing function), both corrected, and prompted four new known limitations in `assumptions.md`
-(token decimals, renouncing ownership, reorganisations, briefly mixed reads). His report and companion files
-will be added to `independent-review/` when he sends them.
+(token decimals, renouncing ownership, reorganisations, briefly mixed reads).
+
+## 2026-10-30 - Alfred's working files
+
+Alfred sent his whole audit folder. Before publishing it, every file was scanned for keys, passwords, email
+addresses, local paths and names (none found; he had already replaced his working directory with
+`<PROJECT_ROOT>`), the Word file's metadata was checked (blank), the scripts were read (they only read local
+files and run `git rev-parse`), and the four figures were viewed. The report matched the copy reviewed on
+26 Oct byte for byte. It was added unchanged in `b2d8e05` under `independent-review/alfred/`. His report
+uses Windows line endings, which a local link checker misread as broken anchors; GitHub resolves them.

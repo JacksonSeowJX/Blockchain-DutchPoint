@@ -475,3 +475,21 @@ taking it on trust. Thirteen of fifteen were already fixed or were limitations t
 (B1, B2), and it confirmed two criticisms of our own documents. It recommended keeping our report as the
 master and adding Alfred's as a credited second review. It wrote failing tests for B1 and B2 (the fuzzer
 found a real counterexample for B2), fixed both, and rewrote its first B2 check after Slither flagged it.
+
+64. "Please give me the steps to redeploy to Sepolia, and draft a message asking Alfred for his files. Never
+    add matriculation numbers to the public README, only to the report: they are sensitive. Also, has the
+    plan to follow the structure of real Dutch auction projects been done?"
+
+**Agent response:** pointed out that the report is public on GitHub too, so the numbers now go only into
+the copy of the report inside the submission zip: `npm run package` inserts them from a private file kept
+outside the repository, and it confirmed that neither the repository nor its history contains them. It
+archived the first Sepolia deployment record before the redeploy could overwrite it, and corrected its own
+earlier deploy command, which had left out the RPC address.
+
+65. "So the only things I need to do are steps 1 and 2? Alfred has sent his docs in `alfred_docs`; please
+    take a look."
+
+**Agent response:** checked the folder the same way as Sanjeev's before publishing it: a scan for keys,
+passwords, emails, paths and names, the Word file's metadata, the scripts and the figures. It added the
+folder unchanged and described it on the review page, and noted that the files do not say which AI tool
+Alfred used.

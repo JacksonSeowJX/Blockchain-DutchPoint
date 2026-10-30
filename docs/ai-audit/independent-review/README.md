@@ -1,4 +1,9 @@
-# Independent Review (Codex, run by Sanjeev)
+# Independent Reviews
+
+Two team members reviewed the project independently, each with an AI tool of their own, and their work is
+kept here unchanged. Alfred's review (of `c36cb0c`, 22 October) is [below](#alfred-ai-assisted-evidence-review-22-october-snapshot).
+
+## Sanjeev: Codex audit, re-checks and MetaMask test (23 October)
 
 On 23 October 2026 a team member (Sanjeev) independently reviewed `main` at commit `2e2c2a5` with OpenAI
 Codex. This was the third AI pass over the code, after Codex (first build) and Claude Code (review and
@@ -16,7 +21,7 @@ remediation); ChatGPT had written the plan before any code. Everything he produc
 reproductions target code that has since been fixed, so re-running them now would show the fixes rather than
 the defects, and the verification scripts read the chain state of his own sessions.
 
-## What happened to each finding
+### What happened to each finding
 
 Every finding was checked independently before anything was changed (A1 and A4 by recomputing the
 report's numbers, the others by reading the code). Each was then encoded as a frontend regression test that
@@ -36,3 +41,36 @@ fails on the audited code and passes after the fix. See
 The MetaMask report also notes that after the local time-skip one view needed a page refresh to show
 *Ready to finalize*. The report itself says this did not establish a defect. It is recorded here as an
 observation to re-check while rehearsing the demo.
+
+## Alfred: AI-assisted evidence review (22 October snapshot)
+
+Alfred Fong Wei Hao used a single AI agent, in eight stages, to review the repository at `c36cb0c`
+(22 October), before Sanjeev's review and the fixes that followed. His folder (`ai_audit_report/` at the root
+of his copy) is in [`alfred/`](alfred/AI_Audit_Report.md), unchanged:
+
+| File | What it holds |
+| --- | --- |
+| [`AI_Audit_Report.md`](alfred/AI_Audit_Report.md) (and `AI_Audit_Report.docx`) | His report: eight sections on what the repository's records can and cannot prove, fifteen findings (H01-H06, C01-C05, P01-P04), and appendices mapping each claim to its evidence |
+| [`audit_findings.md`](alfred/audit_findings.md), [`audit_evidence.md`](alfred/audit_evidence.md) | The finding register, including concerns he examined and rejected as false positives, and the evidence register (E01-E64) |
+| [`diagrams/`](alfred/diagrams/) | Four architecture figures and their Mermaid sources |
+| [`validation/`](alfred/validation/) | His checks of the frontend logic and their logs. He could not install the project in his environment, so these are Node checks of extracted logic, not the project's test suite |
+| [`questions_for_team.md`](alfred/questions_for_team.md), [`audit_progress.md`](alfred/audit_progress.md), [`sections/`](alfred/sections/) | Open questions for the team, his stage-by-stage progress log, and the section drafts |
+
+His scripts assume their original location (`ai_audit_report/validation/` at the repository root) and the
+code of `c36cb0c`, so they record what he ran rather than something to re-run here.
+
+Every one of his fifteen items was checked against the current code; the full verdicts are in the
+[audit report](../report.md#second-independent-review-alfred). In short:
+
+| His items | Outcome |
+| --- | --- |
+| H01-H06 | Already fixed before his review (our F1-F4 and two GitHub Pages fixes) |
+| C01, C03, C04 | The same defects Sanjeev found (A1, A4, A5), found independently; fixed |
+| C05, P01, P03 | Fixed by the A2/A3 changes (`fe44d91`) |
+| C02, P04 | New: fixed as B1 and B2, each with a test that failed first ([evidence 13](../evidence/13-alfred-review-fixes.txt)) |
+| P02 | Recorded as a known limitation |
+
+He also caught two errors in our documents (the prompt log called verbatim; `ReentrancyGuard` claimed on
+every state-changing function), both corrected. Most of his questions for the team concern evidence that did
+not exist at his snapshot, such as the Sepolia deployment, which later work supplied.
+
