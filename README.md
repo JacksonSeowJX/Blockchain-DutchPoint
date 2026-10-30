@@ -195,9 +195,11 @@ The site is live. `.github/workflows/pages.yml` builds the frontend and publishe
 `main` (or by hand from the Actions tab).
 
 - **What it shows:** the Sepolia auction recorded in `frontend/src/generated/deployments.json`:
-  [GavoraToken](https://sepolia.etherscan.io/address/0xa27d8D74e4e953348b55dc44bD3251bdc0Cc1053) and
-  [DutchAuction](https://sepolia.etherscan.io/address/0xe0f23743C959A9b9774114838A5fbD20d75C6FC0)
-  (1,000 GVRA, 0.0001 → 0.00002 ETH/GVRA, deployed unstarted so the issuer opens the window from the site).
+  [GavoraToken](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8) and
+  [DutchAuction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb)
+  (1,000 GVRA, 0.0001 → 0.00002 ETH/GVRA, deployed unstarted on 31 Oct 2026 so the issuer opens the window
+  from the site). The first deployment, of the contract before bid protection, is recorded in
+  [`deployments/sepolia-2026-10-23.json`](deployments/sepolia-2026-10-23.json).
 - **Redeploying:** run `npm run deploy:sepolia`, commit the updated `frontend/src/generated/deployments.json`
   and `deployments/sepolia.json`, and push to `main`. The next Pages build bundles the new addresses. With
   no Sepolia deployment, the site shows a "not deployed on Sepolia yet" card instead.

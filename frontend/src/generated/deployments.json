@@ -2,9 +2,9 @@
   "11155111": {
     "chainId": 11155111,
     "networkName": "sepolia",
-    "token": "0xa27d8D74e4e953348b55dc44bD3251bdc0Cc1053",
-    "auction": "0xe0f23743C959A9b9774114838A5fbD20d75C6FC0",
-    "deployedAtBlock": 11972430,
+    "token": "0x37183Ae4119bd59A44738788E4839c49EFc4f2f8",
+    "auction": "0x713e80Bea173f595b191ce635fa7dB45395cB1Eb",
+    "deployedAtBlock": 12029876,
     "explorer": "https://sepolia.etherscan.io"
   }
 }

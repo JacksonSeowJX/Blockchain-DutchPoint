@@ -2,20 +2,20 @@
   "network": "sepolia",
   "chainId": 11155111,
   "deployer": "0x5D2EB775B96Ff879AE8Caa427Ef8D66BCB301010",
-  "deployedAt": "2026-10-22T22:11:26.682Z",
+  "deployedAt": "2026-10-30T23:12:37.564Z",
   "parameters": {
     "saleSupply": "1000",
     "startPrice": "0.0001",
     "reservePrice": "0.00002"
   },
   "contracts": {
-    "GavoraToken": "0xa27d8D74e4e953348b55dc44bD3251bdc0Cc1053",
-    "DutchAuction": "0xe0f23743C959A9b9774114838A5fbD20d75C6FC0"
+    "GavoraToken": "0x37183Ae4119bd59A44738788E4839c49EFc4f2f8",
+    "DutchAuction": "0x713e80Bea173f595b191ce635fa7dB45395cB1Eb"
   },
   "transactions": {
-    "deployToken": "0x7ff92a3fbc66ea280f04bd8e610b6501116571dfb3861c7f0a9820e6ff4f5d9e",
-    "deployAuction": "0xab077a62ce7854e6735ffebaab0407c2916a07b5ff2622b1c394edcfbf4b6496",
-    "fundAuction": "0x2fe0a241b7d29d0951945fbd762848410475172ec928739a7393b48fd479de74",
+    "deployToken": "0x903c7ccaddbccbf54543e043f5113e2c2355e2fb5aa2976aab5c03326e290ec3",
+    "deployAuction": "0x5343a7fc073b3904a25c10a539634ec4871f2fab3a413b7049c10b17ccf4f01a",
+    "fundAuction": "0x5de5cd0fcdd3ef95ec15e75ade651d01d718a09be39e214e842eefda8c4da1ee",
     "startAuction": null
   }
 }
