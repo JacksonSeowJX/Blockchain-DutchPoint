@@ -451,3 +451,13 @@ addresses, local paths and names (none found; he had already replaced his workin
 files and run `git rev-parse`), and the four figures were viewed. The report matched the copy reviewed on
 26 Oct byte for byte. It was added unchanged in `b2d8e05` under `independent-review/alfred/`. His report
 uses Windows line endings, which a local link checker misread as broken anchors; GitHub resolves them.
+
+## 2026-10-31 - Sepolia redeployment
+
+The Sepolia auction from 23 Oct ran the contract before bid protection, so a student redeployed with the
+current code (`npm run deploy:sepolia`, unstarted, the same sale parameters). Read back from the chain
+before the new addresses were published: the creation data of both deploy transactions equals the
+repository's build plus the constructor arguments, byte for byte; the auction holds all 1,000 GVRA, is
+owned by the issuer and has not started. The auction deployment used 12.9M gas on Sepolia against 1.85M on
+the local network; the 23 Oct deployment used 12.6M, so the gap was not introduced by this change. The
+first deployment's record is kept as `deployments/sepolia-2026-10-23.json`.

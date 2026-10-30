@@ -493,3 +493,16 @@ earlier deploy command, which had left out the RPC address.
 passwords, emails, paths and names, the Word file's metadata, the scripts and the figures. It added the
 folder unchanged and described it on the review page, and noted that the files do not say which AI tool
 Alfred used.
+
+66. "I'm ready to redeploy to Sepolia; give me the steps, and how to verify the code on Etherscan."
+
+**Agent response:** read the deploy script, the Hardhat configuration and the verify task's options before
+writing the steps, checked which secrets the keystore holds (names only) and that the deployer had enough
+Sepolia ETH. It found that the verify task submits to Etherscan, Blockscout and Sourcify in turn, and that a
+failure on one does not stop the others.
+
+67. (The deploy script's output, pasted.)
+
+**Agent response:** before publishing the addresses it compared both deploy transactions with the
+repository's build and read the new auction's state from the chain. It then pushed the new addresses so
+the live site would switch to the new auction, and recorded the deployment in the report.
