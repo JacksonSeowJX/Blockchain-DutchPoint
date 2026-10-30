@@ -1,0 +1,23 @@
+UTC 2026-10-23T09:18:53.9566403Z
+COMMAND node --input-type=module -e "console.log(import.meta.resolve('hardhat'))"
+CWD <PROJECT_ROOT>
+node:internal/modules/package_json_reader:301
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'hardhat' imported from <PROJECT_ROOT>\[eval1]
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:764:81)
+    at moduleResolve (node:internal/modules/esm/resolve:855:18)
+    at defaultResolve (node:internal/modules/esm/resolve:988:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:697:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:714:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:746:52)
+    at Object.resolve (node:internal/modules/esm/loader:882:25)
+    at file:///<USER_HOME>/Desktop/blockchain%20assignment/Blockchain-DutchPoint/[eval1]:1:25
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v25.9.0
+EXIT_CODE 1

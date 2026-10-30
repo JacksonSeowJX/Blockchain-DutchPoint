@@ -1,0 +1,16 @@
+UTC 2026-10-23T09:18:55.1276797Z
+COMMAND node --test ai_audit_report/validation/stage6_math.test.mjs
+CWD <PROJECT_ROOT>
+✔ display lifecycle handles pending, time clearing, exact deadline and finalized priority (0.6936ms)
+✔ actual display price is bounded and monotonic over every second through twice the duration (1.0762ms)
+✔ accepted commitment estimate does not decrease in this fixed-demand scenario (1.7626ms)
+✔ P04 arithmetic example passes stated reserve-value bound but exceeds uint256 at start (0.0975ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 123.1737
+EXIT_CODE 0

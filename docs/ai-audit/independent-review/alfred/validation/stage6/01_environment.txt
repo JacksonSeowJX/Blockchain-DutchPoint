@@ -1,0 +1,15 @@
+UTC 2026-10-23T09:18:51.0358168Z
+COMMAND node --version; npm --version; git rev-parse HEAD; tool and dependency discovery
+CWD <PROJECT_ROOT>
+v25.9.0
+11.12.1
+c36cb0cebe803db5ee138d89fe2e21e8cfb33ad5
+node C:\Program Files\nodejs\node.exe
+npm C:\Program Files\nodejs\npm.ps1
+slither NOT_FOUND_ON_PATH
+solc NOT_FOUND_ON_PATH
+forge NOT_FOUND_ON_PATH
+tsc NOT_FOUND_ON_PATH
+vite NOT_FOUND_ON_PATH
+node_modules exists: False
+EXIT_CODE 0

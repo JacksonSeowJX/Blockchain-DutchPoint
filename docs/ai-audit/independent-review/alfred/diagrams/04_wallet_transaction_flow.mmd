@@ -1,0 +1,36 @@
+sequenceDiagram
+    actor User
+    participant UI as React components and App.run
+    participant Wallet as Injected wallet and BrowserProvider
+    participant RPC as Chain RPC
+    participant Auction as DutchAuction
+    participant Reads as useAuction
+    User->>UI: Connect wallet
+    UI->>Wallet: eth_requestAccounts
+    Wallet-->>UI: Account and chain through useWallet.sync
+    Note over UI,Wallet: Account must be on a chain with a bundled deployment
+    User->>UI: Submit bid amount
+    UI->>UI: Show wallet stage and obtain signer
+    UI->>Wallet: contribute with ETH value
+    alt User rejects or request fails
+        Wallet-->>UI: Error
+        UI->>UI: Show failed stage through describeError
+    else Transaction submitted
+        Wallet->>RPC: Submit signed transaction
+        RPC-->>Wallet: Transaction hash
+        Wallet-->>UI: Transaction response
+        UI->>UI: Show mining stage and await receipt
+        RPC->>Auction: Execute transaction in a block
+        alt Execution succeeds
+            Auction-->>RPC: State changes and events
+            RPC-->>Wallet: Successful receipt
+            Wallet-->>UI: response.wait resolves
+            UI->>Reads: Show done stage and refresh
+            Reads->>RPC: Read state, balances and ContributionReceived logs
+            RPC-->>Reads: Updated snapshot and bid history
+            Reads-->>UI: Render refreshed data
+        else Execution reverts or receipt wait fails
+            Wallet-->>UI: Error from response.wait
+            UI->>UI: Show failed stage
+        end
+    end

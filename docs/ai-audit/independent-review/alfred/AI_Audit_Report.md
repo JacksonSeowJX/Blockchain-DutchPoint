@@ -1,0 +1,873 @@
+# DutchPoint AI Audit Report
+
+SC4053 Blockchain Technology
+
+Nanyang Technological University
+
+DutchPoint and the Gavora token
+
+23 October 2026
+
+Repository baseline `c36cb0cebe803db5ee138d89fe2e21e8cfb33ad5`
+
+## Scope and evidence
+
+This report evaluates our project's requirements, AI-assisted development, architecture, defects and validation. The implementation changed from pro-rata settlement to capped crossing bids, corrected lifecycle and proceeds behavior, and gained broader testing and a rebuilt interface. The audit also identifies five current source-verified frontend issues and four provisional risks. No unauthorized fund-extraction exploit was demonstrated in the current production contracts. [E43, E49–E62]
+
+Confirmed findings are supported by inspected source, Git objects or the content of retained records. Inferred claims are interpretations that have not been reproduced. Unverified claims lack independent evidence. A historical test log confirms a retained result, not a fresh execution. We use first-person team language for activities documented in the repository, without assigning unsupported individual responsibilities.
+
+The report compares initial commit `0a75a78` with the baseline above. Its conclusions are bounded by missing primary course documents and raw AI sessions, absent public deployment records and incomplete runtime validation. The audit did not modify application code or existing tests. Evidence identifiers refer to the repository source index in Appendix A and the companion evidence register.
+
+## Table of contents
+
+- [1 Initial Specification & System Scope](#1-initial-specification--system-scope)
+- [2 Development Methodology & AI Tooling Infrastructure](#2-development-methodology--ai-tooling-infrastructure)
+- [3 Specification Engineering & Prompt Logs](#3-specification-engineering--prompt-logs)
+- [4 AI-Generated Architecture](#4-ai-generated-architecture)
+- [5 Problems Discovered & Vulnerability Analysis](#5-problems-discovered--vulnerability-analysis)
+- [6 Validation Process & Testing Strategy](#6-validation-process--testing-strategy)
+- [7 Improvements & Refinements](#7-improvements--refinements)
+- [8 Lessons Learned](#8-lessons-learned)
+- [Appendix A Repository evidence index](#appendix-a-repository-evidence-index)
+- [Appendix B Finding source and verification map](#appendix-b-finding-source-and-verification-map)
+- [Appendix C Audit execution record](#appendix-c-audit-execution-record)
+- [Appendix D Outstanding confirmations](#appendix-d-outstanding-confirmations)
+
+# 1 Initial Specification & System Scope
+
+## 1.1 Purpose and users
+
+Our application addresses the problem of distributing a fixed token supply through a transparent sale with a common settlement price. Instead of treating each contribution as an immediate purchase at the displayed price, the intended auction collects ETH commitments while the price decreases. A successful participant then receives tokens according to the final allocation rule and clearing price. The educational objective is to demonstrate how smart contracts coordinate a token sale, account for participant funds and enforce settlement without an application backend. This objective is documented in the initial specification at commit `0a75a78`. It does not establish that the mechanism eliminates transaction-ordering advantages or guarantees fairness under every allocation rule. [E02, E29]
+
+The project is now named DutchPoint and its token is Gavora, with ticker GVRA. The earliest committed implementation used FairLaunch and `LaunchToken`. The preserved ChatGPT planning output already uses DutchPoint and Gavora, although it suggests different tickers. We therefore distinguish the planning record, the first committed specification and subsequent changes. The existing report describes the team's discussion before AI use retrospectively. There are no contemporaneous planning notes or original conversation exports that independently establish the sequence of those discussions. [E09, E29, E31]
+
+The following account reconstructs the original scope from repository evidence. Requirements attributed to the course brief are confirmed as statements in the project documents, but cannot yet be checked against the brief itself because the assignment PDFs are absent. Design choices recorded as assumptions are not treated as requirements approved by the teaching team. [E03]
+
+The intended users were the token issuer and auction participants. The issuer would deploy and fund the auction, start the sale and withdraw the proceeds permitted by its accounting rules. Participants would connect a wallet, commit ETH, inspect their position, claim tokens and withdraw any refund. Assessors were also intended users of the local setup and demonstration instructions. Our team's documented project objective was a complete, locally runnable Ethereum dApp that illustrated the auction lifecycle and its security considerations. [E29, E30]
+
+## 1.2 Requirements and scope boundaries
+
+The original functional requirements were recorded as follows.
+
+Table 1.1 Original functional requirements
+
+| Requirement area | Original intended behavior |
+| --- | --- |
+| Token and inventory | Use an ERC20 token with a fixed initial mint and support permanent burning. Keep the token logic separate from the auction logic and fund the auction before starting it |
+| Auction duration and price | Use a 1,200-second window and a deterministic linear price decrease from a starting price to a reserve floor |
+| Contributions | Accept ETH commitments through a function call or plain ETH transfer while the auction is active. Aggregate repeated contributions by address |
+| Clearing | Identify when committed ETH can purchase the available supply, including when falling prices cause clearing without a new contribution |
+| Settlement | Use one final price, calculate token entitlements and surplus ETH, and prevent duplicate claims or withdrawals |
+| Inventory disposal | Burn unsold tokens after an undersubscribed auction. Preserve unclaimed entitlements and burn rounding dust only when all participants have settled |
+| Demonstration | Provide deployment instructions, a frontend, tests and a local walkthrough covering successful and undersubscribed sales, refunds and reentrancy resistance |
+
+These requirements appear in `docs/spec.md` and `docs/architecture.md` at `0a75a78`. The documents also record non-functional intentions. ETH transfers should follow checks-effects-interactions and use reentrancy protection. Settlement should avoid loops over all bidders so that an individual operation does not depend on processing the entire participant set. Integer arithmetic should preserve token and ETH accounting, and browser estimates should not determine the authoritative outcome. A reproducible local setup should require neither real funds nor paid services. These were design objectives, not claims that the first implementation satisfied every property. [E29, E30]
+
+The initial scope covered one auction per deployment. Auction factories, multiple concurrent auctions, upgradeable proxies, oracles, secondary trading, cross-chain features and a backend database were excluded. The initial assumptions also excluded allowlists, KYC and anti-sybil controls. The application was intended as a local educational dashboard rather than a production token-launch service. [E29]
+
+## 1.3 Initial architecture and economic policy
+
+The planned architecture separated responsibilities into three parts. `LaunchToken` would implement the ERC20 supply and burning behavior using OpenZeppelin. `DutchAuction` would hold the sale inventory and maintain commitments, clearing information, settlement receipts, refund credits and issuer proceeds. A React and Vite frontend would communicate directly with the contracts through ethers and a browser wallet. Hardhat scripts and TypeScript tests would support deployment, ABI export and deterministic demonstrations. The initial token inherited Ownable even though it exposed no later mint function. Removal of that role belongs to the later GavoraToken revision. [E30, E05]
+
+Some auction policies were unresolved in the original requirements. The first committed specification allowed economic clearing before the deadline but delayed settlement until the full 20 minutes had elapsed. It interpreted automatic refund processing as automatic calculation of a credit followed by a separate user-triggered ETH withdrawal. Both interpretations were explicitly recorded as awaiting TA approval. [E29]
+
+The crossing-bid rule also differed between the planning output and the first implementation. The ChatGPT plan proposed allocating only the remaining tokens to the final bidder and returning the excess ETH. The first committed specification instead accepted the entire contribution as a budget and allocated a cleared sale pro-rata across all commitments. It calculated each participant's accepted cost at the common final price and treated the remainder as a refund. Uniform pricing was therefore an original intention, but protecting earlier bidders from dilution by an oversized final bid was not achieved by that initial policy. Arrival-order filling and immediate surplus refunds were implemented later in `20e24b1`. [E12, E29, E31]
+
+## 1.4 Transactions and user interactions
+
+The expected transaction sequence reflected this original settlement model.
+
+Table 1.2 Expected transactions in the initial design
+
+| Transaction or operation | Expected state change in the initial design |
+| --- | --- |
+| Deploy and fund | Mint the initial token supply, create the auction with its parameters and transfer the sale inventory into it |
+| Start | Verify funding and record the start time, establishing the scheduled closing time |
+| Contribute | Increase the caller's commitment and total committed ETH. Register a new participant where needed and record clearing if the threshold is reached |
+| Finalize after the deadline | Record the clearing outcome and final price, calculate global tokens sold and burn provably unsold inventory |
+| Settle and claim | Record the participant's allocation, accepted cost and refund credit, transfer tokens and accrue that participant's accepted cost as issuer proceeds |
+| Withdraw refund or proceeds | Reduce the corresponding available liability or increase withdrawn accounting and transfer ETH to the selected recipient |
+| Burn remaining dust | Burn residual token units after every registered participant has settled |
+
+Reading the price or allowing time to pass does not itself submit a transaction or store a new state. The initial design intended to reconstruct time-based clearing when a transaction processed it. The later audit identified that the original read functions did not consistently reflect this economic state. Likewise, issuer revenue originally accrued through individual participant settlement, rather than becoming fully available at finalization. These distinctions are necessary when describing the initial architecture. [E23, E29, E30]
+
+The planned frontend included wallet and network status, token details, a descending-price chart, a countdown, total committed ETH and an ETH contribution form. It would distinguish provisional estimates from finalized entitlements and provide controls for finalization, claims, refunds, proceeds and dust burning. Transaction status and settlement receipts were intended to make the outcome understandable to participants. [E29]
+
+Wallet connectivity was required to identify the user's address and network and to authorize transactions through MetaMask or a compatible browser wallet. The initial architecture specified ethers v6 and MetaMask, while the specification required a wrong-network state. The browser was expected to read contract state and display estimates without replacing on-chain accounting. Later additions such as the token watchAsset button and revised network-switching states should not be presented as original requirements. [E06, E29, E30]
+
+## 1.5 Instructions to AI tools and later additions
+
+The development log preserves a summary of the instructions supplied to the initial coding agent. They asked it to read the assignment documents, inspect workspace instructions, establish the specification and auction mathematics before implementation, and use Solidity, OpenZeppelin, Hardhat, React, Vite, TypeScript, ethers and MetaMask. The requested deliverables included contracts, frontend code, tests, scripts, documentation and audit evidence, without mainnet deployment or paid services. This is a recorded summary rather than an authenticated verbatim prompt. The single initial commit contains both documentation and implementation, so it cannot independently prove their order of creation. [E09, E32]
+
+Later work changed or extended this scope. The allocation and refund policy changed in `20e24b1`, and the token was renamed and its unused ownership role removed in `1ba8883`. Solidity fuzz and invariant tests, a vulnerable reentrancy baseline, CI and operational Slither checks strengthened validation. Optional Sepolia deployment tooling and GitHub Pages hosting extended delivery beyond the initial local setup. The rebuilt dashboard added event history and a demand meter, followed by theme selection, token registration in the wallet, sale details and FAQ features. Some additions, including the vulnerable baseline, realized ideas already present in the planning output. Their later implementation should not be confused with a wholly new objective. [E14–E16, E31]
+
+# 2 Development Methodology & AI Tooling Infrastructure
+
+## 2.1 Tooling and attribution
+
+The repository records a development process in which AI supported planning, implementation and review. The preserved attribution is to ChatGPT for the planning output, the Codex desktop coding agent for the initial FairLaunch implementation, and Claude Code through its VS Code extension for subsequent review and remediation. These roles are supported by project logs and corresponding code changes. They do not establish exact authorship of individual lines or the amount of independent work performed by each team member. [E08, E09]
+
+Our team retained specifications, code revisions, prompt summaries and test outputs as a record of development. The evidence is uneven in completeness. The ChatGPT plan is an output document rather than a full conversation, the Codex instructions survive as a summary, and the Claude Code prompt log states that wording was edited for grammar and tone. Although that log names a model, this audit does not treat the exact model identity as independently authenticated. No additional coding assistant or IDE plugin is claimed without supporting records. [E08–E10]
+
+Table 2.1 AI tooling and conventional infrastructure
+
+| Tool or infrastructure | Documented role | Evidence boundary |
+| --- | --- | --- |
+| ChatGPT | Outlined the auction flow, contract responsibilities, frontend features, security considerations and tests | Planning output is preserved, but its original conversation and date require confirmation |
+| Codex desktop agent | Produced the initial contracts, React application, tests, scripts and documentation attributed to `0a75a78` | Development log attribution and initial source are available, but the complete session is missing |
+| Claude Code VS Code extension | Compared the plan with the implementation and supported contract fixes, frontend work, debugging, tests and documentation | Edited prompt log and matching revisions support the account, but raw transcript and exact model metadata are missing |
+| Recorded Claude Code subagents | Undertook later Pages-related work and README revisions, reportedly in separate worktrees | Logs describe delegation and review. Original task briefs and complete subagent transcripts are not included |
+| Hardhat, npm scripts and GitHub Actions | Compiled, tested, built, demonstrated and packaged the application through explicit commands | These are conventional automation tools. Their presence alone does not demonstrate AI authorship |
+
+## 2.2 Development and validation workflow
+
+The initial workflow was specification-led in intention. The recorded instructions asked the coding agent to examine the brief and write down auction mathematics before implementation. The first commit contains `docs/spec.md`, `docs/architecture.md`, `docs/assumptions.md` and a requirements checklist alongside the code. These files stated the accounting rules, distinguished token and auction responsibilities, and recorded unresolved interpretations. They were later revised and moved into `docs/design/`. The history confirms that specifications were retained, but not the precise order in which each file was drafted within the first session. [E29, E30, E32]
+
+AI support extended across the application. The initial agent was credited with Solidity contracts based on OpenZeppelin, a React and ethers frontend, Hardhat tests and local deployment helpers. The later review compared the proposed auction behavior with that implementation. The difference between the ChatGPT plan's partial crossing-bid allocation and the implemented pro-rata rule became a concrete investigation target. Rather than relying only on an explanation of fairness, the review added regression tests and a crowd-out example in `35253ce` before changing the contract in `20e24b1`. [E12, E31]
+
+Validation then expanded beyond the original scenario tests. Later commits added a deliberately vulnerable auction for comparison with the protected implementation, Solidity fuzz and invariant tests, mutation-check records, coverage evidence, Slither configuration and CI. Gas-scaling tests were added subsequently. The Solidity properties use forge-std through Hardhat's testing configuration. This does not establish that a separate Foundry command-line workflow was used. [E11–E16]
+
+Frontend debugging also formed part of the recorded process. The later implementation separated the dashboard into components and hooks, introduced a browser-side mirror of the corrected auction rules and made transaction errors easier to interpret. Subsequent changes addressed missing deployment states and divided event-history requests into smaller block ranges. The development log also describes browser checks and a manual MetaMask walkthrough that informed theme, token-registration and sell-out controls. The source changes are confirmed, while the reported browser sessions have not been independently reproduced and their complete automation drivers are absent. [E06, E20, E33]
+
+The scripts made recurring development activities explicit. The original local deployment script created and funded the contracts and exported frontend data. Later deployment tooling added optional Sepolia support and public transaction records. The demo script exercised auction and attack scenarios, while the seed and time-advance helpers supported local demonstrations. ABI export copied contract interface metadata into the frontend. These generated ABI files are products of a script and should not be classified as AI-generated code merely because they were generated. [E07, E14, E28, E30]
+
+CI configuration added compilation, coverage, type checking, frontend builds, demonstrations and Slither checks. A separate workflow built and published the static frontend through GitHub Pages. The packaging script later created a submission archive from a clean committed branch and its reachable history. These mechanisms support repeatable checks and delivery, but configuration does not establish that every historical run succeeded. Pages publication is not explicitly dependent on the separate contract-test workflow, and a main-only archive does not preserve the backup branch's unique commits. [E26, E27]
+
+## 2.3 Human decisions and division of work
+
+Human involvement is documented most clearly in product decisions and requests to review proposed work. In the preserved session log, our team asked for the implementation plan before changes, confirmed the DutchPoint and Gavora naming, accepted the proposed allocation change and requested a repository structure before approving its adoption. The naming, allocation and restructuring commits corroborate that those decisions reached the repository. This is documentary evidence of those decisions, rather than proof that every member independently reviewed every implementation detail. [E34]
+
+The same log records a request for a teammate to review and merge a pull request, followed later by a decision to allow direct commits to main. It also describes the main AI session reviewing subagent changes before incorporating them. An AI session checking another AI's output is distinct from a human code review. The local branch graph confirms retained audit and backup histories, but cannot establish the depth of peer review, remote branch protections or the exact operation that replaced earlier main-branch work. [E01, E08, E34]
+
+The available evidence therefore supports only a limited account of task division. Team members supplied requirements and decisions recorded in prompts, while AI tools were credited with much of the implementation and supporting documentation. Our team has not yet supplied a verified member-by-member account of contract development, frontend work, testing and report preparation. The existing README and report leave those responsibilities unresolved. Assigning roles from Git author names, or equating the person operating an agent with sole authorship of its output, would go beyond the evidence. [E09, Q06]
+
+AI-produced documentation requires the same scrutiny as code. The repository records a correction to an unsupported lecture attribution, but the underlying slides are unavailable for independent checking. Edited prompt records also limit reconstruction of the original instructions. For these reasons, this account distinguishes source-confirmed changes from reported activities and inferred benefits. It does not claim that a second model, high coverage or a historical zero-advisory result proves overall correctness. [E09, E13, E17, E25]
+
+# 3 Specification Engineering & Prompt Logs
+
+## 3.1 Evidence and its limits
+
+The repository preserves specifications, a ChatGPT planning output, an initial Codex prompt summary and an edited Claude Code session log. Together with Git history, these records support a partial reconstruction of how requirements developed. They do not constitute a complete conversation archive. The prompt index still requests the original ChatGPT conversation and Codex session export. The Claude log explicitly describes grammatical and tonal editing, despite the development log calling its prompts verbatim. We therefore paraphrase the recorded instructions below and do not present them as exact original prompts. A confirmed documentary statement means that the statement exists in the repository, not that the underlying session has been independently authenticated. [E09, E32, E35]
+
+This section distinguishes confirmed artifacts from inferred relationships and unverified historical details. Code changes can corroborate an implementation outcome, but cannot establish all of the instructions that produced it. In particular, the initial specification and implementation entered Git together in `0a75a78`. Their order of creation within that work is unverified. [E29–E32]
+
+## 3.2 Specifications and agent context
+
+The initial Codex summary describes instructions to read the project documents, inspect workspace instructions, establish auction mathematics and then implement the local application. The first committed `docs/spec.md`, `docs/architecture.md`, `docs/assumptions.md` and requirements checklist provide a structured design baseline. They describe economic rules, contract responsibilities, interface requirements and testing intentions. These are engineering specifications written in prose and equations, rather than machine-checked formal specifications. The later files under `docs/design/` incorporate remediation and must not be substituted for the initial versions when evaluating the original instructions. [E29, E30, E32, E35]
+
+The revised specification gives concrete rules for accepted commitments, crossing-bid capacity, surplus refunds, time-based clearing and settlement. Its worked example allocates a 2 ETH crossing bid into 1.25 ETH accepted and 0.75 ETH returned. It also distinguishes clearing from finalization and states conservation relationships. Such detail makes an implementation easier to compare with a stated policy. It does not independently validate the mathematics, establish approval by the teaching team or prove safety outside the test model. [E04, E21, E35]
+
+The Claude log says the review agent received the repository at `0a75a78`, the project brief and the earlier ChatGPT plan, followed later by course logistics and lecture slides. The planning output survives, but the primary course documents and original session inputs are unavailable. Repository investigation found no committed `AGENTS.md`, `CLAUDE.md` or equivalent persistent agent instructions. Build, test and CI configurations establish executable development settings, not model settings or the full context of an AI session. [E03, E10, E35]
+
+The same log reports a compaction between Prompts 8 and 9 and the use of persistent memory. Later entries describe delegated tasks with written briefs, isolated worktrees and review by the main agent. These are confirmed descriptions in an edited record. The actual compaction summary, memory files and complete delegated briefs are absent. Their contents, effective use and retention across the session remain unverified. No token counts or context-window sizes can be established. [E34, E40]
+
+## 3.3 Representative iterations
+
+All instructions in the following table are paraphrases of surviving summaries or edited entries. The outcome column separates source changes from reported execution.
+
+Table 3.1 Representative prompt iterations and outcomes
+
+| Requirement and recorded instruction | Initial output or problem | Follow-up and supported outcome |
+| --- | --- | --- |
+| Review the auction against the brief and planning output, then propose a plan before implementation. Claude Prompts 1–3 | Initial pro-rata allocation differed from the surviving plan's remaining-supply policy. The review demonstrated late-bid crowding | Prompts 4–6 record clarification and acceptance of the recommendation. Regressions in `35253ce` precede capped commitments and revised settlement in `20e24b1`. [E31, E36] |
+| Implement auction lifecycle and settlement rules. Initial Codex summary and specifications | Historical regressions target time clearing, status ordering and issuer proceeds dependent on bidder settlement | The broad remediation approval is recorded, but separate bug-level prompts are not. `20e24b1` changes the relevant paths and saved logs report regression passes. [E12, E37] |
+| Provide gas evidence for the no-bidder-loop objective. Claude Prompt 16 | The design constraint needed measurable evidence | `da81b1e` adds five-operation measurements across four crowd sizes. Saved output reports constant measured costs and detection of an injected loop. No separate mutation prompt survives. [E15, E38] |
+| Set up GitHub Pages. Claude Prompt 16 | The request did not initially distinguish hosting the dApp from hosting documentation. Public hosting also exposed deployment and RPC assumptions | The log records clarification to host the dApp. `4d88495`, `388399e` and `9d828ae` add deployment/offline handling, chunked event reads and a Pages workflow. Live hosting was not reverified in this audit. [E39] |
+| Improve the wallet experience after using the application. Claude Prompts 26–40 | Feedback concerned a sold-out state, token import, changing allocation and missing explicit theme controls | The log explains time clearing and uniform pricing, records a stale-address correction and reports approval of UX changes. `9fef77c` and `c36cb0c` corroborate subsequent interface additions. [E33, E41] |
+
+### 3.3.1 Auction policy and lifecycle
+
+The strongest contract example concerns allocation. The original product goal was a uniform-price token auction, but uniform pricing alone does not decide how excess demand is allocated. The surviving ChatGPT output proposes filling the last bidder only to remaining supply, whereas the initial committed specification explicitly chooses pro-rata allocation. Consequently, this is not simply evidence that an agent failed to follow an unambiguous specification. The initial implementation followed a documented policy that the later review challenged. Whether Codex received the earlier plan, and who selected the conflicting policy, remain unverified. [E29, E31, E36]
+
+The lifecycle changes form a less complete prompt chain. The original requirements covered price decay, clearing, settlement and proceeds, while the initial implementation depended on stored clearing state in relevant views and accrued proceeds as individual bidders settled. The review introduced regressions and changed these paths in `20e24b1`. The saved records support the implementation sequence and reported test outcomes. They do not preserve a separate instruction for every defect, so the broad review and remediation requests should not be expanded into invented debugging prompts. In particular, the old proceeds problem concerned the portion associated with inactive bidders, rather than all proceeds necessarily remaining locked until every bidder claimed. [E23, E37]
+
+The specification-quality lesson is an inference from these differences. Explicit allocation and lifecycle rules made the revised design easier to test, while the original documents left unresolved whether their economic policy matched the intended brief. The evidence does not show that unclear prompting caused each defect. A precise but disputed policy and an implementation error require different explanations. [E02, E29, E36, E37]
+
+### 3.3.2 From a performance intention to a measurable check
+
+The no-bidder-loop requirement became more reviewable when the recorded request for gas evidence led to `test/Gas.test.ts`. The test measures a new bid, crossing bid, finalization, claim and issuer withdrawal after 1, 10, 50 and 100 prior bidders. It compares each operation's maximum and minimum gas usage with a one-percent tolerance. The test source confirms this procedure, and the saved evidence reports identical measurements in those scenarios. [E38]
+
+The accompanying record describes an injected loop that caused the claim measurement to fail the check. This helps explain how the stated objective was translated into a test capable of detecting a relevant regression. However, the reusable mutation patch and complete execution procedure are missing. Neither the measurements nor the mutation were rerun during this audit. The outcome supports bounded empirical evidence, not a proof covering every auction state or arbitrary implementation change. [E15, E38]
+
+### 3.3.3 Hosting and wallet feedback
+
+The Pages chain illustrates clarification before implementation. According to Prompt 16, the agent asked what should be hosted and our team selected the dApp. The record describes a delegated brief and subsequent main-agent review. Corresponding commits add an undeployed-network screen, clearer connection failures, deployment-aware network switching and event retrieval in 10,000-block chunks. These changes address assumptions that a local development environment did not expose. The repository corroborates their implementation, but the complete delegated conversation is unavailable and current public deployment remains unverified. [E07, E39, E40]
+
+The later wallet chain is driven by reported use of the application. Prompts 26–37 record questions about the selected network, a sold-out auction, importing tokens and receiving more tokens as the price fell. The response describes time-based clearing and uniform-price settlement as intended behavior, rather than treating every surprising result as a defect. It also acknowledges a stale token address supplied earlier. The record does not establish that an unclear user instruction caused that mistake. [E41]
+
+Prompt 38 records approval of further UX work, and `9fef77c` adds explicit theme selection and wallet token-import support, and makes the sell-out shortcut clearer. Prompts 39–40 then request external design references and discuss which proposed features to adopt. The agent reports that one proposed feature already existed, illustrating a limitation in its assessment of the current application. Commit `c36cb0c` supports the later sale-details, supply-share display, explorer-link and FAQ additions. Browser checks and layout adjustments are reported in the log, but their full execution records are unavailable. [E33, E41]
+
+## 3.4 Interpretation and outstanding evidence
+
+The supported pattern is iterative specification through documents, review findings, user decisions and implementation feedback. More concrete requirements produced more inspectable artifacts, including numerical allocation examples, lifecycle regressions and bounded gas measurements. This relationship is an inference supported by the artifacts, not a measured causal effect of prompt wording on code quality.
+
+Documentation itself also required correction. Prompts 12–15 record reconstruction of the initial scope and a later correction of unsupported lecture attribution, corroborated by `7f32aad`. A retrospective scope statement should therefore remain labelled as retrospective rather than being treated as a contemporaneous prompt. [E09, E25, E40]
+
+Original exports, dated specification handoffs, exact debugging follow-ups and delegated context would strengthen the analysis. Until supplied, claims about complete prompt chains, preserved context, individual authorship and causes of agent mistakes remain unverified. The outstanding requests are recorded in Q04–Q05, Q18 and Q21–Q22. Reconstructed history is not presented as original prompt evidence.
+
+# 4 AI-Generated Architecture
+
+## 4.1 Architectural baseline and attribution
+
+DutchPoint retains the main structure visible in the first committed FairLaunch implementation. Two Solidity contracts manage token supply and the auction, a React application provides the interface, and Hardhat scripts support deployment and validation. There is no application backend or database in the inspected implementation. Contract state is authoritative, while the browser reads that state, derives display estimates and requests wallet-authorized transactions. This comparison uses the initial commit `0a75a78` and current baseline `c36cb0c`. It describes source behavior rather than an independently executed deployment. [E02, E30, E42–E46]
+
+The term AI-generated refers here to the repository's development attribution. The prompt index and development log credit Codex with the initial implementation, and the later edited Claude Code record describes contract remediation and frontend reconstruction. Corresponding commits corroborate the resulting changes. They do not prove that every architectural decision originated with an agent or identify the author of each line. According to the edited record, our team reviewed proposals and approved selected policy and naming changes. Original sessions and the full division of human responsibilities remain unverified. [E08, E09, E34, E47]
+
+## 4.2 Overall structure
+
+The runtime application comprises the browser, its wallet or read-only provider, the selected chain's RPC service and the two deployed contracts. Vite produces static assets, and the Pages workflow configures a hosted build for Sepolia. Hosting the frontend does not deploy the contracts. The committed public deployment map is empty, so the repository establishes deployment capability rather than a verified public auction. [E07, E44, E46]
+
+The browser loads generated ABIs and chain-indexed deployment metadata at build time. Hardhat deployment scripts create the token and auction, fund the auction using a token transfer, optionally start it and export metadata for the browser. These scripts are development and deployment infrastructure, not a continuously running service. Test mocks, including the deliberately vulnerable auction, are separate from the production deployment path. [E14, E28, E46]
+
+Figure 4.1 shows the implemented components and supported connections. The wallet route supplies reads when a connected wallet has a deployment on its chain. Otherwise, the application can use the configured read-only provider. The two provider routes are alternatives selected by the application. [E44–E46]
+
+![Figure 4.1 Overall application architecture](diagrams/report/figure_4_1.png)
+
+Figure 4.1 Overall application architecture
+
+## 4.3 Contracts, interfaces and authority
+
+`GavoraToken` extends OpenZeppelin ERC20 and ERC20Burnable. Its constructor mints the initial supply to a recipient and fixes the name and symbol as Gavora and GVRA. It defines no later mint function and has no ownership role. Its inherited interface includes `transfer`, `transferFrom`, `approve`, `allowance`, `balanceOf`, `totalSupply`, metadata getters, `burn` and `burnFrom`. Token balances and allowances belong to the inherited ERC20 implementation. Burning reduces supply, so fixed initial supply does not mean an unchanging total supply. [E05, E42]
+
+`DutchAuction` holds the inventory and accepted ETH, tracks commitments, derives clearing, records final settlement and distributes assets. It stores the token through `IERC20`, uses `SafeERC20` for claims and calls `burn` through the locally declared `IBurnableERC20` interface. The supplied deployment pairs it with GavoraToken. The auction's fixed `TOKEN_SCALE` assumes 18-decimal units, and its constructor does not validate arbitrary tokens for those decimal or burn semantics. Compatibility with another token is therefore not established merely by accepting its address. [E42, E46]
+
+The current auction interface separates responsibilities as follows. Solidity-generated getters for public state supplement the explicitly defined view functions. [E42]
+
+Table 4.1 Auction interface and permissions
+
+| Interface group | Externally callable operations | Permission and state requirements |
+| --- | --- | --- |
+| Start | `start()` | Current owner only, once, with at least the sale inventory deposited |
+| Bid | `contribute()` and payable `receive()` | Caller sends positive ETH while started, before the deadline and before clearing |
+| Settlement | `finalize()` | Any caller after the scheduled deadline, once |
+| Claim | `claimTokens()` | A contributing address claims its own entitlement once after finalization |
+| Refund | `withdrawRefundTo(address)` | Caller withdraws its own existing credit to a nonzero recipient, independently of finalization |
+| Revenue | `withdrawIssuerProceeds(address)` | Current owner sends unwithdrawn accepted ETH to a nonzero recipient after finalization |
+| Residual inventory | `burnRemainderAfterAllClaimed()` | Any caller after finalization and all participant claims, provided a balance remains |
+| Economic views | `status`, `endTime`, `currentPrice`, `clearingState`, `priceAt`, `maxCommitmentAt`, `remainingCapacity`, `tokensOwed` | Read-only access, with estimates or final values as defined by each function |
+| Ownership | `owner`, `transferOwnership`, `renounceOwnership` | Inherited Ownable interface, with ownership changes restricted to the current owner |
+
+The owner role governs starting and withdrawing proceeds, not participant eligibility or the finalization caller. The current contract has no separate immutable issuer address. Ownership transfer changes who can exercise those privileges. Renouncing ownership removes the owner able to invoke them, which is an architectural consequence rather than a claim that renunciation occurred. No pause, cancellation, parameter-update, allowlist or upgrade mechanism appears in the production contracts. [E42, E43]
+
+The auction applies `nonReentrant` to bidding, claims, refund and proceeds withdrawals, finalization and remainder burning. `start()` and inherited ownership functions are not covered by that modifier. The earlier documentation's broader claim that every state-changing entry point is guarded should not be repeated. Accounting updates precede outbound ETH or claim-token transfers on the inspected paths. These controls are confirmed in source, and are evaluated in Section 5. [E04, E22, E42]
+
+Figure 4.2 distinguishes ETH flows from token-contract calls. Auction inventory is a balance recorded by the token contract. The auction burns its own holdings and transfers claimed tokens to bidders. No bidder ERC20 approval is required to contribute ETH. The recipient of proceeds or a credited refund can differ from the caller, although the current UI uses the connected account for those withdrawals. [E42, E44]
+
+![Figure 4.2 Contract and asset interactions](diagrams/report/figure_4_2.png)
+
+Figure 4.2 Contract and asset interactions
+
+## 4.4 State and storage model
+
+The auction stores aggregate accounting and address-indexed mappings, rather than an array that settlement must traverse. Repeated bids increase the same address's commitment. `participantCount` increases on that address's first positive accepted commitment. The following groups describe logical state, not compiler storage-slot layout. Constants and immutables are distinguished from mutable storage. [E42]
+
+Table 4.2 Contract state groups
+
+| State group | Variables and structures | Architectural role |
+| --- | --- | --- |
+| Fixed configuration | Constants `AUCTION_DURATION`, `TOKEN_SCALE`. Immutables `token`, `saleSupply`, `startPrice`, `reservePrice` | Fix the time window, units, token and sale parameters |
+| Lifecycle | `started`, `finalized`, `cleared`, `startTime`, `lastCommitmentTimestamp`, `clearingTime`, `clearingPrice`, `finalPrice` | Track the start, persisted clearing information and final outcome |
+| Accepted commitments | `totalCommitted`, `commitments[address]`, `participantCount` | Record accepted ETH and the number of participating addresses |
+| Token accounting | `totalTokensSold`, `totalTokensClaimed`, `burnedUnsold`, `tokensClaimed[address]` | Distinguish final allocation, distributed tokens and burned inventory |
+| Claim completion | `claimed[address]`, `claimedParticipantCount` | Prevent duplicate claims and determine eligibility for remainder burning |
+| ETH accounting | `refundCredits[address]`, `refundLiability`, `issuerProceedsWithdrawn` | Separate failed surplus payments from sale revenue already withdrawn |
+| Inherited state | Ownable ownership and ReentrancyGuard state | Support privileged operations and guarded entry points |
+
+For a crossing bid, only remaining capacity becomes a commitment. The auction first attempts to return the surplus to the bidder. If that transfer fails, it creates a refund credit and increases the aggregate liability. After finalization, token claims use the accepted commitment divided by the final price with integer rounding. Proceeds use `totalCommitted - issuerProceedsWithdrawn`, independently of whether bidders have claimed. The remainder-burning operation consumes the auction's actual remaining token balance after all claims, so its scope includes any donated tokens, not only mathematical rounding dust. [E04, E42]
+
+Claims have no expiry. An unclaimed entitlement can therefore delay the final remainder burn indefinitely, while the owner can still withdraw accepted proceeds after finalization. This follows from the separate counters and accounting paths. It is not evidence of an observed operational failure. [E42]
+
+## 4.5 Events and lifecycle
+
+The auction emits `AuctionStarted`, `ContributionReceived`, `AuctionCleared` and `AuctionFinalized` for the sale lifecycle. Asset-related events are `SurplusRefunded`, `RefundCredited`, `RefundWithdrawn`, `TokensClaimed`, `IssuerProceedsWithdrawn` and `TokensBurned`. Inherited token and ownership interfaces also expose transfer, approval and ownership events. The current contribution event includes both the amount sent and the amount accepted, allowing event consumers to distinguish them. [E42, E43]
+
+`status()` computes a five-state view. It checks finalization first, then whether the auction started, then the deadline, and finally clearing. A crossing bid records clearing immediately. Time-based clearing can instead be derived by `clearingState()` without a transaction writing those fields. In that case `finalize()` persists the clearing time and price and emits the clearing event. The stored `cleared` boolean is set during finalization, so it is not a complete live indicator of whether bidding has closed. [E42]
+
+Figure 4.3 represents the status view, including transitions caused by elapsed time. It does not imply that a timer runs on-chain or that passing time writes storage. Clearing closes bids early but does not permit early finalization. Refund credits can be withdrawn whenever they exist and are not restricted to the diagram's final state. [E42]
+
+![Figure 4.3 Auction status transitions](diagrams/report/figure_4_3.png)
+
+Figure 4.3 Auction status transitions
+
+## 4.6 Frontend and wallet data flow
+
+The initial `src/App.tsx` combined wallet connection, snapshots, transaction handling, clock updates and rendering. It loaded local deployment addresses and required the connected provider for snapshots. The current `frontend/src/App.tsx` coordinates smaller components and hooks. This is a source-confirmed structural change, rather than an inference from coding style. [E43, E44]
+
+Table 4.3 Frontend responsibilities
+
+| Current module or component group | Responsibility |
+| --- | --- |
+| `App` | Select provider and deployment, coordinate transaction stages and pass state/actions to components |
+| `useWallet` | Restore or request account access, track account and chain changes, switch networks and request token display in the wallet |
+| `useAuction` | Read contract/account data, cache event timestamps, scan bid history and serialize refreshes |
+| `useNow`, `auctionMath` | Extrapolate time between reads and derive BigInt price, capacity, clearing and quote displays |
+| `BidPanel`, `PositionPanel`, `SettlementPanel` | Present bid, claim, refund, owner and public settlement actions |
+| `PriceChart`, `DemandMeter`, `BidHistory` | Display price, committed demand and event-derived activity |
+| `Header`, `SaleInfo`, `HowItWorks`, `Faq`, `NotDeployed` | Present connection state, metadata, explanations and absent-deployment guidance |
+| `useTheme` | Store display preference locally and apply the selected theme |
+| `DevTools` | Send local Hardhat time-advance and mining RPC calls when shown for chain 31337 |
+
+These responsibilities are confirmed by the current imports, callbacks and hook implementations. Local demo controls call the node directly and are not production-chain transactions. The project uses custom CSS and SVG chart rendering rather than a separate UI or chart framework. [E44]
+
+`useAuction` builds contract objects with the selected read provider. It requests auction configuration, accounting, account position, token balances and the latest block. It refreshes on block events with a 15-second fallback. Bid history is reconstructed from `ContributionReceived` logs in 10,000-block chunks, with progress and timestamps held in browser memory. There is no separate indexer service. The reads are concurrent individual calls rather than one atomic snapshot pinned to a block. The stale-read and reorganisation questions already recorded in E20 remain unresolved. [E20, E44]
+
+`App` extrapolates chain time from the latest fetched timestamp and elapsed browser time, then calls `viewAt` for display. This improves visual continuity but does not authorize transactions or replace contract checks. UI estimates can change before a transaction is mined. Likewise, displaying owner-only controls is a convenience, while the contract's `onlyOwner` checks enforce authority. [E42, E44]
+
+Wallet connectivity uses the injected `window.ethereum` interface and ethers `BrowserProvider`. The hook requests accounts, reads the chain ID and reconstructs the provider when account or chain changes. It supports switching networks, adding the local chain if missing, and `wallet_watchAsset` for token display. It does not implement WalletConnect or collect signing keys. Adding a token to wallet display is distinct from transferring tokens or approving an allowance. [E06, E45]
+
+Figure 4.4 follows a bid through `App.run`. Other auction actions use the same transaction wrapper. The wallet authorizes submission, the chain executes the call, and the application waits for a receipt before requesting refreshed data. Rejected requests and failed receipt waits produce a failed UI stage. [E45]
+
+![Figure 4.4 Wallet transaction flow](diagrams/report/figure_4_4.png)
+
+Figure 4.4 Wallet transaction flow
+
+## 4.7 Evolution and supporting dependencies
+
+The architectural changes can be reconstructed without treating revised documentation as the original design. [E43, E47]
+
+Table 4.4 Architecture evolution
+
+| Area | Initial implementation | Current implementation and recorded reason |
+| --- | --- | --- |
+| Token | `LaunchToken` with constructor metadata, `maxSupply` and Ownable | `1ba8883` introduces GavoraToken and removes the unused ownership role during rebranding |
+| Allocation and refunds | Full contributions, pro-rata allocation for a cleared sale and refunds calculated during account settlement | `20e24b1` caps crossing bids and separates surplus refunds, addressing the documented crowd-out scenario |
+| Settlement accounting | `_settleAccount` combines token transfer, refund creation and proceeds accrual | `20e24b1` separates token claims and credits, making accepted proceeds available after finalization without waiting for each bidder |
+| Lifecycle interface | Stored clearing drives read behavior, with deadline ordering problems | `20e24b1` introduces derived clearing views and corrects status ordering in response to regressions |
+| Browser structure | Combined App with local-address metadata | `c689e3c` introduces components, hooks and display mathematics aligned with the revised auction |
+| Delivery | Local deployment and browser setup | `4c991e6`, `4d88495`, `388399e` and `9d828ae` add optional Sepolia tooling, deployment/offline states, chunked event reads and static Pages delivery |
+| Interface feedback | Earlier dashboard controls | `9fef77c` and `c36cb0c` add wallet/theme and explanatory UI features after the recorded feedback and design discussion |
+
+The initial auction's `issuer` immutable was removed, while current-owner access remains. The old settlement mappings and `issuerProceedsAvailable` were replaced by simpler claim and credit accounting. Interfaces changed accordingly, including replacement of `settlementOf` with the current views and replacement of `burnRemainderAfterAllSettled` with `burnRemainderAfterAllClaimed`. These are contract and ABI changes between source versions, not an on-chain upgrade process. No proxy or migration mechanism is present. [E43]
+
+The root package manifest supplies the frontend and tooling dependencies. It declares ethers 6.17.0, React and react-dom 19.3.0, Hardhat 3.18.0, the Mocha/ethers toolbox 4.0.0, OpenZeppelin Contracts 5.6.1, TypeScript 7.0.2 and Vite 8.3.5. These are repository-declared versions, not fresh installation results. Solidity is pinned to 0.8.28. The default compiler profile uses 200 optimizer runs, while a separate production profile uses 500 runs and viaIR. Deployment scripts do not explicitly select that production profile. [E46]
+
+OpenZeppelin supplies reusable token, ownership, transfer and arithmetic primitives. ethers connects browser and deployment code to contracts. React and Vite provide the client and build process. Hardhat runs TypeScript tests and Solidity properties that import forge-std, while Slither and GitHub Actions support analysis and automation. These tools are infrastructure rather than additional runtime business components. Generated ABI exports are produced mechanically by scripts and do not independently demonstrate AI authorship. [E11, E16, E28, E46]
+
+# 5 Problems Discovered & Vulnerability Analysis
+
+The audit identified confirmed historical problems, current frontend defects and several integration risks that require further testing. It did not demonstrate an unauthorized fund-extraction vulnerability in the current production contracts. This is a bounded finding from source review and isolated local checks, not a declaration that the application is secure. The detailed finding register in `audit_findings.md` and the source map in Appendix B records the affected functions, causes, impacts, severity, fixes and verification limits for each issue. [E49–E56]
+
+The review covered both production contracts and all three test-only contracts, the auction's state and transfer paths, wallet synchronization, transaction submission, data refresh and the relevant UI components. We distinguish code inspection from archived execution records and from checks executed during this audit. Five new checks exercised actual frontend mathematics or narrowly extracted source logic. They did not deploy contracts or interact with a live network. No application source or existing test was modified. [E51, E52, E55]
+
+## 5.1 Findings overview
+
+Severity reflects impact within this project. High denotes substantial allocation or asset consequences, Medium denotes material functional or decision-making impact, and Low denotes limited usability, reporting or configuration impact. Candidate severity remains provisional until the relevant behavior is reproduced.
+
+Table 5.1 Historical findings and current risks
+
+| Finding | Severity | Classification | Current position |
+| --- | --- | --- | --- |
+| H01 Oversized final bid dilutes earlier participants | High under the adopted allocation policy | Confirmed historical economic problem | Changed in `20e24b1` |
+| H02 Reads miss time-based clearing | Medium | Confirmed historical defect | Fixed in `20e24b1` |
+| H03 Cleared status hides finalization readiness | Medium | Confirmed historical defect | Fixed in `20e24b1` |
+| H04 Bidder inactivity strands their share of proceeds | Medium | Confirmed historical defect | Fixed in `20e24b1` |
+| H05 Event query exceeds provider range assumptions | Medium | Historical source defect with narrated failure | Bounded in `388399e` |
+| H06 Switch action targets an undeployed chain | Low | Confirmed historical source defect | Fixed in `4d88495` |
+| C01 Pending quote incorrectly promises a minimum | Medium | Current source-verified functional defect | Open |
+| C02 Sell-out shortcut truncates capacity | Low | Current source-verified functional defect | Open |
+| C03 Negative amount lacks an eligibility guard | Low | Current source-verified validation gap | Complete input path still needs testing |
+| C04 Refund credit appears as paid surplus | Low | Current source-verified reporting defect | End-to-end receiver case still needs testing |
+| C05 Background wallet sync drops errors | Low | Current source-verified error-handling defect | Browser recovery still needs testing |
+| P01 Mixed or stale account/network snapshots | Medium provisional | Current potential integration defect | Controlled race test required |
+| P02 Orphaned event history after a reorg | Low provisional | Current potential integration defect | Reorg/reset test required |
+| P03 Chain change during transaction submission | Medium provisional | Current potential transaction risk | Wallet interleaving test required |
+| P04 Unrepresentable starting capacity | Low provisional | Current extreme-configuration risk | EVM parameter test required |
+
+All current items remain unfixed in this audit. Source-confirmed gaps are not represented as observed wallet incidents, deployed exploits or lost funds. [E49–E56]
+
+## 5.2 Historical problems and their corrections
+
+The clearest historical chain concerns allocation. The original contract accepted the full final contribution and divided the token supply proportionally across all commitments. In the archived example, earlier participants committed 6 and 4 ETH before a 100 ETH crossing bid. The final bidder obtained about 909.09 of the 1,000 tokens under the initial policy. The revised rule accepts only the remaining 1.25 ETH at the crossing price and allocates about 111.11 tokens to that bidder. [E12, E49]
+
+This was an economic policy problem relative to the arrival-order requirement later accepted in the recorded review. The initial specification itself described pro-rata allocation. It would therefore be inaccurate to explain H01 solely as an agent misimplementing an unambiguous instruction or to call all pro-rata auctions insecure. Missing primary requirements and approval records still limit that judgment. The High rating describes the magnitude of dilution under the adopted policy, rather than inheriting the old report's severity without qualification. [E29, E31, E36]
+
+Three further regressions addressed implementation behavior. H02 arose because read functions relied on persisted clearing fields even when falling prices had already closed bidding. H03 gave clearing priority over the elapsed deadline in `status()`, preventing the initial interface from exposing its normal finalization action. H04 accrued proceeds only as individual bidders settled. A bidder who never settled could strand that bidder's accepted portion, while already settled portions could still become withdrawable. [E23, E37, E49]
+
+Commit `35253ce` adds tests before the main fix in `20e24b1`. Archived output records four failures before the correction and four passes afterwards. These records and the matching changes provide evidence of historical remediation. They are not tests newly executed during Stage 5. Direct contract finalization remained possible in H03, and the later proceeds accounting removes the participant dependency in H04. [E12, E49]
+
+Frontend history also shows operational corrections. H05 requested an entire unscanned event range, which conflicted with the provider restriction described in the commit record. `388399e` introduces chunking and incremental progress. H06 offered a default network even when it lacked a deployment, and `4d88495` makes that choice deployment-aware. Source differences confirm both changes. The audit did not independently reproduce the historical provider failure or verify present remote hosting. [E39, E50]
+
+## 5.3 Current frontend findings
+
+C01 is the most consequential current functional finding. `quoteBid` caps the expected accepted amount using capacity at the displayed time, while the bid panel promises that the user will receive at least the resulting token estimate. A pending transaction has not secured that capacity. The source contains the following computation and label.
+
+```typescript
+const accepted = amount < view.capacity ? amount : view.capacity
+```
+
+```text
+You receive at least
+```
+
+The code excerpt omits only its terminating punctuation. With 10 ETH already committed against 1,000 tokens, a new 5 ETH bid is quoted at approximately 333.33 tokens at 400 seconds. If executed at 600 seconds, the lower price leaves only 2.5 ETH of capacity and the same transaction corresponds to 200 tokens plus a 2.5 ETH surplus. No competing transaction is needed. The isolated check executes the repository's actual display mathematics and confirms this reduction. The contract's partial-fill rule is consistent with it. A timed EVM execution remains outstanding. [E51]
+
+The distinction is between accepted commitments and pending bids. Once a commitment has been accepted, a falling final price can increase its allocation. Before acceptance, a crossing bid's accepted amount can shrink. The UI should not extend a guarantee for the first case to the second. This is a Medium reporting and decision-making defect, not evidence that the contract distributes the wrong amount under its own rule. [E42, E51]
+
+C02 concerns transaction input precision. The sell-out shortcut truncates capacity to six decimal places. The checked example converts 0.123456789 ETH into 0.123456 ETH, leaving a nonzero shortfall at the displayed state. A display formatter is therefore being used to construct an amount that the shortcut describes as exact. Preserving transaction precision and shortening only visible labels would address the cause. No correction was applied. [E51]
+
+C03 concerns validation before submission. The bid-button predicate rejects zero but does not reject a negative parsed amount. Its balance check also does not identify this case. The isolated check confirms that negative input to the predicate remains eligible and produces a negative quote. The ethers parser and wallet were not executed, so the specific end-to-end failure remains unverified. The appropriate conclusion is a Low validation gap, not the possibility of sending negative ETH on-chain. [E18, E52]
+
+C04 arises at the boundary between events and presentation. The history component labels the difference between the submitted and accepted amounts as refunded. The contract can instead retain that surplus as a credit if the receiver rejects ETH. Since the history reads only the contribution event, it cannot distinguish those outcomes. This is a confirmed reporting mismatch. The contract already tracks a credit and permits withdrawal to an alternative recipient, so the finding does not imply that the credited funds were lost. [E19, E52]
+
+C05 concerns wallet errors. User-initiated connection catches exceptions, but background restoration and account/chain listeners discard the promise returned by `sync`. A rejecting provider request therefore has no corresponding handler at those call sites. The extracted function check confirms rejection propagation. A mounted browser test is still needed to establish the complete recovery experience and visible symptoms. [E52]
+
+## 5.4 Contract controls and unresolved risks
+
+The production refund and proceeds paths check external-call success. Refund withdrawal clears the caller's credit before sending ETH, and a failed withdrawal reverts. Crossing-bid push failure creates credit instead of requiring the recipient to accept payment. Token claims record completion before calling SafeERC20. Guarded entry points and these accounting choices provide evidence against the simple repeated-withdrawal attack demonstrated by the deliberately vulnerable mock. They do not prove resistance to every adversarial interaction. [E42, E55]
+
+Access checks are also applied at the contract layer. Starting and withdrawing proceeds require the current owner. Finalization and final remainder burning deliberately allow other callers but enforce their state conditions. No current bypass was identified. Token supply is minted at construction, and the project token has no owner or later mint function. The absence of a reentrancy modifier on `start` contradicts overly broad documentation but does not by itself establish an exploitable path. [E05, E22, E55]
+
+Arithmetic inspection found explicit nonzero reserve and supply checks, ordered prices, bounded elapsed time and Math.mulDiv-based calculations. Claims and finalization do not iterate over all bidders. The main arithmetic candidate retained as P04 concerns extreme constructor inputs whose starting capacity cannot fit uint256, rather than a demonstrated overflow with the supplied sale defaults. Compatibility with arbitrary external tokens is also outside the verified pairing of DutchAuction and GavoraToken. [E54, E55]
+
+P01–P03 remain integration candidates. Concurrent latest-state reads can span blocks, old asynchronous loads can outlive account or chain changes, and event caching has no reorganisation rollback. The transaction wrapper also does not explicitly revalidate its captured destination against the latest signer network immediately before submission. These source observations justify targeted tests. They do not establish that a wallet will allow a wrong-chain transaction or that users have seen corrupted state. [E20, E53]
+
+Several apparent security findings should not be overstated. The old withdrawal code's writes immediately before a revert were redundant, rather than a demonstrated exploitable reentrancy path. The earlier protected reentrancy test still tested combined defenses even though a later vulnerable control improved the demonstration. An inactive bidder can delay remainder burning by design, but no longer gates the issuer's accepted proceeds. Ownership renunciation and donated assets are operational boundaries requiring explicit expectations rather than automatic vulnerability labels. [E21–E24, E55]
+
+## 5.5 Verification limits
+
+The audit-only script and outputs are retained under `validation/`. Five checks passed after correcting a TypeScript-extraction error in the harness. The failed first attempt is preserved and does not represent an application test failure. The final record includes runtime version, baseline revision and source hashes. It is narrowly scoped evidence of frontend logic, not a substitute for browser or contract integration testing. [E56]
+
+No current dependency scan, Solidity suite, Slither run or historical EVM replay was performed. Dependencies were absent and no installation was attempted. The existing coverage, gas and invariant results remain historical and bounded by their test models. The detailed register records the tests needed to resolve each candidate and the fixes suggested for confirmed gaps. Section 6 records the subsequent validation and its limits.
+
+# 6 Validation Process & Testing Strategy
+
+The repository uses several complementary validation methods, with stronger automated coverage of contract behavior than of browser integration. It contains scenario tests, regression tests, Solidity properties, attack demonstrations, gas measurements, static analysis configuration and manual browser records. This section distinguishes those historical team activities from the checks newly executed during the audit. The command ledger and behavioral inventory are retained in `testing_results.md`. [E57–E61]
+
+## 6.1 Frameworks and test organization
+
+Contract testing uses Hardhat 3.18.0 with the Mocha/ethers toolbox, Chai assertions and ethers 6.17.0. TypeScript tests create simulated network connections, deploy the token and auction, control timestamps and assert contract errors, events, balances and storage. Solidity fuzz and invariant tests import forge-std and run through Hardhat's Solidity test configuration. This is not evidence of a separate Forge command-line workflow. Slither provides static analysis, while TypeScript and Vite support frontend type and build checks. [E46, E57]
+
+The source inventory contains 46 Mocha test definitions and seven Solidity properties. The total of 53 is a count of definitions, not the number of tests passed during this audit. Fuzz tests are configured for 1,000 runs and invariants for 256 runs with depth 50. These settings describe intended test budgets rather than independently observed audit execution. [E57]
+
+Table 6.1 Existing test definitions
+
+| Suite | Definitions | Main purpose |
+| --- | --- | --- |
+| DutchAuction | 34 | Configuration, lifecycle, pricing, bids, settlement, refunds, proceeds and conservation |
+| AuditRegressions | 4 | Preserve corrected behavior for historical findings H01–H04 |
+| GavoraToken | 5 | Metadata, initial supply, interface restrictions and burning |
+| Reentrancy | 2 | Compare a deliberately vulnerable fixture with the protected auction |
+| Gas | 1 | Compare five operation costs across four bidder populations |
+| Solidity fuzz | 3 | Check price and settlement properties across bounded generated inputs |
+| Solidity invariants | 4 | Check accounting and allocation through generated handler sequences |
+
+Many of the scenario tests combine token and auction contracts, so they also validate local contract integration. A successful claim, for example, depends on auction accounting and the token transfer. This does not extend to the React-to-wallet path, which requires a different integration environment. [E57]
+
+## 6.2 Successful transactions and rejection behavior
+
+The auction suite checks funded start, plain ETH contributions, repeated contributions by one address, partial acceptance of a crossing bid and immediate surplus payment. It verifies emitted amounts and balance changes rather than merely checking that the call returned. Finalization cases cover no demand, an undersubscribed reserve-price sale, early clearing and clearing caused only by elapsed time. Claim tests check common-price allocation, a selected reverse claim order and rounding-dust disposal after all claims. [E57]
+
+The unsuccessful cases are also substantial. They include unauthorized start and proceeds withdrawal, unfunded or repeated start, zero bids, contributions before opening or after closure, early or repeated finalization, claims without entitlement, duplicate claims and duplicate withdrawals. Recipient rejection is tested for both refunds and proceeds. The refund test verifies that a failed payment preserves credit and that withdrawal to another recipient succeeds. These assertions are designed to check rollback and accounting consistency rather than only the presence of an error. [E57]
+
+Access control is tested for the current owner in ordinary start and withdrawal scenarios. Token tests reject burning another holder's balance without an allowance and confirm that no mint or owner entry point appears in the token interface. These cases do not fully cover auction ownership transfer or renunciation, arbitrary external token implementations or every inherited ERC20 operation. Those are boundaries of the existing strategy, not automatically proven defects. [E54, E57]
+
+Input and timing tests include zero supply, zero token address, zero reserve, equal prices, a sale worth less than one wei, reserve-price flooring and exact deadline behavior. A small-price case ensures clearing is not dated before the commitment that funded it. However, testing these selected edges does not cover the extreme starting-capacity candidate P04 or the frontend's negative amount path C03. [E52, E54, E57]
+
+## 6.3 Regression, adversarial and property testing
+
+The strongest remediation evidence is the test-before-fix chain for H01–H04. Commit `35253ce` introduced regressions for crowd-out, time-clearing reads, deadline status and issuer proceeds. Archived outputs record four failures before `20e24b1` and four passes after the changes. The matching source revisions support a correction account, while the absence of a new EVM replay limits this audit to historical execution evidence. [E12, E49]
+
+Reentrancy validation includes a deliberately insecure control. The same attacker is directed at a fixture that transfers before clearing credit and at the production auction. The tests expect the fixture to lose honest bidders' ETH, while the production auction pays only the attacker's own refund. This is more informative than observing a failed attack without a positive control. It still covers a particular refund attack and does not establish security against every possible callback. The vulnerable fixture must not be reported as a production exploit. [E14, E55, E57]
+
+The fuzz suite checks monotonic prices, uniform/conserving settlement and the time-clearing price. The invariant handler generates contributions, time advances, finalization, claims and withdrawals. Its four properties address ETH backing, token conservation, demand bounded by supply and uniform claims. This broadens coverage beyond a few hand-written sequences. Its limits are also concrete. Economics are fixed, the actor set is bounded, and unsupported actions include ownership changes, forced ETH, token donations, final dust burning and claims by the rejecting receiver. Handler preconditions turn many ineligible actions into no-ops, so invalid-call behavior remains dependent on explicit scenario tests. [E21, E57, E62]
+
+Historical mutation records provide further evidence of test sensitivity. Rounding the time-clearing price down causes six recorded failures. Replacing accepted proceeds with the raw ETH balance causes three. A separate planted loop makes the gas test fail. These are useful examples, but reusable mutation patches and complete replay metadata are missing. They do not establish a comprehensive mutation score or prove that every possible incorrect implementation would be detected. [E15, E58]
+
+## 6.4 Coverage, gas analysis and static checks
+
+The archived coverage report contains 52 passing tests, comprising 45 Mocha cases and seven Solidity properties. It predates the added gas test. Both production contracts show 100% line and statement coverage in that record, while the overall totals are lower because of an uncovered mock line. Branch coverage is not established. Executing every line also cannot show that the specification itself was correct or that asynchronous UI behavior was exercised. [E13, E58]
+
+The gas test measures a new bid, crossing bid, finalization, claim and issuer withdrawal after 1, 10, 50 and 100 earlier bidders. The saved measurements are identical across those crowd sizes. The planted-loop example increases claim gas from 163,417 to 410,719 and exceeds the one-percent tolerance. This supports the selected no-bidder-loop objective. It does not establish a universal gas bound for all storage states, tokens or recipients. [E38, E58]
+
+Slither is configured to fail on Medium or High findings, with dependencies excluded and selected equality checks suppressed. The historical record reports 19 findings for the original auction, 14 for the revised auction and none for the token. Detector results require interpretation. For example, redundant writes before a revert do not by themselves demonstrate an exploitable refund path. Historical dependency-audit output likewise cannot establish current advisory status. [E16, E17, E55, E58]
+
+GitHub Actions encodes compilation, coverage, type checking, frontend building and the demonstration script, alongside a separate Slither job. Pages publication does not explicitly depend on that validation job. These files show intended automation, but no current remote run was authenticated during this audit. [E26, E58]
+
+## 6.5 Browser validation and review practice
+
+The development log describes headless Chrome checks with a mock wallet and a manual local MetaMask walkthrough. The recorded manual session switches from chain 56 to Hardhat Local, places bids, finalizes, claims tokens and withdraws proceeds. It led to observations about token import, theme selection and the visibility of the sell-out control. These are documented team activities rather than browser sessions reproduced by this audit. Complete automation drivers and receipt records are not retained in the inspected repository. [E33, E59]
+
+No repeatable frontend test suite comparable to Playwright, Cypress or Vitest was found in the tracked test configuration. A type check can detect type inconsistencies and a build can detect compilation or bundling problems, but neither validates transaction timing, account-switch races or a refund label. The recorded successful allocation of an already accepted bid also does not test C01's misleading minimum for a pending crossing bid. [E51, E59, E62]
+
+Review evidence must be described with the same care. In the edited prompts, our team requested plans, approved selected changes and requested teammate review. Later entries describe the main AI session checking subagent work and documentation claims. This supports a record of review activities, but not a claim that every change received independent human security review. Agent review and team review remain distinct. [E34, E40, E59]
+
+## 6.6 New execution during the audit
+
+The local environment has Node v25.9.0 and npm 11.12.1, but no project dependencies. Hardhat resolution fails with `ERR_MODULE_NOT_FOUND`. Slither, solc, Forge, TypeScript and Vite are not on PATH. A targeted npm-cache query returned no matches for the requested tooling. No installation was attempted. [E60]
+
+The frontend build command was executed and exited with code 1 because `tsc` was unavailable. It stopped before TypeScript compilation or Vite bundling. This is an environment limitation, not a newly demonstrated source compilation defect. Contract compilation, the 53 existing test definitions, coverage and static analysis were not executed, and are not reported as passing. [E60]
+
+Two dependency-free audit runs completed successfully. The five source-level checks from Stage 5 reproduced C01–C05 within their stated limits. Four additional Node tests exercised display lifecycle boundaries, every integer second of price decay through twice the duration, monotonic estimates for an already accepted commitment in a fixed-demand scenario, and the mathematical overflow condition underlying P04. These tests import the actual math module or evaluate narrowly scoped source logic. They are not EVM or browser integration tests. [E61]
+
+The outcomes do not close any finding. C01–C05 remain open, P01–P03 still require controlled integration tests, and P04 remains provisional because its arithmetic example has not been deployed against the locked Solidity toolchain. The exact commands, individual exit codes, source hashes and relevant output are saved under `validation/stage6/`. [E61]
+
+The principal remaining gap is validation across component boundaries. Priority should go to delayed bid execution, complete form parsing, rejected-receiver history, wallet failure recovery, account/chain races and event reorganisation behavior. Contract properties should also be extended only against explicit scope decisions for unusual tokens, donations and ownership changes. The existing strategy provides useful evidence, but its historical execution, restricted model and missing browser automation prevent a broader correctness claim. [E62]
+
+# 7 Improvements & Refinements
+
+Our project evolved from the FairLaunch implementation in `0a75a78` to the DutchPoint baseline in `c36cb0c`. The repository attributes the initial implementation to Codex and documents later Claude Code assistance. Recoverable source versions confirm the changes below, but do not establish individual authorship of every change. Human decisions are described only where the edited development record supports them. Historical test results are distinguished from checks performed during this audit. [E08, E34, E43, E47]
+
+## 7.1 Contract behavior and accounting
+
+The capped crossing-bid rule examined in Section 5 is a confirmed policy revision, not simply a correction to an unequivocal original requirement. The initial specification described pro-rata allocation, while the surviving planning material described a different approach. According to the edited session record, our team requested an explanation of the alternatives and approved the revised rule. That decision protects previously accepted commitments from the specific crowd-out scenario. It does not establish that arrival-order allocation is universally fair or that the TA approved the interpretation. [E29, E31, E34, E36]
+
+Table 7.1 summarizes the contract changes and their outcomes. The test-before-fix sequence is evaluated in Section 6.
+
+Table 7.1 Contract refinements
+
+| Improvement | Original limitation | Modification and outcome |
+| --- | --- | --- |
+| Crossing-bid acceptance, H01 | Full acceptance could dilute earlier commitments under pro-rata settlement | Acceptance is capped at capacity and surplus is separated from commitments |
+| Time-clearing reads, H02 | Read methods could continue reporting an active sale after price decay had met the clearing condition | Derived clearing views expose the time-based outcome before a transaction persists it |
+| Deadline status, H03 | Cleared status took precedence over the deadline, hiding the normal frontend finalization action | Deadline priority exposes awaiting-finalization status while direct finalization remains permissionless |
+| Independent proceeds, H04 | Each bidder's settlement released that bidder's portion of issuer revenue | Accepted proceeds become withdrawable after finalization without waiting for individual claims |
+
+The accounting refactor separated token claims, refund credits and proceeds. The previous `_settleAccount` combined these responsibilities. The revised `claimTokens` records the claim before transferring tokens, while `withdrawRefundTo` handles existing credit and `withdrawIssuerProceeds` uses accepted commitments minus prior withdrawals. This removes the inactive-bidder dependency for revenue without consuming refund liabilities. Unclaimed tokens can still delay the final remainder burn, which intentionally waits for all participants. [E42, E43, E49]
+
+The revised clearing calculation also uses upward rounding where needed to avoid allocating more than the sale inventory. Historical mutation records show failures when that rounding is changed downward. The constructor now rejects a supply whose entire reserve-price value is below one wei. These are concrete arithmetic safeguards, although they do not establish correctness for all uint256 configurations. The extreme starting-capacity candidate P04 remains unresolved at EVM level. [E15, E54, E57, E58]
+
+## 7.2 Security controls and authority
+
+Security improvements should be separated from controls that already existed. The initial auction already used ReentrancyGuard and effects-before-transfer accounting on relevant paths. Removing redundant restoration writes immediately before a revert simplified the code, but did not repair a demonstrated reentrancy exploit. Commit `031b753` instead improved the evidence by adding a deliberately vulnerable control and a reusable attacker demonstration. The production auction and the insecure fixture are distinct contracts. [E14, E55]
+
+The token refactor in `1ba8883` removed unused Ownable functionality and the `maxSupply` field while introducing Gavora metadata. Both versions minted at construction without a later mint function. The confirmed improvement is a smaller interface that better expresses the token's role, not the removal of an exploitable administrator mint function. In the auction, owner checks remain on start and proceeds withdrawal. The redundant immutable issuer identity was removed, and current ownership governs those privileges. No historical access-control bypass was established. [E42, E43]
+
+Dependency maintenance in `c55fcc1` separated browser runtime dependencies from build tooling and updated packages, including Vite from 8.3.1 to 8.3.5. The saved dependency record reports a reduction from ten advisories to zero at that time. Classification alone does not remove build-time exposure, and the audit has not verified present advisory status or independently reproduced every reachability judgment. [E17, E63]
+
+## 7.3 Frontend, wallet and delivery refinements
+
+Commit `c689e3c` replaced the combined App implementation with components, wallet and auction hooks, display mathematics and error helpers. This provides separate locations for bidding, positions, settlement, history and price visualization. It also supports read-only RPC access instead of requiring a connected wallet for all snapshots. Improved reviewability is a reasonable inference from the separation, but no maintenance-time measurement exists. [E33, E43, E44]
+
+Table 7.2 Frontend and wallet refinements
+
+| Change and evidence | Earlier limitation | Result and boundary |
+| --- | --- | --- |
+| Dashboard and transaction handling, `c689e3c` | Wallet, reads and rendering were combined in the original App | Components and hooks separate responsibilities, with wallet, mining, completion and failure stages. This does not cover every background rejection |
+| Deployment and offline states, `4d88495` | Missing deployments and unreachable RPCs lacked suitable guidance, and switching could target an undeployed chain | Dedicated states explain availability and restrict switch choices to bundled deployments |
+| Event scanning, `388399e` | One large query assumed the RPC would accept the full historical range | Queries use 10,000-block chunks. This addresses the recorded provider-range problem, not reorganisation recovery |
+| Wallet and theme controls, `9fef77c` | Token import required manual steps and theme choice followed system behavior | A wallet token-display request and persistent theme selector were added. The existing sell-out shortcut was made clearer |
+| Sale explanation, `c36cb0c` | The earlier dashboard offered less explicit sale and position context | Sale details, share-of-supply display, explorer links and an FAQ were added. Share of supply is a position metric, not social sharing |
+
+These changes are confirmed in source and supported by the edited prompts and development log. The wallet refinements followed the recorded local MetaMask walkthrough, which exposed difficulty importing the correct token and finding existing controls. Commit `9fef77c` uses deployment-derived token metadata through `wallet_watchAsset`. Its commit record describes mock-wallet browser validation, but the complete driver is absent. Token display in a wallet is not itself a token transfer. [E41, E45, E50, E59, E63]
+
+Deployment tooling also became network-configurable in `4c991e6`, and `9d828ae` added static Pages publication. The folder reorganization in `49a0d59` grouped frontend, mocks and documentation. These are delivery and organization improvements, not a replacement of the two-contract architecture or proof of public contract deployment. The committed public deployment map remains empty. [E39, E43, E46]
+
+## 7.4 Validation and gas evidence
+
+The project added regressions, a vulnerable reentrancy control, fuzz and invariant properties, static analysis and CI. Commits `35253ce`, `031b753`, `7d4a531` and `2c450c4` establish these additions. They broaden the strategy from selected scenarios to generated sequences and negative controls. The current inventory contains 53 test definitions, while the earlier coverage record contains 52 passing tests because it predates the gas test. Neither number is a fresh audit execution of the contract suite. [E57, E58]
+
+Commit `da81b1e` added a gas-scaling test for five operations at four bidder populations. Saved results show unchanged costs across those populations, while a planted claim loop makes the test fail. This supports the bounded-cost design objective. Since the initial implementation already avoided bidder-wide settlement loops, it would be inaccurate to describe this as a demonstrated conversion from linear to constant-cost settlement. No like-for-like historical benchmark establishes a general reduction in production gas consumption. The improvement is measured regression protection. [E38, E55, E58]
+
+Our documented review process includes requests for plans, explanations of economic choices and approval of selected changes. Later records also describe AI review of delegated work. Those activities support a qualified account of engineering oversight, not a claim that every revision received independent human security review. Team responsibilities and review artifacts remain open questions. [E34, E40, E59]
+
+The refinements have not eliminated every problem. Stage 6 reproduced five narrow frontend counterexamples and passed four additional mathematical tests, but could not run the contract toolchain or frontend build successfully because dependencies were absent. C01–C05 remain open and P01–P04 retain their stated verification limits. Audit-only checks are additional evidence, not fixes or historical team tests. [E60–E62]
+
+# 8 Lessons Learned
+
+The project demonstrates both the usefulness of AI assistance and the need to evaluate its output against explicit requirements. The repository documents assistance with planning, implementation, remediation, frontend design and testing. It also preserves defects, revised assumptions and corrections to generated explanations. These records support a specific assessment of our development process, but not a measured productivity claim or a complete reconstruction of the original sessions. [E08–E10, E34, E35]
+
+## 8.1 Useful assistance requires observable outcomes
+
+AI assistance was useful in producing material that could be examined and tested. The strongest example is the progression from review findings to regression tests and contract changes. Four regressions were committed before the main remediation, and the archived outputs record their change from failure to success. The later fuzz, invariant, attack-control and gas tests added different ways to challenge the implementation. These are observable contributions to validation rather than evidence that an agent's initial assessment was sufficient. [E12, E14, E38, E57, E58]
+
+The frontend record also shows iterative assistance responding to concrete feedback. The local wallet walkthrough led to a token-display action and clearer controls. Modular hooks and components provided distinct places to reason about wallet state, contract reads and transactions. It is plausible that generating these artifacts reduced some implementation effort, but no contemporaneous timing comparison exists. We therefore cannot state hours saved, a percentage improvement or a reliable proportion of AI-written code. [E33, E41, E44, E59]
+
+## 8.2 Requirements need economic examples
+
+The allocation revision shows why apparently clear auction terminology is insufficient. The initial committed specification described pro-rata allocation, while the preserved plan used a remaining-supply approach. A large final bidder behaved differently under those policies. According to the edited record, our team asked for an explanation and approved the change after considering its implications. That was an economic decision, not simply a syntactic repair. The missing original handoff prevents us from attributing the divergence to one prompt or participant. [E29, E31, E34–E36]
+
+Future specifications should give numerical examples for a crossing bid, price-only clearing, no demand and an inactive claimant. They should distinguish submitted ETH from accepted ETH, early bid closure from finalization, and a paid refund from a retained credit. These distinctions already matter in our implementation. C04 shows that correct credit accounting can still be misrepresented by a frontend that labels all surplus as refunded. Agreement on the contract alone does not settle the interface's meaning. [E42, E49, E52]
+
+Prompt refinement was most useful when it resolved a concrete ambiguity. The recorded Pages discussion distinguished publishing documentation from hosting the dApp, and later wallet feedback identified specific interactions to improve. Conversely, a proposed UI feature was recognized as already present during the later design discussion. A future request should identify the current behavior, the desired change and an acceptance example before asking for implementation. This recommendation follows the observed iterations without inventing the missing original prompts. [E39–E41]
+
+## 8.3 Generated correctness claims need independent checks
+
+The initial AI-attributed implementation contained stale clearing reads, misleading deadline status and proceeds accounting dependent on bidder settlement. Those behaviors had concrete functional consequences even though the application had tests and a coherent structure. Later AI-assisted revisions addressed them, but the current interface still overpromises a minimum allocation for a pending bid. The audit's C01 example reduces a quoted allocation from approximately 333.33 to 200 tokens as capacity changes before execution. Assistance from a subsequent tool does not remove the need to verify the revised output. [E47, E49, E51]
+
+Our evidence does not establish which individual generated line caused each defect or whether unclear prompting caused it. In particular, H01 was relative to an adopted policy, while H02–H04 were implementation problems. A useful review must separate policy selection, source behavior and user-visible claims. Otherwise, it can incorrectly label an intentional economic rule as a security exploit or treat passing tests as approval of the requirements. [E36, E49, E55]
+
+C02 provides a smaller but instructive example. Truncating capacity to six decimals is acceptable for a short display, but changes the transaction amount when reused by the sell-out shortcut. Future reviews should follow values across presentation, parsing, wallet submission and contract execution. The same boundary-oriented approach is needed for account changes, chain changes and rejected provider requests. [E51–E53]
+
+## 8.4 Testing must challenge both code and assumptions
+
+The project's strongest testing practices use counterexamples. Regressions preserve specific failures, the vulnerable control demonstrates that the attacker can exploit an insecure fixture, and mutation records show selected faulty changes being detected. The gas mutation similarly tests whether the measurement can detect bidder-dependent work. These methods provide more useful evidence than a broad assertion that the contract is secure. [E12, E14, E15, E38, E58]
+
+Their limits remain important. Historical full line and statement coverage of production contracts does not establish branch coverage, all economic behaviors or frontend correctness. The invariant model uses bounded actors and excludes several actions, including ownership changes and donations. No repeatable tracked browser suite was found. The next testing priority should therefore be scenarios crossing the frontend, wallet and contract boundaries, especially delayed bids, rejected-receiver reporting and account or chain changes during requests. These are recommendations, not completed improvements. [E57, E58, E62]
+
+Reproducibility also affects the strength of a claim. During this audit, nine dependency-free check groups passed across two commands, while the build stopped because `tsc` was missing. Contract compilation and the existing suite were not run. The proper conclusion is a limited source-level validation result and an unavailable toolchain, not a clean application build or a newly failing Solidity implementation. Future validation records should preserve the revision, dependency installation, runtime versions, exact commands, exit codes and outputs together. [E60, E61]
+
+## 8.5 Preserve context and review provenance
+
+The edited session describes a compaction boundary and delegated tasks, but the actual compaction summary, memory instructions and delegated briefs are absent. There is no evidence of token counts, context-window sizes or a specific defect caused by context loss. We cannot use those missing records to explain every inconsistency. A practical improvement would be to retain a versioned decision register and attach the relevant source revision and acceptance criteria to each handoff. [E35, E40]
+
+Prompt provenance needs similar care. The repository explicitly says that the Claude session was edited, while another document calls it verbatim. Original ChatGPT and Codex exports remain missing. Future records should keep redacted raw exports separate from readable summaries and label reconstructed recollections. This would make it possible to distinguish instructions supplied before implementation from explanations written afterwards. [E08, E09, E35]
+
+Human oversight remains essential where a decision requires authority or interpretation. Our documented requests for plans and approval of allocation changes are evidence of participation. They do not establish review by every team member, independent security approval or TA acceptance. The corrected unsupported lecture citation also shows why an agent's explanation needs checking against primary course material. Git authorship and an AI's review of another agent are not substitutes for a record of human review. [E25, E34, E40, E59]
+
+For future work, we recommend linking each material requirement to an executable example and a named review decision. Economic and ownership policies should be approved before implementation changes, while claimed fixes should retain a failing case and its passing result. Browser integration should be tested alongside contract properties, and deployment claims should be backed by chain and transaction records. Raw prompt records and reproducible validation outputs should accompany the readable report. These practices are proposed responses to this project's evidence gaps and remaining findings, not activities we claim to have already completed. [E34, E46, E49, E62, E64]
+
+# Appendix A Repository evidence index
+
+All factual references below are repository sources. No external publication was newly used as authority, so no external bibliography is added. Tool and library descriptions are based on manifests, imports and configuration, not on claims about their current releases. Historical paths are resolved at the named commit. Current paths are relative to the repository root at the report baseline.
+
+The complete classifications and verification boundaries remain in `audit_evidence.md`. Original prompt material is located under `docs/ai-audit/prompts/`, with its missing exports and edited wording distinguished in Section 3. The four original Mermaid sources remain in `diagrams/`. The report figures are simplified, source-derived visual presentations of the same architecture and are not runtime evidence.
+
+**E01 Confirmed record.** `git ls-files`, `git status --short`, `git rev-list --count HEAD`, `git rev-list --all --count`, `git rev-parse --is-shallow-repository`, `git tag --list`
+
+**E02 Confirmed record.** README, `scripts/deploy.ts:SALE_SUPPLY,START_PRICE,RESERVE_PRICE`, both production contracts
+
+**E03 Confirmed record.** `docs/design/spec.md:Sources`, `assumptions.md`, `.gitignore:*.pdf`, tracked/hidden file inventory
+
+**E04 Confirmed record.** `contracts/DutchAuction.sol:_contribute,_timeClearing,status,finalize,claimTokens,withdrawRefundTo,withdrawIssuerProceeds`
+
+**E05 Confirmed record.** `contracts/GavoraToken.sol`, generated token ABI, `test/GavoraToken.test.ts`
+
+**E06 Confirmed record.** `frontend/src/hooks/useWallet.ts`, `useAuction.ts:load,refresh`, `lib/auctionMath.ts`, `App.tsx:run,chainNow`, all components
+
+**E07 Confirmed record.** `frontend/src/generated/deployments.json` (`{}`), `scripts/lib/export-frontend.ts`, `scripts/deploy.ts`, `.github/workflows/pages.yml`
+
+**E08 Confirmed record.** `docs/ai-audit/prompts/README.md`, `chatgpt-plan.txt`, `claude-code-session.md:Prompts 2–8,16,23–25`, `development-log.md`, `78b8244`, `16232b9`, `b8ad685`, `64b0b89`
+
+**E09 Confirmed record.** `prompts/claude-code-session.md:About the wording`, `prompts/README.md`, existing report §1/§3
+
+**E10 Confirmed record.** Hidden-file inventory, ancestor AGENTS.md checks, `git log --all --name-only --format=`, `.gitignore`
+
+**E11 Confirmed record.** All files under `test/`, `hardhat.config.ts:test`, source inventory/counts
+
+**E12 Confirmed record.** Evidence 01–04, `35253ce` adds regressions/PoC, `20e24b1` changes auction and adds after-records
+
+**E13 Confirmed record.** `docs/ai-audit/evidence/07-test-suite-and-coverage.txt`, dated 2026-10-20T05:17Z
+
+**E14 Confirmed record.** `test/Reentrancy.test.ts`, `contracts/mocks/`, `scripts/demo.ts`, evidence 05, `031b753`
+
+**E15 Confirmed record.** Evidence 06/09, `test/Gas.test.ts`, `7d4a531`, `da81b1e`
+
+**E16 Confirmed record.** `package.json:scripts.slither`, `slither.config.json`, `contracts/DutchAuction.sol`, evidence 08, `2c450c4`
+
+**E17 Confirmed record.** `c55fcc1`, package files, evidence 10
+
+**E18 Confirmed record.** `frontend/src/components/BidPanel.tsx:input parsing/action.disabled`, `lib/format.ts:parseEthInput`
+
+**E19 Confirmed record.** `BidHistory.tsx:refunded`, `useAuction.ts` scans only `ContributionReceived`, `DutchAuction._refundSurplus` emits distinct outcomes
+
+**E20 Confirmed record.** `useAuction.ts:load,refresh,lastBidBlock,blockTimes`, `App.tsx:chainNow`
+
+**E21 Confirmed record.** `test/solidity/DutchAuctionInvariant.t.sol:AuctionHandler`, fuzz suite constants, all TS tests
+
+**E22 Confirmed record.** `docs/design/architecture.md:Security controls`, `DutchAuction.start`, generated auction ABI
+
+**E23 Confirmed record.** `0a75a78:contracts/DutchAuction.sol:_settleAccount,withdrawIssuerProceeds`, report §5 F4
+
+**E24 Confirmed record.** Existing report §5 F6, original contract refund path, `031b753`
+
+**E25 Confirmed record.** `7f32aad`, development log “Source Reading Notes”, report “Other issues found”
+
+**E26 Confirmed record.** `.github/workflows/ci.yml`, `pages.yml`
+
+**E27 Confirmed record.** `scripts/package.sh`, `4981dbc`
+
+**E28 Confirmed record.** `scripts/lib/export-frontend.ts:exportAbi`, generated files
+
+**E29 Confirmed record.** `git show 0a75a78:docs/spec.md`, particularly Product Goal, Auction Policy, Core Requirements Map, Auction Mathematics, Frontend Requirements and Non-Goals. Also `0a75a78:docs/assumptions.md`
+
+**E30 Confirmed record.** `git show 0a75a78:docs/architecture.md`, Contracts, Frontend Structure, Scripts and Test Strategy
+
+**E31 Confirmed record.** `docs/ai-audit/prompts/chatgpt-plan.txt`, Important Edge Case, Refunds, Reentrancy Protection. Compare `0a75a78:docs/spec.md` with `20e24b1` and `031b753`
+
+**E32 Confirmed record.** `docs/ai-audit/development-log.md`, 2026-09-25 Initial Prompt And Scope. Initial commit contains both specification and implementation
+
+**E33 Confirmed record.** `c689e3c`, `4d88495`, `388399e`, `94e53c6`, `9fef77c`, `c36cb0c`. `docs/ai-audit/development-log.md`, October 21–22 entries
+
+**E34 Confirmed record.** `docs/ai-audit/prompts/claude-code-session.md`, Prompts 3–7, 10–11 and 14–16. Matching changes in `20e24b1`, `1ba8883`, `49a0d59`. Delegation descriptions in Prompts 16 and 23–24
+
+**E35 Confirmed record.** `docs/ai-audit/prompts/README.md`, `claude-code-session.md`, opening wording/context notes, `docs/ai-audit/development-log.md`, Initial Prompt And Scope and October 20 introduction, `0a75a78:docs/spec.md`, current `docs/design/spec.md`
+
+**E36 Confirmed record.** `docs/ai-audit/prompts/chatgpt-plan.txt`, Important Edge Case, `0a75a78:docs/spec.md`, Auction Mathematics, `claude-code-session.md`, Prompts 1–6, `35253ce`, `20e24b1`, historical evidence records 01–04 under `docs/ai-audit/evidence/`
+
+**E37 Confirmed record.** `35253ce:test/AuditRegressions.test.ts`, `git diff 35253ce 20e24b1 -- contracts/DutchAuction.sol`, saved before/after regression records, `claude-code-session.md`, Prompts 2–6
+
+**E38 Confirmed record.** `claude-code-session.md`, Prompt 16, `da81b1e`, `test/Gas.test.ts`, CROWD_SIZES, TOLERANCE_BPS, measure and spread assertion, `docs/ai-audit/evidence/09-gas-scaling.txt`, `docs/design/spec.md`, Conservation and safety properties
+
+**E39 Confirmed record.** `claude-code-session.md`, Prompt 16, `4d88495` App/NotDeployed/useAuction/contracts/errors changes, `388399e:frontend/src/hooks/useAuction.ts`, `9d828ae`, `.github/workflows/pages.yml`
+
+**E40 Confirmed record.** `claude-code-session.md`, Context management and named prompts, `a7b6565`, `7f32aad`, `49a0d59`, E09–E10 and E25
+
+**E41 Confirmed record.** `claude-code-session.md`, Prompts 26–40, `94e53c6`, `9fef77c`, `c36cb0c`, `frontend/src/App.tsx`, `frontend/src/components/BidPanel.tsx`, `frontend/src/hooks/useWallet.ts`, E33
+
+**E42 Confirmed record.** `contracts/DutchAuction.sol`, declarations, events, constructor, all external/public functions, `_contribute`, `_refundSurplus`, `_timeClearing`, `_burnUnsold`, `contracts/GavoraToken.sol`, function/event inventories in `frontend/src/generated/DutchAuction.json` and `GavoraToken.json`
+
+**E43 Confirmed record.** `0a75a78:contracts/LaunchToken.sol`, `0a75a78:contracts/DutchAuction.sol`, `_settleAccount`, `_finalSettlement`, `settlementOf`, `status`, `0a75a78:src/App.tsx`, `loadSnapshot`, `useTicker`, `0a75a78:src/lib/contracts.ts`, `20e24b1`, `1ba8883`, current contracts
+
+**E44 Confirmed record.** `frontend/src/App.tsx`, provider/deployment selection, `chainNow`, `viewAt`, component props, `hooks/useAuction.ts`, `load`, `refresh`, `LOG_CHUNK_BLOCKS`, `lib/auctionMath.ts`, `lib/contracts.ts`, `components/DevTools.tsx`, `hooks/useNow.ts`, `hooks/useTheme.ts`, component imports and implementations
+
+**E45 Confirmed record.** `frontend/src/hooks/useWallet.ts`, `sync`, `connect`, `switchChain`, `watchToken`, `frontend/src/App.tsx`, `run` and action callbacks, `frontend/src/vite-env.d.ts`
+
+**E46 Confirmed record.** `package.json`, `package-lock.json`, `hardhat.config.ts`, `frontend/vite.config.ts`, `scripts/deploy.ts`, `scripts/lib/export-frontend.ts`, `.github/workflows/pages.yml`, `frontend/src/generated/deployments.json`
+
+**E47 Confirmed record.** `docs/ai-audit/prompts/README.md`, `docs/ai-audit/development-log.md`, Initial Prompt And Scope and October 20–22 entries, `docs/ai-audit/prompts/claude-code-session.md`, Prompts 3–6, 16 and 26–40, `20e24b1`, `1ba8883`, `c689e3c`, `4c991e6`, `4d88495`, `388399e`, `9d828ae`, `9fef77c`, `c36cb0c`
+
+**E48 Confirmed record.** `ai_audit_report/diagrams/04_overall_architecture.mmd` maps to E44–E46, `04_contract_interactions.mmd` and `04_auction_states.mmd` map to E42, `04_wallet_transaction_flow.mmd` maps to E45. Identical code blocks are embedded in Section 4
+
+**E49 Confirmed record.** Initial `0a75a78:contracts/DutchAuction.sol`, `_contribute`, `_finalSettlement`, `status`, `currentPrice`, `_settleAccount`, `35253ce`, `20e24b1`, `test/AuditRegressions.test.ts`, archived evidence 01–04, with failing and passing assertions re-read in Stage 5
+
+**E50 Confirmed record.** `git diff 388399e^ 388399e -- frontend/src/hooks/useAuction.ts`, `git diff 4d88495^ 4d88495 -- frontend/src/App.tsx`, corresponding commit messages
+
+**E51 Confirmed record.** `frontend/src/lib/auctionMath.ts`, `viewAt`, `quoteBid`, `frontend/src/components/BidPanel.tsx`, minimum label and sell-out callback, `frontend/src/lib/format.ts`, `trimDecimal`, `validation/stage5_checks.mjs` C01–C02 and final output
+
+**E52 Confirmed record.** `BidPanel.tsx` disabled expression and input handling, `format.ts:parseEthInput`, `BidHistory.tsx` refunded expression/header, `useAuction.ts` contribution-event scan, `DutchAuction._refundSurplus`, `useWallet.ts:sync` and effect listeners, audit checks C03–C05
+
+**E53 Confirmed record.** `frontend/src/hooks/useAuction.ts:load,refresh`, cleanup, `lastBidBlock`, `blockTimes`, `frontend/src/App.tsx:run`, `useWallet.ts` provider replacement
+
+**E54 Confirmed record.** `DutchAuction.constructor,maxCommitmentAt,_contribute,_burnUnsold,withdrawIssuerProceeds`, `GavoraToken.constructor`, `test/solidity/DutchAuctionInvariant.t.sol` action model
+
+**E55 Confirmed record.** Both production contracts and all `contracts/mocks/*.sol`, `test/Reentrancy.test.ts`, `test/DutchAuction.test.ts`, E16/E22–E24, `20e24b1`, `031b753`, historical Slither record 08
+
+**E56 Confirmed record.** `ai_audit_report/validation/stage5_checks.mjs`, `stage5_checks_output.txt`, `stage5_checks_first_attempt.txt`, source checks of `PositionPanel.tsx`, `SettlementPanel.tsx`, error/format helpers and imports
+
+**E57 Confirmed record.** All seven files under `test/`, source names and SHA-256 hashes in `validation/stage6/test_inventory.json`, `package.json`, `hardhat.config.ts`, reviewed success/error/event/balance assertions
+
+**E58 Confirmed record.** `docs/ai-audit/evidence/01`–`10` text records, especially 06–09, `test/Gas.test.ts`, `.github/workflows/ci.yml`, `pages.yml`, `slither.config.json`, `scripts/demo.ts`
+
+**E59 Confirmed record.** `docs/ai-audit/development-log.md`, October 20–22 validation tables and Manual run-through, `prompts/claude-code-session.md`, Prompts 7, 10–11, 16, 23–24 and 26–40, tracked test/config inventory
+
+**E60 Confirmed record.** `validation/stage6_run.ps1`, `validation/stage6/01_environment.txt` through `04_build.txt`
+
+**E61 Confirmed record.** `validation/stage6/05_stage5_recheck.txt`, `06_math_tests.txt`, `validation/stage6_math.test.mjs`, unchanged `validation/stage5_checks.mjs`
+
+**E62 Confirmed record.** `test/solidity/DutchAuctionInvariant.t.sol`, `DutchAuctionFuzz.t.sol`, frontend and test inventory, Stage 5 findings, testing-results gap matrix
+
+**E63 Confirmed record.** `git show c55fcc1 -- package.json`, associated lockfile and historical dependency evidence E17. `git show 9fef77c -- frontend/src/hooks/useWallet.ts`, commit message, development log and prompt chain E41. Frontend reconstruction statistics in `c689e3c` corroborate E43–E44
+
+**E64 Inferred interpretation.** Sections 7–8 synthesize E29–E41, E49–E62. Concrete anchors include regression-before-fix commits `35253ce`/`20e24b1`, prompt-index TODOs and edited-session notice, C01–C05 audit checks and Stage 6 environment outputs
+
+# Appendix B Finding source and verification map
+
+The severity and status summary is Table 5.1. The following locators preserve the affected functions and validation boundaries for each significant finding. Recommended remedies are not changes applied by this audit. Full finding records remain in `audit_findings.md`.
+
+## H01 Oversized final bid dilutes prior allocations
+
+**Affected code and root cause.** At `0a75a78`, `contracts/DutchAuction.sol::_contribute` accepts the full bid and `_finalSettlement` allocates a cleared sale as `commitment * saleSupply / totalCommitted`. A large last commitment changes the denominator for earlier bidders. This was an explicit pro-rata policy, not an integer-overflow defect.
+
+**Fix and verification.** `35253ce` adds the regression and `20e24b1` caps accepted commitment at remaining capacity and returns surplus. Matching before/after outputs are historical records, not new executions. Classification is a confirmed historical economic design problem under the revised requirement. [E12, E29, E31, E36, E49]
+
+## H02 Read functions miss time-only clearing
+
+**Affected code and root cause.** Initial `DutchAuction.status` and `currentPrice` rely on stored `clearingTime`, while elapsed-time clearing is synchronized in transaction paths. Read-only calls do not independently derive it.
+
+**Fix and verification.** `20e24b1` adds derived `clearingState` to views and bidding. Archived evidence records the regression failing before and passing after. Current source contains the correction. No fresh EVM replay was performed. [E12, E37, E49]
+
+## H03 Cleared status hides deadline readiness
+
+**Affected code and root cause.** Initial `DutchAuction.status` returns Cleared before checking whether the scheduled deadline has passed.
+
+**Fix and verification.** `20e24b1` puts the deadline check before clearing. Current source and historical passing output corroborate the fix. Browser behavior was not rerun. [E12, E37, E49]
+
+## H04 Inactive bidders strand their share of issuer proceeds
+
+**Affected code and root cause.** Initial `DutchAuction._settleAccount` increases `issuerProceedsAvailable` only when a participant settles. The owner's withdrawal reads that accumulator.
+
+**Fix and verification.** `20e24b1` uses accepted total commitments minus previous issuer withdrawals after finalization. Refund liabilities remain separate. The correction is source-confirmed and historically tested, not replayed here. [E23, E37, E49]
+
+## H05 Bid-history query exceeds provider range assumptions
+
+**Affected code and root cause.** Before `388399e`, `frontend/src/hooks/useAuction.ts::load` requests all unscanned `ContributionReceived` logs in one range. Fresh browser sessions can request the entire deployment history.
+
+**Fix and verification.** `388399e` introduces 10,000-block chunks and updates the scan cursor per successful chunk. The diff confirms mitigation of the identified range problem. It does not bound total history size or resolve P02. [E39, E50]
+
+## H06 Network-switch action can target an undeployed chain
+
+**Affected code and root cause.** Before `4d88495`, `frontend/src/App.tsx` directs an unsupported wallet to `defaultChainId` without confirming that chain has a deployment.
+
+**Fix and verification.** `4d88495` adds deployment-aware switching and an absent-deployment screen. The source change is confirmed, but the old UI interaction was not rerun. [E39, E50]
+
+## C01 Pending-bid quote is incorrectly described as a minimum
+
+**Affected code and root cause.** `frontend/src/lib/auctionMath.ts::quoteBid` computes `accepted = min(amount, view.capacity)` at the displayed time. `frontend/src/components/BidPanel.tsx` presents the resulting `minTokens` as “You receive at least”. Unlike an already accepted commitment, the pending bid's accepted amount is not fixed.
+
+**Fix and verification.** Open. No fix was applied. Describe pending output as an estimate and explain capacity changes, or separately design an enforceable minimum if required. Source and pure-function counterexample are confirmed. Contract execution and a timed wallet interaction remain untested. [E51]
+
+## C02 Sell-out shortcut truncates transaction input
+
+**Affected code and root cause.** `BidPanel` fills the input using `trimDecimal(formatEther(view.capacity), 6)`. `frontend/src/lib/format.ts::trimDecimal` truncates rather than rounding up or preserving full precision.
+
+**Fix and verification.** Open. Preserve exact capacity when constructing transaction input and round only presentation text. The formatter and quote behavior were executed locally, without a browser or chain. [E51]
+
+## C03 Negative amount is not rejected by bid eligibility logic
+
+**Affected code and root cause.** `BidPanel` rejects only zero in `disabled: busy || amount === 0n || inputError !== ""`. `parseEthInput` delegates to ethers parsing and contains no positivity check. The balance comparison rejects only amounts above balance.
+
+**Fix and verification.** Open. Validate strictly positive amounts before quoting or enabling a bid. The predicate and arithmetic are locally verified. A browser test with the installed ethers version should verify the complete input path before describing a particular wallet error as observed. [E18, E52]
+
+## C04 Unpaid surplus credit is labelled as refunded
+
+**Affected code and root cause.** `BidHistory` calculates `bid.amount - bid.accepted` under a “Refunded” heading. `useAuction` loads only contribution events for history. `DutchAuction._refundSurplus` can instead emit `RefundCredited` when payment fails.
+
+**Fix and verification.** Open. Label the column as surplus, or resolve refund and credit events explicitly. The source-level information loss is confirmed. An end-to-end rejecting-receiver history reproduction remains outstanding. [E19, E52]
+
+## C05 Background wallet synchronization drops rejections
+
+**Affected code and root cause.** `useWallet::sync` awaits `eth_accounts` and `eth_chainId` without catching rejection. Mount and account/chain listeners call it with `void sync()`. The user-triggered `connect` path does catch errors, so that protection must not be generalized to background synchronization.
+
+**Fix and verification.** Open. Catch and expose background synchronization failures, clear invalid state where appropriate and guard against superseded requests. Full browser recovery behavior remains unverified. [E06, E52]
+
+## P01 Stale or mixed reads can survive account and chain changes
+
+**Affected code and root cause.** `useAuction::load` makes independent latest-state reads and `refresh` serializes calls with shared refs. Cleanup resets displayed state but neither cancels in-flight loads nor checks a provider/account generation before publishing results.
+
+**Status and verification.** Current, no fix found or applied. Source gaps are confirmed and the manifestation is inferred. Reproduce with delayed provider responses and controlled account switches, then evaluate generation checks and pinned-block reads. [E20, E53]
+
+## P02 Event cache has no reorganisation rollback
+
+**Affected code and root cause.** `useAuction` advances `lastBidBlock`, appends logs and caches timestamps by block number. It does not retain block hashes, rewind a confirmation window or remove orphaned history after a reorg or same-provider local reset.
+
+**Status and verification.** Current, no fix found or applied. Source omission is confirmed. A controlled reorg/reset test is needed before claiming a reproduced inconsistency. [E20, E53]
+
+## P03 Transaction destination is not revalidated against current wallet chain
+
+**Affected code and root cause.** `App::run` checks for a provider and deployment, then uses a captured deployment address with `getSigner`. It does not explicitly re-read and compare the signer chain/account to the selected deployment immediately before submission. UI-level gating reduces ordinary mistakes but is separate from submission-time validation.
+
+**Status and verification.** Current candidate, no fix applied. Test chain/account switching around signer acquisition and wallet confirmation with a mock provider. Do not claim a demonstrated wrong-chain transfer. [E45, E53]
+
+## P04 Starting capacity can exceed uint256 for accepted deployment parameters
+
+**Affected code and root cause.** `DutchAuction` constructor validates nonzero supply, reserve value and ordered prices, but does not constrain `saleSupply * startPrice / TOKEN_SCALE` to a representable result. `maxCommitmentAt` uses `Math.mulDiv`, which cannot return a result above uint256.
+
+**Status and verification.** Current configuration candidate. The Stage 6 BigInt check confirms the mathematical example, but no EVM deployment was executed and installed OpenZeppelin internals were not re-audited. Verify constructor and runtime behavior under the locked toolchain before promoting it to a confirmed runtime defect. [E54]
+
+# Appendix C Audit execution record
+
+The commands below were executed during Stage 6 from the repository root. The environment was Windows PowerShell with Node v25.9.0 and npm 11.12.1. Project dependencies were absent. The audit runner is `validation/stage6_run.ps1`, invoked as `& ./ai_audit_report/validation/stage6_run.ps1`. Log timestamps, commands and exit codes are preserved in the listed files.
+
+Table C.1 Commands and observed results
+
+| Record | Exact command or recorded operation | Exit | Result |
+| --- | --- | --- | --- |
+| `validation/stage6/01_environment.txt` | `node --version`, `npm --version`, `git rev-parse HEAD`, PowerShell `Get-Command` and `Test-Path` discovery as retained in the runner | 0 | Environment recorded, absent tools identified |
+| `validation/stage6/02_cache.txt` | `npm cache ls hardhat ethers react typescript vite` | 0 | No matching entries printed, not a test pass |
+| `validation/stage6/03_hardhat_resolution.txt` | `node --input-type=module -e "console.log(import.meta.resolve('hardhat'))"` | 1 | `ERR_MODULE_NOT_FOUND`, preflight failure before any contract test |
+| `validation/stage6/04_build.txt` | `npm run build` | 1 | `tsc` not recognized, Vite build not reached |
+| `validation/stage6/05_stage5_recheck.txt` | `node ai_audit_report/validation/stage5_checks.mjs` | 0 | Five source-level audit checks passed again |
+| `validation/stage6/06_math_tests.txt` | `node --test ai_audit_report/validation/stage6_math.test.mjs` | 0 | Four Node tests passed, zero failed |
+
+The five checks reproduced C01–C05 within their source-level scope. Passing those counterexample assertions does not mean the defects were fixed. The four additional Node tests checked display lifecycle, bounded price decay, estimates for an accepted commitment and P04's mathematical example. No contract compilation, existing Solidity or Mocha suite, coverage, Slither analysis, npm advisory scan, browser session or live transaction was executed during Stage 6. Section 6 explains the historical evidence separately. [E60–E62]
+
+The first Stage 5 check attempt failed in the audit harness while extracting TypeScript for C05. It was corrected without changing application code, and the subsequent five-check run passed. Both attempt logs remain available. The new checks and their hashes are recorded in `testing_results.md` and `validation/`. [E56]
+
+# Appendix D Outstanding confirmations
+
+The following evidence gaps remain after report integration. They qualify the conclusions rather than being silently filled with assumptions. The complete requests and priorities are preserved in `questions_for_team.md`.
+
+Table D.1 Outstanding evidence and its consequence
+
+| Topic | Open questions | Consequence for this report |
+| --- | --- | --- |
+| Course requirements and approval | Q01–Q02, Q14 | Primary brief, rubric, lecture material and TA decisions are needed to verify compliance and economic interpretations |
+| Prompt and context provenance | Q04–Q05, Q18, Q21–Q22 | Original exports, dated handoffs and compaction or delegation records are missing. Exact prompt wording and context-loss causation remain unverified |
+| Human contributions and review | Q06–Q07, Q19 | Member responsibilities and independent peer-review depth cannot be assigned from Git identities or edited logs |
+| Reproducible validation | Q08–Q09, Q11, Q15, Q17 | CI artifacts, browser drivers, mutation patches, supported assessment environment and receipts are needed for replay |
+| Public deployment | Q10 | An empty deployment map does not establish a Sepolia deployment. Addresses and receipts are required |
+| Accepted operational scope | Q12–Q13 | Contract wallets, ownership changes, donations, extremes and reorg handling need explicit expectations |
+| Productivity and future practices | Q20, Q23 | No quantified effort saving or adoption of proposed practices is claimed |
+| Submission provenance | Q16 | Audit files are uncommitted. The current packaging script requires a clean branch and does not preserve backup-only history |
+
+The stage-outline question Q03 was resolved by the requested eight-stage process. No other team response is assumed. Completion of the report does not close the open functional findings or certify the application for production use.

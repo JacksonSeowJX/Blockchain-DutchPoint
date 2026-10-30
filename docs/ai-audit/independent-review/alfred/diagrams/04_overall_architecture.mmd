@@ -1,0 +1,17 @@
+flowchart LR
+    User["Bidder or issuer"] --> App["React App and UI components"]
+    Assets["Vite static bundle<br/>local server or configured Pages hosting"] --> App
+    Metadata["Generated ABIs and deployment maps"] --> App
+    App --> Data["useAuction reads and event cache"]
+    App --> Math["auctionMath display estimates"]
+    Data --> Math
+    App --> Wallet["useWallet and injected wallet<br/>ethers BrowserProvider"]
+    Data --> Wallet
+    Data --> ReadRPC["Configured ethers JsonRpcProvider<br/>fallback reads"]
+    Wallet --> Node["RPC node for selected chain"]
+    ReadRPC --> Node
+    Node --> Auction["DutchAuction<br/>commitments and settlement"]
+    Node --> Token["GavoraToken<br/>ERC20 balances and supply"]
+    Auction -->|"balanceOf, transfer, burn"| Token
+    Deploy["Hardhat deployment and export scripts"] -->|"deploy and fund"| Node
+    Deploy -->|"write"| Metadata

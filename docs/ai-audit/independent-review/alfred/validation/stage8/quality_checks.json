@@ -1,0 +1,28 @@
+{
+  "package_integrity": "pass",
+  "all_xml_well_formed": "pass",
+  "python_docx_reopen": "pass",
+  "mandatory_sections_in_order": [
+    "1 Initial Specification & System Scope",
+    "2 Development Methodology & AI Tooling Infrastructure",
+    "3 Specification Engineering & Prompt Logs",
+    "4 AI-Generated Architecture",
+    "5 Problems Discovered & Vulnerability Analysis",
+    "6 Validation Process & Testing Strategy",
+    "7 Improvements & Refinements",
+    "8 Lessons Learned"
+  ],
+  "text_blocks_compared": 707,
+  "canonical_text_equivalence": "pass",
+  "toc_internal_links": 12,
+  "figures": 4,
+  "tables": 14,
+  "evidence_ids_resolve": true,
+  "individual_sections_unchanged": true,
+  "rendered_page_review": "NOT COMPLETED - renderer lacks soffice.exe",
+  "Word_application_open": "NOT VERIFIED - no Word application available",
+  "files": {
+    "AI_Audit_Report.docx": "96ee504b83c68082e21efcb03130e22478db696fe1a06e740b8b76ed0d3171b2",
+    "AI_Audit_Report.md": "29793b9c4259d1428f5a5c6b4fa9e14e55254b9a7dc76a46e6181bbae9911c92"
+  }
+}

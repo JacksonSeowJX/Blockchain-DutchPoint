@@ -1,0 +1,24 @@
+Stage 5 isolated source-level checks
+Runtime v25.9.0
+HEAD c36cb0cebe803db5ee138d89fe2e21e8cfb33ad5
+SHA256 frontend/src/lib/auctionMath.ts 0ef5c159d8bdc5bd13f9b86fc8a75c927bdaf0b0018a53d737bd575d9cbf3cfa
+SHA256 frontend/src/lib/format.ts d067d1827759f32fa439145678648b6401d5c6e7f33fa310c349284de79b0ce8
+SHA256 frontend/src/components/BidPanel.tsx 6f3d2c5cb611f515a01484e6ccde55a6ca14762504bab0ea438ea2ea6d8ed1cd
+SHA256 frontend/src/components/BidHistory.tsx b7779739d8abce1f0f219798ce7995fb93e808a6978aaeff357f0ef43f386de3
+SHA256 frontend/src/hooks/useWallet.ts 2653159ab7ff8435c5592e4cca9aa09e5f61e9d5d970a8779451f0ac537eda90
+PASS C01 pending quote decreases from 333333333333333333333 to 200000000000000000000 token units without another bid
+Later accepted wei 2500000000000000000, surplus wei 2500000000000000000
+PASS C02 sell-out shortcut truncates 0.123456789 to 0.123456, shortfall wei 789000000000
+PASS C03 negative parsed amount passes exact disabled predicate and produces negative quote
+C03 boundary: ethers parseEther and actual wallet request not executed
+PASS C04 history displays surplus as refunded without a payment-success input, wei 750000000000000000
+C04 boundary: rejecting-receiver chain scenario not executed
+<anonymous_script>:7
+    const accounts = (await ethereum.request({ method: "eth_accounts" })) as string[];
+                                                                          ^^
+
+SyntaxError: Unexpected identifier 'as'
+    at new AsyncFunction (<anonymous>)
+    at file:///<USER_HOME>/Desktop/blockchain%20assignment/Blockchain-DutchPoint/ai_audit_report/validation/stage5_checks.mjs:65:14
+
+Node.js v25.9.0

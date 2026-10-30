@@ -1,0 +1,16 @@
+flowchart TB
+    Issuer["Issuer account<br/>initial auction owner"] -->|"deploy token and receive initial mint"| Token["GavoraToken"]
+    Issuer -->|"token.transfer auction inventory"| Token
+    Token -->|"inventory credited to auction balance"| Auction["DutchAuction"]
+    Owner["Current auction owner"] -->|"start after funding check"| Auction
+    Bidder["Bidder account"] -->|"contribute or receive with ETH"| Auction
+    Auction -->|"crossing surplus ETH if accepted by receiver"| Bidder
+    Auction -->|"failed surplus transfer"| Credit["refundCredits and refundLiability<br/>inside DutchAuction"]
+    Bidder -->|"withdrawRefundTo recipient"| Auction
+    Auction -->|"credited refund ETH"| Recipient["Selected refund recipient"]
+    Anyone["Any caller"] -->|"finalize after deadline<br/>burnRemainderAfterAllClaimed when eligible"| Auction
+    Bidder -->|"claimTokens after finalization"| Auction
+    Auction -->|"safeTransfer to claimant"| Token
+    Auction -->|"burn from auction balance"| Token
+    Owner -->|"withdrawIssuerProceeds after finalization"| Auction
+    Auction -->|"accepted ETH not already withdrawn"| Revenue["Selected proceeds recipient"]

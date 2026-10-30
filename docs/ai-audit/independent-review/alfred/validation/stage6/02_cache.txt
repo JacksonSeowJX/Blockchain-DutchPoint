@@ -1,0 +1,4 @@
+UTC 2026-10-23T09:18:52.9695855Z
+COMMAND npm cache ls hardhat ethers react typescript vite
+CWD <PROJECT_ROOT>
+EXIT_CODE 0

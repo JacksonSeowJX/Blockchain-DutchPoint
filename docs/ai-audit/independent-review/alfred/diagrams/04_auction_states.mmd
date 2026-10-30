@@ -1,0 +1,23 @@
+stateDiagram-v2
+    [*] --> Pending
+    Pending --> Active: Owner calls start with sufficient inventory
+    Active --> Active: Accepted bid below remaining capacity
+    Active --> Cleared: Crossing bid records clearing
+    Active --> Cleared: Elapsed time satisfies derived clearing condition
+    Active --> AwaitingFinalization: Scheduled deadline reached
+    Cleared --> AwaitingFinalization: Scheduled deadline reached
+    AwaitingFinalization --> Finalized: Any caller successfully calls finalize
+    Finalized --> Finalized: Eligible claims, proceeds withdrawal or remainder burn
+    note right of Cleared
+        Bidding closes but claims wait for finalization
+        Time-only clearing is derived by reads
+        Its fields and event are persisted by finalize
+    end note
+    note right of AwaitingFinalization
+        status gives the deadline priority over clearing
+        Passage of time does not write storage
+    end note
+    note right of Finalized
+        Refund credit withdrawal is independent of this sequence
+        It is allowed whenever the caller has credit
+    end note

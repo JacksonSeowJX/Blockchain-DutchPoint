@@ -1,0 +1,10 @@
+UTC 2026-10-23T09:18:54.2724287Z
+COMMAND npm run build
+CWD <PROJECT_ROOT>
+
+> dutchpoint@0.1.0 build
+> tsc -b frontend && vite build frontend
+
+'tsc' is not recognized as an internal or external command,
+operable program or batch file.
+EXIT_CODE 1
