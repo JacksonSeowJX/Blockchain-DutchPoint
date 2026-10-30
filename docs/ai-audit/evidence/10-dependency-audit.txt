@@ -75,3 +75,23 @@ The same day, `npm ci` with npm 10.9.2 (Node 23.9.0) was checked on a fresh copy
 `npm run check` exit 0 (53 contract tests, 10 frontend tests, typecheck, build). npm 10's resolver crash
 (`edgesOut`, noted in the development log on 26 Oct) only affects `npm install` of new packages, not
 `npm ci` from the lockfile.
+
+== 7. 2026-10-30: undici fix applied (now past the two-week rule)
+undici 7.30.1 (published 2026-10-15) is the newest 7.x release and inside hardhat-utils' ^7.29.0 range.
+$ npm update undici
+package-lock.json: undici 7.30.0 -> 7.30.1 (the only change; package.json unchanged)
+$ npm audit
+14 vulnerabilities (1 low, 13 high)      <- the three undici advisories are gone; serialize-javascript and zod remain
+$ npm audit --omit=dev
+found 0 vulnerabilities
+
+| Regression check | Result |
+| --- | --- |
+| npm ci (npm 10.9.2, Node 23.9.0), clean install from the updated lockfile | exit 0 |
+| npm run check (compile, 63 contract tests, 16 frontend tests, typecheck, build) | exit 0 |
+| npm run demo | exit 0; five scenarios |
+| npx hardhat --help | loads |
+
+serialize-javascript (low, unreachable: Mocha parallel mode only) and zod (no fix Hardhat accepts) are left as
+decided in section 6. The Sepolia redeploy, which runs Hardhat's HTTP client against the public RPC, is the
+first live use of the updated undici.
