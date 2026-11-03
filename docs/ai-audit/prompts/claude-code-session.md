@@ -506,3 +506,54 @@ failure on one does not stop the others.
 **Agent response:** before publishing the addresses it compared both deploy transactions with the
 repository's build and read the new auction's state from the chain. It then pushed the new addresses so
 the live site would switch to the new auction, and recorded the deployment in the report.
+
+68. "What other items do you need from me? What does the team sell-out run mean? Do all three of us need to
+    start the auction at the same time?"
+
+**Agent response:** listed the open report TODOs (the tool Alfred used, the ChatGPT link, the Codex
+export) and the optional items, explained that only the owner can start the auction and that the others
+only need to bid within the 20 minutes, and proposed bid sizes and times.
+
+69. "So you need all three of us for the sell-out run?"
+
+**Agent response:** no: the contract sees addresses, not people. Two or more wallets are enough, and one
+person with several wallets shows the same mechanism, provided the report says so.
+
+70. "We are all down to do the run for the sell-out test; give me the guide so I can send it to them."
+
+**Agent response:** checked the site's button labels, status names and error messages, the contract's
+rules for starting, finalizing and claiming, and the gas the first Sepolia run used, then wrote a run sheet
+for the team: roles, test ETH per wallet, bid times by the site's countdown, the expected prices and
+allocations, and what to do when something goes wrong.
+
+71. "Alfred created three MetaMask accounts, but he needs my deployer account to start the auction; how?"
+
+**Agent response:** advised against sharing the deployer's key: only starting the auction and withdrawing
+the proceeds need the owner, and both can be done from the owner's own machine at an agreed time, while
+bidding, finalizing and claiming are open to anyone.
+
+72. "Is our deployer account the one named DutchPoint Sepolia?"
+
+**Agent response:** account names are local MetaMask labels it cannot see; gave the deployer's address to
+compare, and noted that only the owner sees the Issuer controls on the site.
+
+73. "He is bidding at three different times now. What else do we need to do for the project?"
+
+**Agent response:** listed the remaining steps: finish the run (finalize, claims, withdrawal), the report
+TODOs, optional Etherscan verification, the demo video and the submission steps.
+
+74. "Alfred has bid three times; how come it is sold out?"
+
+**Agent response:** read the auction's totals and explained the result as a sell-out by time. That was
+wrong: the event log, read after the run, shows the third bid crossed and its surplus was refunded. The
+agent corrected itself to the team and recorded the run from the event log.
+
+75. (The submission requirements, pasted, to note.)
+
+**Agent response:** recorded them (`DutchPoint.zip` and `DutchPoint.mp4` or a video link, separate
+portals) and checked them against the packaging script and the remaining work: the video is the main item.
+
+76. "I've withdrawn the proceeds from Alfred's three bids; what's next?"
+
+**Agent response:** read the final state and the auction's event log from the chain, found its own earlier
+error about how the auction sold out, and recorded the run in the report, the README and this log.

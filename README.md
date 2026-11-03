@@ -198,7 +198,9 @@ The site is live. `.github/workflows/pages.yml` builds the frontend and publishe
   [GavoraToken](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8) and
   [DutchAuction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb)
   (1,000 GVRA, 0.0001 → 0.00002 ETH/GVRA, deployed unstarted on 31 Oct 2026 so the issuer opens the window
-  from the site). The first deployment, of the contract before bid protection, is recorded in
+  from the site), then run to a sell-out on 3 Nov 2026: three bidders, a crossing bid refunded in the same
+  transaction, everyone settled at 0.00004 ETH/GVRA (details in the audit report, section 6). The first
+  deployment, of the contract before bid protection, is recorded in
   [`deployments/sepolia-2026-10-23.json`](deployments/sepolia-2026-10-23.json).
 - **Redeploying:** run `npm run deploy:sepolia`, commit the updated `frontend/src/generated/deployments.json`
   and `deployments/sepolia.json`, and push to `main`. The next Pages build bundles the new addresses. With

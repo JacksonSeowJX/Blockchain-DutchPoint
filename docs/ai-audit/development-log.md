@@ -461,3 +461,17 @@ repository's build plus the constructor arguments, byte for byte; the auction ho
 owned by the issuer and has not started. The auction deployment used 12.9M gas on Sepolia against 1.85M on
 the local network; the 23 Oct deployment used 12.6M, so the gap was not introduced by this change. The
 first deployment's record is kept as `deployments/sepolia-2026-10-23.json`.
+
+## 2026-11-03 - Sepolia sell-out run
+
+The first Sepolia run (23 Oct) had one bidder and ended at reserve. This run used the 31 Oct deployment and
+three wallets of one team member, following a run sheet with planned bid times. The issuer started the
+auction; bids of 0.01 ETH (204 s in) and 0.015 ETH (576 s in) were followed at 900 s by a 0.018 ETH bid that
+crossed: 0.015 ETH accepted, 0.003 ETH refunded in the same transaction, and the auction cleared at 0.00004
+ETH/GVRA, five minutes before the window closed. After the window, the auction was finalized, all three
+wallets claimed (250, 375 and 375 GVRA) and the issuer withdrew 0.04 ETH. Read back from the chain: every bid
+settled at the same price, nothing was burned, and the auction holds no ETH or GVRA.
+
+While the run was in progress, the agent read only the auction's totals, saw the clearing time and price,
+and wrongly told the team that the auction had sold out by time rather than through a bid. The event log
+read afterwards showed the crossing bid and its refund; the team was told of the correction.
