@@ -488,9 +488,12 @@ lags, and reports a missing history in the Bids panel, with an Etherscan link, i
 The production build was then loaded against the real Sepolia network and listed the three bids.
 
 The same day, the source of both contracts was verified on Etherscan with `npm run verify:sepolia`, which
-also submits to Blockscout and Sourcify. DutchAuction is verified on all three; Blockscout and Sourcify
-record it as a partial match (same bytecode, different metadata hash). Blockscout and Sourcify already
-listed GavoraToken as verified under another project's name ("ObinaNetwork"): the token is plain
-OpenZeppelin code, and an identical third-party source had been matched to it automatically the day after
-deployment. Its Etherscan page shows DutchPoint's own source. Each result was checked afterwards with
-read-only requests to the three explorers.
+also submits to Blockscout and Sourcify. Those two were left with partial matches (same bytecode, different
+metadata hash): the plugin first submits a minimal compiler input, which leaves out a remapping and so
+changes the metadata hash. They also listed GavoraToken under another project's name ("ObinaNetwork"): the
+token is plain OpenZeppelin code, and an identical third-party source had been matched to it automatically
+the day after deployment. The build's full compiler input (the standard JSON in `artifacts/build-info`,
+whose output equals the deployed bytecode byte for byte) was then uploaded through Sourcify's and
+Blockscout's web forms. Both contracts are now full matches under their own names on Sourcify and
+Blockscout, and verified on Etherscan. Each result was checked afterwards with read-only requests to the
+three explorers.

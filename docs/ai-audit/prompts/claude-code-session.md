@@ -615,3 +615,29 @@ offered "Verify and Publish", so its verification had to run first.
 **Agent response:** checked the result on Etherscan, Blockscout and Sourcify with read-only requests, then
 linked the verified source from the README, the report and the architecture notes, and corrected the README,
 which described the command as Etherscan-only.
+
+86. "Let's do this [replace the ObinaNetwork listing on Blockscout and Sourcify]; give me the steps."
+
+**Agent response:** compared the deployed bytecode with the build (the token byte for byte, the auction
+except its constructor-set values), confirmed from Sourcify's documentation and Blockscout's source that a
+full match may replace a partial one, wrote the build's standard JSON input to a file outside the
+repository, and gave the steps for both sites.
+
+87. "There is no Sepolia (11155111) on Sourcify, but there is OP Sepolia Testnet (11155420) and others."
+
+**Agent response:** Sourcify's chain list names it "Ethereum Sepolia Testnet"; any other chain number would
+fail, because the contracts exist only on 11155111.
+
+88. "I've done steps 1 and 2, help me check. And how do I do the optional step?"
+
+**Agent response:** GavoraToken was now an exact match on Sourcify and fully verified on Blockscout, under
+its own name; gave the same steps for DutchAuction.
+
+89. "On Blockscout, they're asking for the contract license and the verification method."
+
+**Agent response:** MIT, as both contracts declare, and Solidity (Standard JSON input).
+
+90. "It says the contract has already been verified."
+
+**Agent response:** checked both sites: the Sourcify upload had made the auction a full match, and
+Blockscout had taken it from there, so it refused a second upload. Updated the report and this log.
