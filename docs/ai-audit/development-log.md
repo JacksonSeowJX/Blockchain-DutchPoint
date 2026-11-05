@@ -475,3 +475,18 @@ settled at the same price, nothing was burned, and the auction holds no ETH or G
 While the run was in progress, the agent read only the auction's totals, saw the clearing time and price,
 and wrongly told the team that the auction had sold out by time rather than through a bid. The event log
 read afterwards showed the crossing bid and its refund; the team was told of the correction.
+
+## 2026-11-05 - The live site lost its bid history (D1)
+
+While the draft demo script was checked, the live site showed "could not coalesce error" above the finalized
+auction and "No bids yet" under "3 bidders". PublicNode's keyless Sepolia RPC, the hosted build's default,
+had pruned the auction's logs about two days after the run and answered "pruned history unavailable" for
+any range. Other keyless RPCs refused old ranges too; Blockscout's Etherscan-compatible API still returned
+all 12 of the auction's events. Tests that model a pruning node were committed failing (`ee4ddf3`). The
+fix reads refused chunks from Blockscout, rescans the newest 100 blocks over the RPC in case the explorer
+lags, and reports a missing history in the Bids panel, with an Etherscan link, instead of as a page error.
+The production build was then loaded against the real Sepolia network and listed the three bids.
+
+The same day, GavoraToken's source was verified on Etherscan. Blockscout and Sourcify already listed the
+token as verified under another project's name ("ObinaNetwork"): the token is plain OpenZeppelin code, and
+an identical third-party source had been matched to it automatically the day after deployment.

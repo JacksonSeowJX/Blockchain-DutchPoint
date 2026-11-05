@@ -577,3 +577,25 @@ GitHub links, gave the tables borders and column widths that follow their conten
 against the Office schema. The first build failed validation (properties out of schema order, incomplete
 page margins); both were fixed. The Word copy is kept outside the repository because, like the report in
 the submission zip, it includes the team-details block.
+
+79. "I got the Etherscan API key and ran the keystore command; it now asks for the secret to store. Is that
+the API key?"
+
+**Agent response:** yes, the Etherscan API key, not the wallet's private key; then the two verify commands.
+
+80. (The output of the token's verification, pasted.)
+
+**Agent response:** confirmed the token was verified on Etherscan. Reviewing the draft demo script, whose
+Sepolia segment relies on the live site, the agent then loaded the live site and found its bid history
+gone (finding D1), traced the cause to the public RPC pruning old logs, and proposed a fix.
+
+81. "Yes, go ahead with the live-site bug repair while I look through the other items."
+
+**Agent response:** committed tests that model a pruning node, failing first, then the fallback to
+Blockscout's logs API, and checked the production build against the real Sepolia network before pushing.
+While writing the fix it found a gap in its own first version: the explorer can trail the chain, so
+marking every block as read could miss a new bid. The newest blocks are now scanned again over the RPC.
+
+82. "Note: we are allowed to use an AI voice for the demo video, so it will be one consistent voice."
+
+**Agent response:** noted; the draft script's narration is to be rewritten for a single narrator.

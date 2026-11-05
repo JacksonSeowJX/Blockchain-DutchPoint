@@ -1,9 +1,10 @@
-import { Contract, EventLog, Provider } from "ethers";
+import { Contract, EventLog, Provider, Result } from "ethers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuctionState } from "../lib/auctionMath";
-import { Deployment, LOCAL_CHAIN_ID, auctionAbi, chainName, tokenAbi } from "../lib/contracts";
+import { Deployment, LOCAL_CHAIN_ID, LOGS_APIS, auctionAbi, chainName, tokenAbi } from "../lib/contracts";
 import { describeError, isConnectionError } from "../lib/errors";
+import { explorerLogs } from "../lib/explorerLogs";
 
 export type Position = {
   commitment: bigint;
@@ -53,13 +54,73 @@ export type AuctionData = {
   error: string;
   /** The last read failed because the RPC could not be reached; it is retried on every refresh. */
   offline: boolean;
+  /** Some of the bid history could not be read from any source; it is retried on every refresh. */
+  historyUnavailable: boolean;
   refresh: () => Promise<void>;
 };
 
 const FALLBACK_REFRESH_MS = 15_000;
 // Public RPCs cap the block range of one eth_getLogs call (PublicNode's keyless Sepolia RPC allows
-// 50,000 blocks, about a week), so the bid history is scanned in chunks.
+// 50,000 blocks, about a week), so the bid history is scanned in chunks. They also drop old logs, so
+// a chunk the RPC refuses is read from the chain's explorer (LOGS_APIS) instead.
 const LOG_CHUNK_BLOCKS = 10_000;
+// Blocks at the head of the chain that the explorer may not have indexed yet (about 20 minutes on Sepolia).
+const EXPLORER_LAG_BLOCKS = 100;
+
+/** A bid or refund-credit event, from either the RPC or the explorer. */
+type BidLog = { txHash: string; index: number; blockNumber: number; args: Result; timestamp: bigint | null };
+
+/** Builds bids from ContributionReceived logs, using the RefundCredited logs to mark held surpluses. */
+async function toBids(
+  contributions: BidLog[],
+  credits: BidLog[],
+  timeOf: (blockNumber: number) => Promise<bigint>
+): Promise<Bid[]> {
+  // A surplus the bidder's wallet rejected is credited instead of paid; match it to its bid.
+  const creditedKey = (txHash: string, account: string) => `${txHash}-${account.toLowerCase()}`;
+  const credited = new Set(credits.map((log) => creditedKey(log.txHash, log.args.account as string)));
+  const bids: Bid[] = [];
+  for (const log of contributions) {
+    const account = log.args.account as string;
+    bids.push({
+      key: `${log.txHash}-${log.index}`,
+      txHash: log.txHash,
+      blockNumber: log.blockNumber,
+      timestamp: log.timestamp ?? (await timeOf(log.blockNumber)),
+      account,
+      amount: log.args.amount as bigint,
+      accepted: log.args.accepted as bigint,
+      price: log.args.price as bigint,
+      totalCommitted: log.args.totalCommitted as bigint,
+      surplusCredited: credited.has(creditedKey(log.txHash, account))
+    });
+  }
+  return bids;
+}
+
+async function rpcBidLogs(auction: Contract, from: number, to: number): Promise<[BidLog[], BidLog[]]> {
+  const [contributions, credits] = await Promise.all([
+    auction.queryFilter(auction.filters.ContributionReceived(), from, to),
+    auction.queryFilter(auction.filters.RefundCredited(), from, to)
+  ]);
+  const toBidLog = (log: EventLog): BidLog => ({
+    txHash: log.transactionHash,
+    index: log.index,
+    blockNumber: log.blockNumber,
+    args: log.args,
+    timestamp: null
+  });
+  const decoded = (logs: unknown[]) => logs.filter((log): log is EventLog => log instanceof EventLog).map(toBidLog);
+  return [decoded(contributions), decoded(credits)];
+}
+
+async function explorerBidLogs(api: string, auction: Contract, from: number, to: number): Promise<[BidLog[], BidLog[]]> {
+  const address = await auction.getAddress();
+  return Promise.all([
+    explorerLogs(api, auction.interface, address, "ContributionReceived", from, to),
+    explorerLogs(api, auction.interface, address, "RefundCredited", from, to)
+  ]);
+}
 
 export function useAuction(
   provider: Provider | null,
@@ -70,6 +131,7 @@ export function useAuction(
   const [bids, setBids] = useState<Bid[]>([]);
   const [error, setError] = useState("");
   const [offline, setOffline] = useState(false);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
 
   const lastBidBlock = useRef(-1);
   const blockTimes = useRef(new Map<number, bigint>());
@@ -97,6 +159,7 @@ export function useAuction(
     setBids([]);
     setError("");
     setOffline(false);
+    setHistoryUnavailable(false);
     lastBidBlock.current = -1;
     // A new map rather than clear(): a read from the old context keeps writing into its own map.
     blockTimes.current = new Map();
@@ -251,54 +314,53 @@ export function useAuction(
         : null
     });
 
-    // Bid history: fetch only blocks we have not scanned yet, one chunk at a time.
+    // Bid history: fetch only blocks we have not scanned yet, one chunk at a time. The auction itself is
+    // already on screen, so history the network cannot provide is reported in the Bids panel and retried,
+    // rather than shown as an error over the whole page.
     const latest = block?.number ?? 0;
     let from = Math.max(deployment.deployedAtBlock, lastBidBlock.current + 1);
-    while (from <= latest) {
-      const to = Math.min(latest, from + LOG_CHUNK_BLOCKS - 1);
-      const [logs, credits] = await Promise.all([
-        auction.queryFilter(auction.filters.ContributionReceived(), from, to),
-        auction.queryFilter(auction.filters.RefundCredited(), from, to)
-      ]);
-      // A surplus the bidder's wallet rejected is credited instead of paid; match it to its bid.
-      const creditedKey = (txHash: string, account: string) => `${txHash}-${account.toLowerCase()}`;
-      const credited = new Set(
-        credits
-          .filter((log): log is EventLog => log instanceof EventLog)
-          .map((log) => creditedKey(log.transactionHash, log.args.account as string))
-      );
-      const fresh: Bid[] = [];
-      for (const log of logs) {
-        if (!(log instanceof EventLog)) {
-          continue;
+    let historyComplete = true;
+    try {
+      while (from <= latest) {
+        let to = Math.min(latest, from + LOG_CHUNK_BLOCKS - 1);
+        let scanned = to;
+        let logs: [BidLog[], BidLog[]];
+        try {
+          logs = await rpcBidLogs(auction, from, to);
+        } catch (rpcError) {
+          const api = LOGS_APIS[deployment.chainId];
+          if (!api) {
+            throw rpcError;
+          }
+          // The RPC no longer serves these blocks: read everything left from the explorer in one go. The
+          // explorer can trail the chain by a few blocks, so the newest ones are scanned again over the
+          // RPC on the next refresh.
+          to = latest;
+          scanned = Math.max(from - 1, latest - EXPLORER_LAG_BLOCKS);
+          logs = await explorerBidLogs(api, auction, from, to);
         }
-        const account = log.args.account as string;
-        fresh.push({
-          key: `${log.transactionHash}-${log.index}`,
-          txHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-          timestamp: await blockTime(times, log.blockNumber),
-          account,
-          amount: log.args.amount as bigint,
-          accepted: log.args.accepted as bigint,
-          price: log.args.price as bigint,
-          totalCommitted: log.args.totalCommitted as bigint,
-          surplusCredited: credited.has(creditedKey(log.transactionHash, account))
-        });
+        const fresh = await toBids(...logs, (blockNumber) => blockTime(times, blockNumber));
+        if (stale()) {
+          return;
+        }
+        // Recorded per chunk, so a failed request resumes here instead of rescanning from the start.
+        lastBidBlock.current = scanned;
+        if (fresh.length > 0) {
+          // A rescanned block can return a bid already shown; keep each bid once.
+          setBids((previous) => {
+            const shown = new Set(previous.map((bid) => bid.key));
+            return [...previous, ...fresh.filter((bid) => !shown.has(bid.key))];
+          });
+        }
+        from = to + 1;
       }
-      if (stale()) {
-        return;
-      }
-      // Recorded per chunk, so a failed request resumes here instead of rescanning from the start.
-      lastBidBlock.current = to;
-      if (fresh.length > 0) {
-        setBids((previous) => [...previous, ...fresh]);
-      }
-      from = to + 1;
+    } catch {
+      historyComplete = false;
     }
     if (stale()) {
       return;
     }
+    setHistoryUnavailable(!historyComplete);
     setError("");
     setOffline(false);
   }, [contracts, provider, deployment, account, blockTime]);
@@ -365,5 +427,5 @@ export function useAuction(
     };
   }, [provider, contracts, refresh]);
 
-  return { snapshot, bids, error, offline, refresh };
+  return { snapshot, bids, error, offline, historyUnavailable, refresh };
 }

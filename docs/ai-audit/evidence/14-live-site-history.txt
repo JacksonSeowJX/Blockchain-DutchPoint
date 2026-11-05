@@ -1,0 +1,47 @@
+Evidence 14 - Finding D1: the live site lost its bid history once the public RPC pruned the auction's logs.
+Recorded 2026-11-05. Tests committed failing in ee4ddf3, fixed in the commit that adds this file.
+
+Found while checking the draft demo script, whose Sepolia segment shows the 3 Nov run on the live site.
+Screenshot 14-live-site-before.png is the live site on 5 Nov: a red "could not coalesce error" banner above
+the finalized auction, and "No bids yet. The first bid will appear here." under a stat reading "3 bidders".
+
+== 1. Cause: the keyless RPC no longer serves the auction's logs
+The site scans the auction's events with eth_getLogs from its deployment block (12,029,876) in 10,000-block
+chunks, through PublicNode's keyless Sepolia RPC (the Pages build default). On 5 Nov (latest block 12,068,733):
+  12029876-12039875: ERROR {"code":4444,"message":"pruned history unavailable"}
+  12039876-12049875: ERROR {"code":4444,"message":"pruned history unavailable"}
+  12049876-12059875: ERROR {"code":4444,"message":"pruned history unavailable"}
+  12059876-12068733: 0 logs
+Smaller ranges do not help (5,000, 1,000 and 500 blocks from 12,039,876: the same error). PublicNode keeps
+only about two days of logs. Other keyless endpoints refused too: dRPC "ranges over 10000 blocks are not
+supported on free plan", 1rpc "eth_getLogs is limited to 0 - 50 blocks range", the rest timed out.
+ethers reports PublicNode's answer as "could not coalesce error", which the page showed as a page error.
+
+Blockscout's Etherscan-compatible API keeps the full history, needs no key and allows any origin:
+$ curl "https://eth-sepolia.blockscout.com/api?module=logs&action=getLogs&address=0x713e…B1Eb&fromBlock=12029876&toBlock=latest"
+  status 1, OK, 12 logs (access-control-allow-origin: *)
+An empty range answers {"message":"No logs found","result":[],"status":"0"}, and topics are padded to four
+entries with null.
+
+== 2. Before: the new tests on the unfixed code (ee4ddf3)
+$ npx vitest run --root frontend --reporter=verbose
+ × BidHistory > D1: says the history could not be loaded, and links to the bids on the explorer
+ × useAuction > D1: bid history the RPC no longer serves > D1: reads the history from the block explorer instead
+ × useAuction > D1: bid history the RPC no longer serves > D1: keeps the auction on screen when no source has the history
+AssertionError: expected <p class="empty"></p> to be null
+AssertionError: expected [] to have a length of 2 but got +0
+AssertionError: expected undefined to be true // Object.is equality
+      Tests  3 failed | 16 passed (19)
+The panel claims there are no bids; the history never loads; and the hook has no way to say the history is
+missing other than a page-wide error.
+
+== 3. After the fix
+$ npm run check
+63 passing (10 solidity, 53 mocha)
+      Tests  19 passed (19)
+typecheck and build pass.
+
+The production build (VITE_DEFAULT_CHAIN_ID=11155111, PublicNode as the read RPC, base /Blockchain-DutchPoint/)
+served locally and loaded in headless Chrome against the real Sepolia network: screenshot
+14-live-site-after.png. No error banner; the Bids panel lists the three bids of the 3 Nov run at 03:24, 09:36
+and 15:00, the last tagged "Cleared" with "0.003 ETH returned".

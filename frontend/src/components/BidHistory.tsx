@@ -8,11 +8,30 @@ type Props = {
   startTime: bigint;
   account: string | null;
   explorer: string | null;
+  auction: string | null;
+  /** Some of the history could not be read from the network; the hook keeps retrying. */
+  historyUnavailable: boolean;
 };
 
-export function BidHistory({ bids, saleSupply, startTime, account, explorer }: Props) {
+export function BidHistory({ bids, saleSupply, startTime, account, explorer, auction, historyUnavailable }: Props) {
+  const explorerLink = explorer && auction && (
+    <>
+      {" "}
+      <a href={`${explorer}/address/${auction}`} target="_blank" rel="noreferrer">
+        See the bids on Etherscan ↗
+      </a>
+    </>
+  );
+
   if (bids.length === 0) {
-    return <p className="empty">No bids yet. The first bid will appear here.</p>;
+    return historyUnavailable ? (
+      <p className="empty">
+        The bid history couldn't be loaded from the network right now. DutchPoint keeps retrying.
+        {explorerLink}
+      </p>
+    ) : (
+      <p className="empty">No bids yet. The first bid will appear here.</p>
+    );
   }
 
   return (
@@ -81,6 +100,12 @@ export function BidHistory({ bids, saleSupply, startTime, account, explorer }: P
           </tbody>
         </table>
       </div>
+      {historyUnavailable && (
+        <p className="hint">
+          Newer bids couldn't be loaded right now. DutchPoint keeps retrying.
+          {explorerLink}
+        </p>
+      )}
       {explorer && <p className="hint">Click a bid's time to see its transaction on Etherscan.</p>}
     </>
   );

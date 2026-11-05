@@ -33,6 +33,14 @@ export const CHAIN_NAMES: Record<number, string> = {
   11155111: "Sepolia"
 };
 
+/**
+ * Etherscan-compatible logs APIs that keep the full history, for chains whose public RPC may not.
+ * PublicNode's keyless Sepolia RPC answers "pruned history unavailable" for logs older than about two days.
+ */
+export const LOGS_APIS: Record<number, string> = {
+  11155111: "https://eth-sepolia.blockscout.com/api"
+};
+
 export function chainName(chainId: number): string {
   return CHAIN_NAMES[chainId] ?? `Chain ${chainId}`;
 }

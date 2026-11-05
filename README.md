@@ -148,7 +148,7 @@ It needs no node, wallet or browser. The narrated video plan is in
 | --- | --- |
 | `npm test` | All 63 tests: 53 Mocha tests, plus 5 Solidity fuzz tests (1,000 runs each) and 5 invariants (256 runs, depth 50) |
 | `npm run test:mocha` / `npm run test:solidity` | Only the Mocha tests, or only the Solidity fuzz and invariant tests |
-| `npm run test:frontend` | 16 frontend unit tests (Vitest, React Testing Library): hooks against an in-memory fake chain, components, and error messages |
+| `npm run test:frontend` | 19 frontend unit tests (Vitest, React Testing Library): hooks against an in-memory fake chain, components, and error messages |
 | `npm run gas` | Gas-scaling table (each call costs the same with 1 or 100 earlier bidders) and per-function gas statistics |
 | `npm run coverage` | All tests, with coverage - `DutchAuction.sol` and `GavoraToken.sol` are at 100% lines and statements |
 | `npm run slither` | Slither static analysis; fails on any Medium or High finding (needs `slither-analyzer` and `solc` 0.8.28) |
@@ -207,7 +207,9 @@ The site is live. `.github/workflows/pages.yml` builds the frontend and publishe
   no Sepolia deployment, the site shows a "not deployed on Sepolia yet" card instead.
 - **Build settings:** the hosted build is served from the `/Blockchain-DutchPoint/` sub-path, defaults to
   Sepolia, and reads chain data through the `VITE_READ_RPC_URL` repository variable, or the keyless
-  PublicNode Sepolia RPC if the variable is not set. Everything in the build is public JavaScript, so
+  PublicNode Sepolia RPC if the variable is not set. PublicNode keeps only about two days of event logs, so
+  older bid history is read from Blockscout's keyless logs API (`LOGS_APIS` in
+  `frontend/src/lib/contracts.ts`; audit finding D1). Everything in the build is public JavaScript, so
   `VITE_READ_RPC_URL` must be a keyless (or domain-restricted) RPC URL, never a secret. Set it under
   *Settings → Secrets and variables → Actions → Variables*.
 - **Repository setting (already done):** *Settings → Pages → Build and deployment → Source: GitHub
@@ -245,7 +247,7 @@ Every script in `package.json`, run from the repository root.
 | `npm test` | All 63 tests (Mocha, fuzz and invariants) |
 | `npm run test:mocha` | The 53 Mocha tests |
 | `npm run test:solidity` | The 5 fuzz tests and 5 invariants |
-| `npm run test:frontend` | The 16 frontend unit tests (Vitest) |
+| `npm run test:frontend` | The 19 frontend unit tests (Vitest) |
 | `npm run coverage` | All tests with a coverage report (`coverage/`) |
 | `npm run gas` | Mocha tests with the gas-scaling table and per-function gas statistics |
 | `npm run slither` | Slither on both contracts |

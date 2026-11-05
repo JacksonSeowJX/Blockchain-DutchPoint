@@ -17,7 +17,7 @@ ran a third pass over the code, an independent review with **Codex**, which foun
 (A1-A5, A7). As that review recommended, A1 was then fixed in the contract itself with an on-chain minimum
 per bid, and checking that change end to end exposed one more frontend defect (C1). A second team member's
 review (Alfred, also with Codex), of an earlier commit, confirmed several of these independently and found two more small
-defects (B1, B2). Each defect below was reproduced with a test that fails on the code that contained it and
+defects (B1, B2). A check of the live site two days after the last Sepolia run exposed one more (D1). Each defect below was reproduced with a test that fails on the code that contained it and
 passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 
 | ID | Severity | Finding (in the Codex implementation unless noted) | Status |
@@ -37,10 +37,11 @@ passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 | C1 | Low | *(Claude Code frontend, found while verifying the A1 contract fix)* Contract errors from failed transactions were never decoded, so every failed bid, claim or withdrawal showed a generic message | Fixed ([`12`](evidence/12-bid-protection.txt)) |
 | B1 | Low | *(Claude Code frontend, second independent review)* The *Sell-out amount* shortcut rounded the room left down, so it fell just short of selling out; with bid protection such a bid could be cancelled instead | Fixed ([`13`](evidence/13-alfred-review-fixes.txt)) |
 | B2 | Low | *(same review)* The constructor accepted a supply whose value at the start price overflows 256 bits, so every bid at that price would fail | Fixed ([`13`](evidence/13-alfred-review-fixes.txt)) |
+| D1 | Medium | *(Claude Code frontend, found on the live site after the Sepolia run)* The bid history relied on the public RPC keeping old logs. Once it pruned them, the live site showed an error and "No bids yet" for a sale with three bidders | Fixed ([`14`](evidence/14-live-site-history.txt)) |
 
 Validation: 63 tests (53 Mocha + 5 fuzz tests x 1,000 runs + 5 invariants x 256 runs), **100% line and
 statement coverage** of `DutchAuction.sol` and `GavoraToken.sol`, mutation checks, a gas-scaling test
-(1 to 100 bidders), 16 frontend unit tests (Vitest) for hooks, components and error messages, Slither before and after, an
+(1 to 100 bidders), 19 frontend unit tests (Vitest) for hooks, components and error messages, Slither before and after, an
 end-to-end run of the real UI in headless Chrome, manual runs with the real MetaMask extension by two team
 members, two public Sepolia runs (one ending at reserve with a burn, one selling out early across three wallets),
 and independent reviews by two team members.
@@ -505,6 +506,19 @@ verification fail, that profile now matches the default.
 | B1 | Claude Code's frontend rebuild (`c689e3c`) reused a display helper, which truncates to 6 decimals, to build a transaction amount | The shortcut promised the amount that sells out but filled in slightly less. Since bid protection, such a bid also carries a minimum, so if mined a block or more later it would usually be cancelled instead of selling out | The shortcut rounds the room left *up* to 6 decimals; the excess comes back with the rest of the surplus | `B1` test: the input reads 1.126543 before the fix, and 1.126544 with no minimum after ([`evidence/13`](evidence/13-alfred-review-fixes.txt)) |
 | B2 | Codex's constructor validated the price order and a zero supply, and Claude Code's revision added a check that the auction can clear. Neither asked whether the amounts fit in 256 bits | With absurd parameters (far beyond any real sale) deployment succeeded, but every bid at the start price would then fail on an arithmetic overflow | The constructor also rejects a supply whose value at the start price does not fit in 256 bits. A first version using `Math.tryMul` ignored part of its result and failed Slither's Medium gate; the committed check is a division | A new fuzz property (every accepted configuration can price its supply) found a counterexample before the fix and passes 1,000 runs after; `B2` Mocha test ([`evidence/13`](evidence/13-alfred-review-fixes.txt)) |
 
+### Found on the live site after the Sepolia run (D1)
+
+Two days after the 3 November run, the live site was checked while reviewing the draft demo script, whose
+Sepolia segment shows that run. The bid history was gone ([screenshot](evidence/14-live-site-before.png)).
+The earlier hosted checks had passed because they ran while the auction's logs were still recent.
+
+| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| D1 | When the Pages subagent found that the public RPC limits one `eth_getLogs` call to 50,000 blocks, the fix split the scan into 10,000-block chunks (`388399e`). Both assumed that a node keeps every log, as an archive node does, and no test modelled a node that forgets. PublicNode's keyless Sepolia RPC keeps about two days of logs, then answers "pruned history unavailable" for any range, however small | The README sends readers to the live site. For any auction older than two days, it showed "could not coalesce error" over the page and "No bids yet" under "3 bidders". The run's main result, the crossing bid and its same-transaction refund, was no longer visible | A chunk the RPC refuses is read from Blockscout's keyless, Etherscan-compatible logs API, which keeps the full history. The newest 100 blocks are scanned again over the RPC, because the explorer can trail the chain, and each bid is kept once. If no source answers, the page shows no error: the Bids panel says the history could not be loaded, links to the auction on Etherscan and keeps retrying | Three tests failed first (`ee4ddf3`); 19 pass after. The production build, run against the real Sepolia network, lists the three bids of 3 November, the last tagged *Cleared* with *0.003 ETH returned* ([`evidence/14`](evidence/14-live-site-history.txt), [screenshot](evidence/14-live-site-after.png)) |
+
+The fallback depends on Blockscout's free API, which is recorded as a
+[known limitation](../design/assumptions.md#known-limitations).
+
 ## 6. Validation Process & Testing Strategy
 
 | Layer | What | Result |
@@ -515,7 +529,7 @@ verification fail, that profile now matches the default.
 | Invariant tests | Handler drives random bids and protected bids, time jumps, finalization, claims and withdrawals (incl. a rejecting bidder), forced ETH and holder burns. Invariants: ETH fully backed (at least what is owed, exactly owed + forced ETH), tokens conserved, demand ≤ supply, one uniform price, allocations cover every accepted minimum | 5 invariants × 256 runs × depth 50 |
 | Mutation check | Plant M1 (round time-clearing price down), M2 (issuer withdraws raw balance) and M4 (bid minimum not enforced), confirm failures, restore | M1: 6/7 property tests fail; M2: 3/7 fail ([`06`](evidence/06-mutation-check.txt)); M4: 4 tests fail ([`12`](evidence/12-bid-protection.txt)) |
 | Gas scaling | The same six calls (new bid, protected bid, crossing bid with refund, finalize, claim, issuer withdrawal) measured after 1, 10, 50 and 100 earlier bidders, with a 1% tolerance. Mutation M3 plants a loop over bidders in `claimTokens` | Identical gas at every crowd size (spread 0). Under M3 the claim grows from 163,417 to 410,719 gas and the test fails ([`09`](evidence/09-gas-scaling.txt), [`12`](evidence/12-bid-protection.txt)) |
-| Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers), components (quote and its on-chain minimum, amount validation, surplus states, refund recipient) and error decoding for failed transactions | 16 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)), as did the bid-protection, error and B1 tests ([`12`](evidence/12-bid-protection.txt), [`13`](evidence/13-alfred-review-fixes.txt)) |
+| Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers, an RPC that has pruned old logs), components (quote and its on-chain minimum, amount validation, surplus states, refund recipient) and error decoding for failed transactions | 19 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)), as did the bid-protection, error, B1 and D1 tests ([`12`](evidence/12-bid-protection.txt), [`13`](evidence/13-alfred-review-fixes.txt), [`14`](evidence/14-live-site-history.txt)) |
 | Independent reviews | Sanjeev ran Codex as auditor, re-ran the checks, verified the Sepolia run and tested with MetaMask ([`independent-review/`](independent-review/README.md)). Alfred's review, also with Codex, weighed the repository's evidence and checked the frontend logic | Sanjeev: 6 findings, all confirmed and fixed; MetaMask scenarios all passed. Alfred: 15 items; 2 new (B1, B2) fixed, the rest already fixed or recorded as limitations |
 | Coverage | `npm run coverage` | `DutchAuction.sol` and `GavoraToken.sol`: 100% lines and statements ([`07`](evidence/07-test-suite-and-coverage.txt)) |
 | Static analysis | Slither 0.11.6 on original and current code, token, and vulnerable demo | Original: 19 results incl. High `reentrancy-eth`. Current: 0 High; 4 Medium `incorrect-equality` false positives annotated inline; remaining Low/Info are by design ([`08`](evidence/08-slither.txt)). With bid protection: 15 results, the new one a Low `timestamp` ([`12`](evidence/12-bid-protection.txt)) |
@@ -621,6 +635,9 @@ verification fail, that profile now matches the default.
 - **Untested failure paths.** The table of friendly contract-error messages was never exercised by a
   failing transaction, so nobody saw that ethers v6 only decodes custom errors for read calls (C1). It
   surfaced only when a failure was triggered on purpose.
+- **Infrastructure that changes after the test.** The hosted bid history passed every check while the
+  auction was new, then broke when the public node pruned its logs two days later (D1). A deployment
+  has to be checked again in the state the reader will see it in.
 
 **Recommendations for AI-driven dApp development**
 1. Have a second, different model review the plan and the code, and treat disagreements between them as
