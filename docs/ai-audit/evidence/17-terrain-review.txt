@@ -45,8 +45,9 @@ and totals are below." 25 frontend tests and typecheck pass.
 == 2. A whole auction on the local chain, through the new page
 Hardhat node, `START_AUCTION=false npm run deploy:local`, the dev server on 351120b. A stand-in wallet in
 headless Chrome (window.ethereum forwarding to the node, whose test accounts are unlocked) played the issuer
-(#0), Dave (#4) and Erin (#5); each click below sent a real transaction. It is not MetaMask: the team's
-MetaMask test covers the wallet's own screens.
+(#0), Dave (#4) and Erin (#5); each click below sent a real transaction. It is not MetaMask. The team chose to
+merge on this run and Sanjeev's own tests rather than wait for a separate MetaMask test; the demo recording,
+done with MetaMask, exercises the wallet's own screens.
 
 Stage              Account  First-screen step / action offered           Result
 Not started        Issuer   "Start the auction" / Start the 20-minute... "Start auction: confirmed", Live

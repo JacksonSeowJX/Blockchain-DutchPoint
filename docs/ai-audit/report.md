@@ -551,6 +551,7 @@ screen, and the secondary panels in tabs. It kept every earlier fix, so this tim
 wrong messages. The patch was applied with `git am` (`9207b0c`, under his name) and the fix is a separate
 commit (`351120b`). A scripted run through a whole auction on the local chain, with real transactions, checked
 that the first-screen card offers the right action at every stage ([`evidence/17`](evidence/17-terrain-review.txt)).
+The team merged it on that run, without a separate MetaMask test; the demo recording uses MetaMask.
 
 | ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
 | --- | --- | --- | --- | --- |

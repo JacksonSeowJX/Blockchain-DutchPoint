@@ -753,3 +753,9 @@ wrong messages in a separate commit (E4). Ran a scripted whole auction on the lo
 wallet sending real transactions, which passed at every stage. Corrected Codex to Claude for the redesigns
 in the report, evidence 16 and the development log; the independent review (A1-A7) stays Codex, as
 Sanjeev's own report records.
+
+105. "Merge now."
+
+**Agent response:** ran the full check on the final commit, recorded in the report and evidence 17 that
+the team merged on the scripted run without a separate MetaMask test, fast-forwarded `main` and pushed, then
+checked the live page's bid history as Sanjeev had asked.
