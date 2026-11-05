@@ -1,4 +1,4 @@
-import { Interface, Provider, parseEther, parseUnits, zeroPadValue, toBeHex } from "ethers";
+import { Interface, Provider, makeError, parseEther, parseUnits, zeroPadValue, toBeHex } from "ethers";
 
 import { Deployment, auctionAbi, tokenAbi } from "../lib/contracts";
 
@@ -19,6 +19,8 @@ export type FakeChain = {
   logQueries: { fromBlock: number; toBlock: number }[];
   /** Resolves the delayed "latest block" read, if the chain was created with `delayFirstBlockRead`. */
   releaseFirstBlockRead: () => void;
+  /** A `fetch` that answers like Blockscout's Etherscan-compatible logs API, from the same events. */
+  explorerFetch: typeof fetch;
 };
 
 export function txHash(n: number): string {
@@ -28,7 +30,8 @@ export function txHash(n: number): string {
 /**
  * A minimal in-memory chain with one DutchPoint auction. It answers the reads `useAuction` makes
  * (contract calls, blocks, logs) and can hold back the first "latest block" read, to reproduce a
- * read that is still in flight when the user switches network.
+ * read that is still in flight when the user switches network. With `prunedBefore`, eth_getLogs fails
+ * for older blocks the way PublicNode's keyless Sepolia RPC does once it has dropped them.
  */
 export function fakeChain(options: {
   chainId: number;
@@ -39,6 +42,7 @@ export function fakeChain(options: {
   totalCommitted?: bigint;
   events?: FakeEvent[];
   delayFirstBlockRead?: boolean;
+  prunedBefore?: number;
 }): FakeChain {
   const logQueries: FakeChain["logQueries"] = [];
   let release: () => void = () => {};
@@ -85,6 +89,7 @@ export function fakeChain(options: {
       removed: false
     };
   });
+  const blockTimestamp = (number: number) => 1_000_000 + number;
 
   const provider = {
     async getCode() {
@@ -97,7 +102,7 @@ export function fakeChain(options: {
         await gate;
       }
       const number = tag === "latest" ? options.latestBlock : Number(tag);
-      return { number, timestamp: 1_000_000 + number };
+      return { number, timestamp: blockTimestamp(number) };
     },
     async getBalance() {
       return parseEther("100");
@@ -116,6 +121,12 @@ export function fakeChain(options: {
     },
     async getLogs(filter: { address: string; topics: (string | null)[]; fromBlock: number; toBlock: number }) {
       logQueries.push({ fromBlock: Number(filter.fromBlock), toBlock: Number(filter.toBlock) });
+      if (options.prunedBefore !== undefined && Number(filter.fromBlock) < options.prunedBefore) {
+        // What ethers reports for PublicNode's answer to a range it no longer keeps.
+        throw makeError("could not coalesce error", "UNKNOWN_ERROR", {
+          error: { code: 4444, message: "pruned history unavailable" }
+        });
+      }
       return logs
         .filter((log) => log.topics[0] === filter.topics[0])
         .filter((log) => log.blockNumber >= Number(filter.fromBlock) && log.blockNumber <= Number(filter.toBlock))
@@ -143,6 +154,28 @@ export function fakeChain(options: {
       explorer: null
     },
     logQueries,
-    releaseFirstBlockRead: () => release()
+    releaseFirstBlockRead: () => release(),
+    async explorerFetch(input: RequestInfo | URL) {
+      const query = new URL(String(input)).searchParams;
+      const toBlock = query.get("toBlock") === "latest" ? options.latestBlock : Number(query.get("toBlock"));
+      const result = logs
+        .filter((log) => log.address.toLowerCase() === query.get("address")?.toLowerCase())
+        .filter((log) => log.topics[0] === query.get("topic0"))
+        .filter((log) => log.blockNumber >= Number(query.get("fromBlock")) && log.blockNumber <= toBlock)
+        .map((log) => ({
+          address: log.address.toLowerCase(),
+          blockNumber: toBeHex(log.blockNumber),
+          data: log.data,
+          logIndex: toBeHex(log.index),
+          timeStamp: toBeHex(blockTimestamp(log.blockNumber)),
+          // Blockscout pads the topic list to four entries with null.
+          topics: [...log.topics, null, null, null, null].slice(0, 4),
+          transactionHash: log.transactionHash,
+          transactionIndex: toBeHex(log.transactionIndex)
+        }));
+      const body =
+        result.length > 0 ? { status: "1", message: "OK", result } : { status: "0", message: "No logs found", result: [] };
+      return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
+    }
   };
 }

@@ -7,6 +7,7 @@ import { BidHistory } from "./BidHistory";
 
 const ALICE = "0x00000000000000000000000000000000000000A1";
 const BOB = "0x00000000000000000000000000000000000000B2";
+const AUCTION = "0x713e80Bea173f595b191ce635fa7dB45395cB1Eb";
 
 function bid(overrides: Partial<Bid> & Pick<Bid, "key" | "account" | "amount" | "accepted">): Bid {
   return {
@@ -39,6 +40,8 @@ describe("BidHistory", () => {
         startTime={1_000_000n}
         account={null}
         explorer={null}
+        auction={AUCTION}
+        historyUnavailable={false}
       />
     );
 
@@ -49,5 +52,26 @@ describe("BidHistory", () => {
     expect(within(aliceRow).getByText(/returned/)).toBeTruthy();
     expect(within(bobRow).getByText(/held/)).toBeTruthy();
     expect(within(bobRow).queryByText(/returned/)).toBeNull();
+  });
+
+  // Finding D1: with no history to read, the panel claimed there were no bids.
+  it("D1: says the history could not be loaded, and links to the bids on the explorer", () => {
+    render(
+      <BidHistory
+        bids={[]}
+        saleSupply={parseUnits("1000", 18)}
+        startTime={1_000_000n}
+        account={null}
+        explorer="https://sepolia.etherscan.io"
+        auction={AUCTION}
+        historyUnavailable
+      />
+    );
+
+    expect(screen.queryByText(/No bids yet/)).toBeNull();
+    expect(screen.getByText(/couldn't be loaded/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Etherscan/ }).getAttribute("href")).toBe(
+      `https://sepolia.etherscan.io/address/${AUCTION}`
+    );
   });
 });

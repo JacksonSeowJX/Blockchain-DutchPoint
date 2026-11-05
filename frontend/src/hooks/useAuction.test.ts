@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { getAddress, parseEther } from "ethers";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fakeChain, txHash } from "../test/fakeChain";
 import { useAuction } from "./useAuction";
@@ -95,5 +95,72 @@ describe("useAuction", () => {
     const byAccount = Object.fromEntries(result.current.bids.map((bid) => [bid.account, bid]));
     expect(byAccount[BIDDER_ON_LOCAL].surplusCredited).toBe(true);
     expect(byAccount[BIDDER_ON_SEPOLIA].surplusCredited).toBe(false);
+  });
+
+  // Finding D1: two days after the Sepolia sell-out run, the public RPC answered "pruned history
+  // unavailable" for its blocks. The live site showed "could not coalesce error" and no bids.
+  describe("D1: bid history the RPC no longer serves", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const sepoliaRun = (prunedBefore: number) =>
+      fakeChain({
+        chainId: 11155111,
+        auction: "0x000000000000000000000000000000000000d00a",
+        token: "0x000000000000000000000000000000000000d00b",
+        latestBlock: 12_068_000,
+        deployedAtBlock: 12_029_876,
+        prunedBefore,
+        events: [
+          {
+            name: "ContributionReceived",
+            args: [BIDDER_ON_SEPOLIA, parseEther("1"), parseEther("1"), price, parseEther("1")],
+            blockNumber: 12_040_000,
+            txHash: txHash(5)
+          },
+          {
+            name: "ContributionReceived",
+            args: [BIDDER_ON_LOCAL, parseEther("2"), parseEther("1.5"), price, parseEther("2.5")],
+            blockNumber: 12_040_100,
+            txHash: txHash(6)
+          },
+          { name: "RefundCredited", args: [BIDDER_ON_LOCAL, parseEther("0.5")], blockNumber: 12_040_100, txHash: txHash(6) }
+        ]
+      });
+
+    it("D1: reads the history from the block explorer instead", async () => {
+      const chain = sepoliaRun(12_060_000);
+      vi.stubGlobal("fetch", chain.explorerFetch);
+
+      const { result } = renderHook(() => useAuction(chain.provider, chain.deployment, null));
+
+      await waitFor(() => expect(result.current.bids).toHaveLength(2));
+      expect(result.current.bids.map((bid) => bid.account)).toEqual([BIDDER_ON_SEPOLIA, BIDDER_ON_LOCAL]);
+      expect(result.current.bids[0].timestamp).toBe(1_000_000n + 12_040_000n);
+      expect(result.current.bids[1].surplusCredited).toBe(true);
+      expect(result.current.error).toBe("");
+      expect(result.current.historyUnavailable).toBe(false);
+
+      // Later refreshes scan only new blocks, so the explorer's bids are not added twice.
+      await act(async () => {
+        await result.current.refresh();
+      });
+      expect(result.current.bids).toHaveLength(2);
+    });
+
+    it("D1: keeps the auction on screen when no source has the history", async () => {
+      const chain = sepoliaRun(12_060_000);
+      vi.stubGlobal("fetch", async () => {
+        throw new TypeError("Failed to fetch");
+      });
+
+      const { result } = renderHook(() => useAuction(chain.provider, chain.deployment, null));
+
+      await waitFor(() => expect(result.current.historyUnavailable).toBe(true));
+      expect(result.current.snapshot?.blockNumber).toBe(12_068_000);
+      expect(result.current.error).toBe("");
+      expect(result.current.offline).toBe(false);
+    });
   });
 });
