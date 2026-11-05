@@ -5,6 +5,7 @@ import { HowItWorks } from "../components/HowItWorks";
 import { PriceChart } from "../components/PriceChart";
 import { Dashboard } from "../hooks/useDashboard";
 import { Status } from "../lib/auctionMath";
+import { chainName } from "../lib/contracts";
 import { percent } from "../lib/format";
 import { Bid, Bids, Details, DirectionProps, Position, Settlement } from "./shared";
 
@@ -12,11 +13,14 @@ export type Panel = "bid" | "position" | "settlement";
 
 /** What this visitor should do next, and which panel lets them do it. */
 export function nextStep(d: Dashboard): { title: string; detail: string; panel: Panel } {
-  const { view, snapshot, wallet, isOwner } = d;
+  const { view, snapshot, wallet, isOwner, deployment } = d;
   const committed = (snapshot?.position?.commitment ?? 0n) > 0n;
   const claimed = snapshot?.position?.claimed ?? false;
   const connected = wallet.account !== null;
-  if (!view) return { title: "Loading the sale", detail: "Reading the auction from Sepolia.", panel: "bid" };
+  if (!view) {
+    const network = deployment ? chainName(deployment.chainId) : "the network";
+    return { title: "Loading the sale", detail: `Reading the auction from ${network}.`, panel: "bid" };
+  }
   switch (view.status) {
     case Status.Pending:
       return isOwner
@@ -35,7 +39,7 @@ export function nextStep(d: Dashboard): { title: string; detail: string; panel: 
     default:
       if (committed && !claimed) return { title: "Claim your GVRA", detail: "The sale is final, so your tokens are ready.", panel: "position" };
       if (committed) return { title: "Claim complete", detail: "Your GVRA has been claimed.", panel: "position" };
-      return { title: "Sale complete", detail: "See the final result under Sale details.", panel: "settlement" };
+      return { title: "Sale complete", detail: "The final price and totals are below.", panel: "settlement" };
   }
 }
 
