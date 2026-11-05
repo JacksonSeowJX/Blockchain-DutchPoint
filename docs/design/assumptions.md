@@ -96,7 +96,9 @@ credits are tracked separately, so proceeds can never consume ETH owed to bidder
   with 18 decimals (prices are per 10^18 units) and a `burn` function. A token with transfer hooks or a
   dishonest `balanceOf` is out of scope.
 - The hosted site reads the bid history from a public RPC, and from Blockscout's free logs API for blocks
-  the RPC has pruned (audit finding D1). If neither answers, the Bids panel says so and links to the
+  the RPC has pruned (audit finding D1). That API allows about 10 requests an hour from one address; the
+  site makes one per attempt, waits out a rate limit, and keeps settled bids in the browser (D2), so a
+  new visitor needs one request. If neither source answers, the Bids panel says so and links to the
   auction on Etherscan; the auction's state is still read from the chain itself.
 - The issuer is the `Ownable` owner. Transferring ownership hands over `start` and the proceeds withdrawal;
   renouncing it before withdrawing would lock the proceeds in the contract for good. Bidders never depend on

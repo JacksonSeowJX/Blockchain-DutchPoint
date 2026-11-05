@@ -505,3 +505,15 @@ Sepolia sale. They predate the redesign: they suit the 20 ETH local sale, but th
 0.1 ETH at its start price, so every button but 0.1, and the 1 ETH default, would sell it out. Two tests
 were committed failing first; the buttons are now 5%, 10% and 25% of the sale's start value (1, 2 and 5 ETH
 locally; 0.005, 0.01 and 0.025 ETH on Sepolia), and the default amount is the smallest of them.
+
+## 2026-11-05 - The explorer's rate limit (D2)
+
+Screenshotting Sanjeev's redesign against the real Sepolia auction, the Bids panel said the history could
+not be loaded, in `main`'s build as well. Blockscout was answering HTTP 429 with `x-ratelimit-limit: 10`
+and a reset about 48 minutes away. The D1 fallback, written that morning, asked once per event and again on
+every refresh, so a handful of page loads used up the limit and the retries kept it there. Tests that
+count the requests were committed failing (`db94b4f`). The fix (`5a0fa7e`) asks once per attempt for all
+of the auction's events, waits out a 429 (or a minute after any other failure), and keeps bids from
+settled blocks in the browser on Sepolia, so a reload asks the explorer nothing. Writing it exposed a flaw
+in the test double: the fake chain gave every log index 0, so a bid and its refund credit in one
+transaction collided once they came from one request; it now numbers logs by position in the block.

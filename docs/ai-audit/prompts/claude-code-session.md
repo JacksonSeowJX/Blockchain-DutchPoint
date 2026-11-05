@@ -664,3 +664,17 @@ three.js and two self-hosted fonts added) and applied it on a branch, unchanged,
 fixed what broke: the patch predated D1, so typecheck failed until the Bids section got the D1 props again,
 and three.js 0.187 was six days old, under the project's two-week rule. Sanjeev's note on the quick-bid
 amounts turned out to describe the current site, so that fix went to `main` with failing-first tests.
+
+94. "Go ahead with the tests."
+
+**Agent response:** took this as approval for the D2 fix it had proposed, with tests. Committed four tests
+(three failing) that count explorer requests, then made the fallback ask once per attempt, wait out a
+rate limit, and keep settled bids in the browser on Sepolia only. Planned an automated wallet run of the
+redesign too, but dropped it once the user started the same test by hand on the local node.
+
+95. "I ran `npm run node` in the first terminal, but the second terminal gives ENOENT for
+`Project/package.json`." and "The first terminal is mining blocks; do I stop it?"
+
+**Agent response:** the second terminal was in the folder above the repository; asked the user to wait
+until the repository was back on the redesign branch, then gave the commands and a checklist (start, bid,
+sell-out bid, finalize, claim, withdraw). The node should keep running for the whole test.

@@ -1,0 +1,51 @@
+Evidence 15 - Finding D2: the D1 fallback ran into the block explorer's keyless rate limit.
+Recorded 2026-11-05. Tests committed failing in db94b4f, fixed in 5a0fa7e.
+
+Found while screenshotting the redesign (dutchpoint-shaft.patch) against the real Sepolia auction: after a
+few page loads, the Bids panel of both the redesign and main's build said "The bid history couldn't be
+loaded from the network right now". So the redesign was not the cause.
+
+== 1. Cause: Blockscout's keyless API allows about 10 requests per address, and the page used them up
+$ curl -D - "https://eth-sepolia.blockscout.com/api?module=logs&action=getLogs&address=0x713e…B1Eb&fromBlock=12029876&toBlock=latest&topic0=0x04ef…5716"
+  HTTP/2 429
+  access-control-allow-origin: *
+  access-control-expose-headers: bypass-429-option,x-ratelimit-reset,x-ratelimit-limit,x-ratelimit-remaining,api-v2-temp-token
+  x-ratelimit-limit: 10
+  x-ratelimit-remaining: 0
+  x-ratelimit-reset: 2875505            (milliseconds: about 48 minutes)
+  {"message":"Too many requests. Increase limits now at https://dev.blockscout.com","result":null,"status":"0"}
+The D1 fallback asked twice per attempt (one request per event: ContributionReceived, RefundCredited), and
+while the history was incomplete it asked again on every refresh (each new block, and every 15 seconds).
+A reload asked again for history that can no longer change. A few reloads, as when recording the demo,
+use up the limit, and the page then keeps the limit at zero by retrying.
+
+== 2. Before: the new tests on the D1 code (db94b4f)
+$ npx vitest run --root frontend --reporter=verbose
+ × D2: asks the explorer once, for all of the auction's events
+ × D2: after a 429, waits until the limit resets before asking again
+ × D2: a reload shows the settled history kept in the browser, without asking the explorer
+AssertionError: expected [ …(2) ] to have a length of 1 but got 2
+AssertionError: expected [ …(8) ] to have a length of 1 but got 8
+AssertionError: expected [] to deeply equal [ …(2) ]
+      Tests  3 failed | 22 passed (25)
+(The fourth D2 test, "keeps nothing in the browser for the local node", guards the fix and passed already.)
+
+== 3. The fix (5a0fa7e)
+- One request per attempt: all of the auction's events at once, sorted by event name in the page.
+- After a failed request the explorer is left alone for a minute, or until a 429's x-ratelimit-reset
+  (capped at an hour), instead of being asked again on every refresh.
+- Bids from blocks at least 100 blocks old are kept in the browser (localStorage) for chains with a
+  LOGS_APIS entry, so a reload reads only newer blocks. Not for the local node: it reuses contract
+  addresses after a restart, so kept bids could appear on a fresh chain.
+- Test double: the fake chain gave every log index 0. A real chain numbers logs by their position in the
+  block, so a bid and its RefundCredited in one transaction never share an index. With both events in one
+  request they collided in the explorer reader's dedupe, which keys on transaction and index; the fake now
+  numbers logs as a chain does.
+
+== 4. After the fix
+ ✓ D2: asks the explorer once, for all of the auction's events
+ ✓ D2: after a 429, waits until the limit resets before asking again
+ ✓ D2: a reload shows the settled history kept in the browser, without asking the explorer
+ ✓ D2: keeps nothing in the browser for the local node, whose addresses repeat after a restart
+      Tests  25 passed (25)
+typecheck and build pass.
