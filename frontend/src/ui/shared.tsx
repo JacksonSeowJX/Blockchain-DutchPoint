@@ -173,7 +173,7 @@ export function Settlement({ d }: DirectionProps) {
 }
 
 export function Bids({ d }: DirectionProps) {
-  const { snapshot, deployment, account, bids } = d;
+  const { snapshot, deployment, account, bids, historyUnavailable } = d;
   if (!snapshot) {
     return null;
   }
@@ -186,6 +186,8 @@ export function Bids({ d }: DirectionProps) {
         startTime={snapshot.startTime}
         account={account}
         explorer={deployment?.explorer ?? null}
+        auction={deployment?.auction ?? null}
+        historyUnavailable={historyUnavailable}
       />
     </section>
   );

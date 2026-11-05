@@ -19,7 +19,7 @@ export function BidHistory({ bids, saleSupply, startTime, account, explorer, auc
     <>
       {" "}
       <a href={`${explorer}/address/${auction}`} target="_blank" rel="noreferrer">
-        See the bids on Etherscan ↗
+        See the bids on Etherscan <ExternalIcon />
       </a>
     </>
   );

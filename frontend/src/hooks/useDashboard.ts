@@ -42,7 +42,7 @@ export function useDashboard() {
   const deployment = usingWallet ? walletDeployment : deploymentFor(defaultChainId);
   const account = usingWallet ? wallet.account : null;
 
-  const { snapshot, bids, error, offline, refresh } = useAuction(provider, deployment, account);
+  const { snapshot, bids, error, offline, historyUnavailable, refresh } = useAuction(provider, deployment, account);
 
   // Extrapolate the chain clock between blocks so the countdown and price move every second.
   const chainNow = snapshot
@@ -108,6 +108,7 @@ export function useDashboard() {
     view,
     error,
     offline,
+    historyUnavailable,
     refresh,
     switchTarget,
     wrongNetwork,
