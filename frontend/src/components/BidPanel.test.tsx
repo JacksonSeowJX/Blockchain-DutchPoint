@@ -80,4 +80,25 @@ describe("BidPanel", () => {
     fireEvent.click(bidButton());
     expect(onBid).toHaveBeenCalledWith(parseEther("0.5"), (44_444444444444444444n * 9_900n) / 10_000n);
   });
+
+  // Found reviewing the redesign (Sanjeev): fixed shortcuts of 0.1 to 5 ETH suit the 20 ETH local sale, but the
+  // whole Sepolia sale is worth 0.1 ETH at its start price, so all but one of them, and the 1 ETH default, sold out.
+  const amountChips = () =>
+    screen.getAllByRole("button").filter((button) => button.className === "chip").map((chip) => chip.textContent);
+
+  it("sizes the quick amounts and the default bid to the sale: 5%, 10% and 25% of its start value", () => {
+    renderPanel();
+    expect(amountChips()).toEqual(["1", "2", "5"]);
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("1");
+  });
+
+  it("offers testnet-sized amounts for the Sepolia sale (1,000 GVRA from 0.0001 ETH)", () => {
+    const onBid = renderPanel(viewAfter(60n, { startPrice: parseEther("0.0001"), reservePrice: parseEther("0.00002") }));
+    expect(amountChips()).toEqual(["0.005", "0.01", "0.025"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "0.01" }));
+    expect(screen.getByText("This bid buys at least")).toBeTruthy();
+    fireEvent.click(bidButton());
+    expect(onBid).toHaveBeenCalledWith(parseEther("0.01"), expect.any(BigInt));
+  });
 });
