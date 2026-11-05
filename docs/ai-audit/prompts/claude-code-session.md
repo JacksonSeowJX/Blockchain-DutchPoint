@@ -557,3 +557,23 @@ portals) and checked them against the packaging script and the remaining work: t
 
 **Agent response:** read the final state and the auction's event log from the chain, found its own earlier
 error about how the auction sold out, and recorded the run in the report, the README and this log.
+
+77. "Alfred used ChatGPT Codex with the Astra model, and here is his Codex session link; Sanjeev will send
+his session link later. Assign a subagent to each task: what else we have to settle, a script for the demo
+video (don't start it yet), the steps for Etherscan verification, and whether to add pages such as a
+roadmap to the website. Then wait for my prompt on the website design."
+
+**Agent response:** recorded Alfred's tool and session link in the report, the review README and the
+prompt index; the shared page renders only in a browser, so the link is recorded as given. Then ran four
+read-only subagents in parallel, each from a written brief: a check of the repository against the brief,
+a draft demo script, verification steps checked against the repository and the explorers, and a review of
+the site against the rubric. The last advised against roadmap or tokenomics pages: the rubric does not
+reward them, and future plans for a testnet token would have to be invented.
+
+78. "Can you convert the AI audit report into a Word document?"
+
+**Agent response:** converted it with pandoc and a styled reference document, rewrote the relative links as
+GitHub links, gave the tables borders and column widths that follow their content, and validated the file
+against the Office schema. The first build failed validation (properties out of schema order, incomplete
+page margins); both were fixed. The Word copy is kept outside the repository because, like the report in
+the submission zip, it includes the team-details block.

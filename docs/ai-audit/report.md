@@ -6,8 +6,8 @@ Every evidence commit cited below is in the history of the `main` branch.
 
 <!-- team-details -->
 
-> Items marked **TODO (team)** need facts only the team has (the original prompts, and the tool Alfred
-> used). They are left blank on purpose rather than guessed.
+> Items marked **TODO (team)** need facts only the team has (the original prompts). They are left blank
+> on purpose rather than guessed.
 
 ## Summary
 
@@ -16,7 +16,7 @@ first implementation, and **Claude Code** reviewed both, then fixed and extended
 ran a third pass over the code, an independent review with **Codex**, which found six defects in the Claude Code frontend
 (A1-A5, A7). As that review recommended, A1 was then fixed in the contract itself with an on-chain minimum
 per bid, and checking that change end to end exposed one more frontend defect (C1). A second team member's
-review (Alfred), of an earlier commit, confirmed several of these independently and found two more small
+review (Alfred, also with Codex), of an earlier commit, confirmed several of these independently and found two more small
 defects (B1, B2). Each defect below was reproduced with a test that fails on the code that contained it and
 passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 
@@ -110,7 +110,7 @@ trace back to them:
 | Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
 | Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5` and a functional test with the real MetaMask extension. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md)) |
-| AI agent, run independently by a team member (Alfred); **TODO (team):** name the tool and model | Evidence-focused review of `c36cb0c` in eight stages: what each record can and cannot prove, fifteen findings, and Node checks of the frontend logic ([`independent-review/alfred/`](independent-review/alfred/AI_Audit_Report.md)) |
+| ChatGPT Codex (Astra model), run independently by a team member (Alfred) | Evidence-focused review of `c36cb0c` in eight stages: what each record can and cannot prove, fifteen findings, and Node checks of the frontend logic ([`independent-review/alfred/`](independent-review/alfred/AI_Audit_Report.md); [shared Codex session](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de)) |
 
 ### Toolchain
 
@@ -481,8 +481,8 @@ had been in the Claude Code frontend since the second pass:
 
 ### Second independent review (Alfred)
 
-Another team member (Alfred) used an AI agent to review the repository at `c36cb0c` (22 October),
-before the third pass ([his report and working files](independent-review/alfred/AI_Audit_Report.md), kept unchanged). His report weighs what each record in the repository can and cannot prove,
+Another team member (Alfred) used ChatGPT Codex (Astra model) to review the repository at `c36cb0c` (22 October),
+before the third pass ([his report and working files](independent-review/alfred/AI_Audit_Report.md), kept unchanged; [the shared Codex session](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de)). His report weighs what each record in the repository can and cannot prove,
 re-reads the code, and runs small checks on the frontend logic. It could not run the project's own tests in
 its environment. Each of its fifteen items was checked against the current code:
 
@@ -516,7 +516,7 @@ verification fail, that profile now matches the default.
 | Mutation check | Plant M1 (round time-clearing price down), M2 (issuer withdraws raw balance) and M4 (bid minimum not enforced), confirm failures, restore | M1: 6/7 property tests fail; M2: 3/7 fail ([`06`](evidence/06-mutation-check.txt)); M4: 4 tests fail ([`12`](evidence/12-bid-protection.txt)) |
 | Gas scaling | The same six calls (new bid, protected bid, crossing bid with refund, finalize, claim, issuer withdrawal) measured after 1, 10, 50 and 100 earlier bidders, with a 1% tolerance. Mutation M3 plants a loop over bidders in `claimTokens` | Identical gas at every crowd size (spread 0). Under M3 the claim grows from 163,417 to 410,719 gas and the test fails ([`09`](evidence/09-gas-scaling.txt), [`12`](evidence/12-bid-protection.txt)) |
 | Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers), components (quote and its on-chain minimum, amount validation, surplus states, refund recipient) and error decoding for failed transactions | 16 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)), as did the bid-protection, error and B1 tests ([`12`](evidence/12-bid-protection.txt), [`13`](evidence/13-alfred-review-fixes.txt)) |
-| Independent reviews | Sanjeev ran Codex as auditor, re-ran the checks, verified the Sepolia run and tested with MetaMask ([`independent-review/`](independent-review/README.md)). Alfred's AI-assisted review weighed the repository's evidence and checked the frontend logic | Sanjeev: 6 findings, all confirmed and fixed; MetaMask scenarios all passed. Alfred: 15 items; 2 new (B1, B2) fixed, the rest already fixed or recorded as limitations |
+| Independent reviews | Sanjeev ran Codex as auditor, re-ran the checks, verified the Sepolia run and tested with MetaMask ([`independent-review/`](independent-review/README.md)). Alfred's review, also with Codex, weighed the repository's evidence and checked the frontend logic | Sanjeev: 6 findings, all confirmed and fixed; MetaMask scenarios all passed. Alfred: 15 items; 2 new (B1, B2) fixed, the rest already fixed or recorded as limitations |
 | Coverage | `npm run coverage` | `DutchAuction.sol` and `GavoraToken.sol`: 100% lines and statements ([`07`](evidence/07-test-suite-and-coverage.txt)) |
 | Static analysis | Slither 0.11.6 on original and current code, token, and vulnerable demo | Original: 19 results incl. High `reentrancy-eth`. Current: 0 High; 4 Medium `incorrect-equality` false positives annotated inline; remaining Low/Info are by design ([`08`](evidence/08-slither.txt)). With bid protection: 15 results, the new one a Low `timestamp` ([`12`](evidence/12-bid-protection.txt)) |
 | Dependency audit | `npm audit`, and `npm audit --omit=dev` for runtime-only packages; each advisory traced to the package that pulls it in and what it is used for | Before: 10 (2 high, 8 low), all in build or verification tooling, none in the contracts or the shipped site. After patch updates and the dependency split: 0 ([`10`](evidence/10-dependency-audit.txt)). Re-check on 26 Oct: 3 new advisories in Hardhat and Mocha tooling, none reachable, 0 in runtime packages. Fixes wait for the two-week rule on new releases; `npm ci` on npm 10 verified |

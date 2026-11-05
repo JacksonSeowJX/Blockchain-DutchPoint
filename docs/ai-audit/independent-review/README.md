@@ -44,9 +44,10 @@ observation to re-check while rehearsing the demo.
 
 ## Alfred: AI-assisted evidence review (22 October snapshot)
 
-Alfred Fong Wei Hao used a single AI agent, in eight stages, to review the repository at `c36cb0c`
+Alfred Fong Wei Hao used ChatGPT Codex (Astra model), in eight stages, to review the repository at `c36cb0c`
 (22 October), before Sanjeev's review and the fixes that followed. His folder (`ai_audit_report/` at the root
-of his copy) is in [`alfred/`](alfred/AI_Audit_Report.md), unchanged:
+of his copy) is in [`alfred/`](alfred/AI_Audit_Report.md), unchanged, and his Codex session is shared
+[here](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de):
 
 | File | What it holds |
 | --- | --- |

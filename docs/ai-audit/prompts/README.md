@@ -8,6 +8,7 @@ Three AI tools were used in sequence; each produced input for the next.
 | 1. Planning | ChatGPT | Project plan: naming, auction flow, contract/function outline, security checklist, test plan | [`chatgpt-plan.txt`](chatgpt-plan.txt) (output). Conversation export: **TODO - add the ChatGPT share link or export** |
 | 2. First implementation | Codex desktop agent | `FairLaunch` contracts, tests, React app, docs (commit `0a75a78`) | Prompt summary and decisions in [`../development-log.md`](../development-log.md). Full session export: **TODO - add the Codex session export** |
 | 3. Cross-model review and remediation | Claude Code (Claude Opus 5.5, VS Code extension) | Review of stages 1-2, regression tests, contract fixes, fuzz/invariant tests, Slither, frontend rebuild, this documentation (commits `35253ce`..) | [`claude-code-session.md`](claude-code-session.md) |
+| 4. Independent reviews | Codex, run separately by Sanjeev and by Alfred (ChatGPT Codex, Astra model) | Two defect audits, kept unchanged in [`../independent-review/`](../independent-review/README.md) | Alfred: [shared Codex session](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de). Sanjeev: **TODO - add his session link** |
 
 Raw session transcripts for Claude Code are stored locally by the tool under `~/.claude/projects/`.
 The Claude Code log keeps the prompts in their original order, edited for grammar and tone only; see the
