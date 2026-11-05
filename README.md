@@ -195,13 +195,14 @@ The site is live. `.github/workflows/pages.yml` builds the frontend and publishe
 `main` (or by hand from the Actions tab).
 
 - **What it shows:** the Sepolia auction recorded in `frontend/src/generated/deployments.json`:
-  [GavoraToken](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8) and
-  [DutchAuction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb)
+  [GavoraToken](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8#code) and
+  [DutchAuction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb#code)
   (1,000 GVRA, 0.0001 → 0.00002 ETH/GVRA, deployed unstarted on 31 Oct 2026 so the issuer opens the window
   from the site), then run to a sell-out on 3 Nov 2026: three bidders, a crossing bid refunded in the same
   transaction, everyone settled at 0.00004 ETH/GVRA (details in the audit report, section 6). The first
   deployment, of the contract before bid protection, is recorded in
-  [`deployments/sepolia-2026-10-23.json`](deployments/sepolia-2026-10-23.json).
+  [`deployments/sepolia-2026-10-23.json`](deployments/sepolia-2026-10-23.json). Both current contracts
+  have their source verified on Etherscan, so the links above open the code that runs at each address.
 - **Redeploying:** run `npm run deploy:sepolia`, commit the updated `frontend/src/generated/deployments.json`
   and `deployments/sepolia.json`, and push to `main`. The next Pages build bundles the new addresses. With
   no Sepolia deployment, the site shows a "not deployed on Sepolia yet" card instead.
@@ -257,7 +258,7 @@ Every script in `package.json`, run from the repository root.
 | **Sepolia (optional)** | |
 | `npm run keystore -- set <NAME>` | Store a secret in the Hardhat keystore |
 | `npm run deploy:sepolia` | Deploy, fund and start the auction on Sepolia |
-| `npm run verify:sepolia -- <address> <constructor args>` | Verify a contract on Etherscan (the deploy script prints the exact commands) |
+| `npm run verify:sepolia -- <address> <constructor args>` | Verify a contract's source on Etherscan, Blockscout and Sourcify, in that order (the deploy script prints the exact commands) |
 
 ## Project structure
 

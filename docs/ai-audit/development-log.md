@@ -487,6 +487,10 @@ fix reads refused chunks from Blockscout, rescans the newest 100 blocks over the
 lags, and reports a missing history in the Bids panel, with an Etherscan link, instead of as a page error.
 The production build was then loaded against the real Sepolia network and listed the three bids.
 
-The same day, GavoraToken's source was verified on Etherscan. Blockscout and Sourcify already listed the
-token as verified under another project's name ("ObinaNetwork"): the token is plain OpenZeppelin code, and
-an identical third-party source had been matched to it automatically the day after deployment.
+The same day, the source of both contracts was verified on Etherscan with `npm run verify:sepolia`, which
+also submits to Blockscout and Sourcify. DutchAuction is verified on all three; Blockscout and Sourcify
+record it as a partial match (same bytecode, different metadata hash). Blockscout and Sourcify already
+listed GavoraToken as verified under another project's name ("ObinaNetwork"): the token is plain
+OpenZeppelin code, and an identical third-party source had been matched to it automatically the day after
+deployment. Its Etherscan page shows DutchPoint's own source. Each result was checked afterwards with
+read-only requests to the three explorers.

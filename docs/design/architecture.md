@@ -142,7 +142,7 @@ DutchPoint adopted, what it leaves as the production path, and what it leaves ou
 | Claim deadline | Many airdrops and sales let the issuer reclaim unclaimed tokens after a deadline | None: claims stay open forever | A deadline would let the issuer take back tokens a bidder paid for. The cost is that rounding dust can only be burned once everyone has claimed |
 | Batch or sealed-bid settlement | Gnosis Auction, CoW Protocol | Bids settle in arrival order | Batching removes the race at sell-out, at the cost of a second phase and far more complexity. The remaining race is a [known limitation](assumptions.md#known-limitations); protected bids let a bidder bound its outcome |
 | Allowlists and KYC | CoinList-hosted sales such as Algorand's 2019 Dutch auction required verified participants | None | Out of scope for a public testnet demo. Per-wallet caps would be bypassed with extra addresses |
-| Verified source on a block explorer | Standard for public launches | The deploy script prints the `npm run verify:sepolia` commands | Needs an Etherscan API key in the Hardhat keystore |
+| Verified source on a block explorer | Standard for public launches | **Built**: both Sepolia contracts are verified on Etherscan ([token](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8#code), [auction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb#code)). The deploy script prints the `npm run verify:sepolia` commands | Bidders can read the code they send ETH to instead of trusting the site. Needs an Etherscan API key in the Hardhat keystore |
 
 ## Tooling
 

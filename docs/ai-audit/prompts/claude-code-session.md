@@ -599,3 +599,19 @@ marking every block as read could miss a new bid. The newest blocks are now scan
 82. "Note: we are allowed to use an AI voice for the demo video, so it will be one consistent voice."
 
 **Agent response:** noted; the draft script's narration is to be rewritten for a single narrator.
+
+83. "For the Etherscan steps, how do I do step 5? How do I find the address of each contract?"
+
+**Agent response:** the addresses are the ones in the verify commands, also recorded in
+`deployments/sepolia.json` and the README; gave both Contract-tab links. The auction's Etherscan page still
+offered "Verify and Publish", so its verification had to run first.
+
+84. "Put step 4 here."
+
+**Agent response:** the auction's verify command again, with what success looks like.
+
+85. (The output of the auction's verification, pasted.)
+
+**Agent response:** checked the result on Etherscan, Blockscout and Sourcify with read-only requests, then
+linked the verified source from the README, the report and the architecture notes, and corrected the README,
+which described the command as Etherscan-only.
