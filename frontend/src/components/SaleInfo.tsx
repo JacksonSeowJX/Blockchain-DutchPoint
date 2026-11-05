@@ -4,6 +4,7 @@ import { Snapshot } from "../hooks/useAuction";
 import { DURATION } from "../lib/auctionMath";
 import { Deployment, LOCAL_CHAIN_ID, chainName } from "../lib/contracts";
 import { shortAddress } from "../lib/format";
+import { ExternalIcon } from "./icons";
 
 type Props = {
   deployment: Deployment;
@@ -41,7 +42,7 @@ function AddressRow({ label, address, explorer }: { label: string; address: stri
       <dd className="address">
         {explorer ? (
           <a href={`${explorer}/address/${address}`} target="_blank" rel="noreferrer" title={address}>
-            {shortAddress(address)} ↗
+            {shortAddress(address)} <ExternalIcon />
           </a>
         ) : (
           <code title={address}>{shortAddress(address)}</code>

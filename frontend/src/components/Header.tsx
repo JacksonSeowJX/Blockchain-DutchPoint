@@ -1,32 +1,28 @@
+import { ReactNode } from "react";
+
 import { ThemeChoice } from "../hooks/useTheme";
 import { Wallet } from "../hooks/useWallet";
 import { chainName } from "../lib/contracts";
 import { shortAddress } from "../lib/format";
+import { ThemeIcon } from "./icons";
 
 type Props = {
   wallet: Wallet;
   supported: boolean;
   theme: ThemeChoice;
   onCycleTheme: () => void;
+  mark: ReactNode;
 };
 
-const THEME_LABELS: Record<ThemeChoice, { icon: string; label: string }> = {
-  system: { icon: "◐", label: "Auto" },
-  light: { icon: "☀", label: "Light" },
-  dark: { icon: "☾", label: "Dark" }
-};
+const THEME_LABELS: Record<ThemeChoice, string> = { system: "Auto", light: "Light", dark: "Dark" };
 
-export function Header({ wallet, supported, theme, onCycleTheme }: Props) {
+export function Header({ wallet, supported, theme, onCycleTheme, mark }: Props) {
   const themeLabel = THEME_LABELS[theme];
 
   return (
     <header className="topbar">
       <div className="brand">
-        <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-          <rect x="3" y="5" width="6" height="22" rx="2" />
-          <rect x="13" y="11" width="6" height="16" rx="2" />
-          <rect x="23" y="17" width="6" height="10" rx="2" />
-        </svg>
+        {mark}
         <div>
           <strong>DutchPoint</strong>
           <span>Falling prices. One clearing price.</span>
@@ -38,10 +34,10 @@ export function Header({ wallet, supported, theme, onCycleTheme }: Props) {
           className="theme-toggle"
           onClick={onCycleTheme}
           title="Switch between automatic, light and dark themes"
-          aria-label={`Theme: ${themeLabel.label}. Click to change.`}
+          aria-label={`Theme: ${themeLabel}. Click to change.`}
         >
-          <span aria-hidden="true">{themeLabel.icon}</span>
-          {themeLabel.label}
+          <ThemeIcon theme={theme} />
+          {themeLabel}
         </button>
         {wallet.chainId !== null && wallet.account && (
           <span className={`network-badge ${supported ? "ok" : "warn"}`}>

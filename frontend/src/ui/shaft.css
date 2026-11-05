@@ -1,0 +1,43 @@
+/* Direction: an LED shaft, after kinetic light shows. True black, with colour that means price. */
+:root {
+  color-scheme: dark;
+  --font-display: "Doto", ui-monospace, monospace; --font-figure: "Instrument Sans", sans-serif; --font-body: "Instrument Sans", system-ui, sans-serif;
+  --radius-control: 2px;
+  --ground: #000; --surface: rgb(14 14 18 / .86); --raised: #1d1d24; --field: #000; --ink: #f6f6f8; --muted: #a8a8b4;
+  --line: #2c2c36; --line-strong: #5a5a68; --accent: #f6f6f8; --accent-hover: #fff; --on-accent: #000;
+  --link: #7fe3ff; --focus: #7fe3ff; --data: #2bd4ff; --signal: #ff2d3f;
+  --good: #6cf0b8; --good-soft: #0f3a2c; --good-ink: #b5f8dc; --warn: #ffd76a; --warn-soft: #3e310c; --warn-ink: #ffe7a8; --bad: #ff8a95; --bad-soft: #471018;
+}
+.pin { height: 340vh; }
+.shaft { height: 100vh; min-height: 640px; overflow: hidden; position: sticky; top: 0; }
+.shaft-ui { display: flex; flex-direction: column; height: 100%; padding: 14px clamp(16px, 3vw, 40px) 16px; position: relative; }
+/* Keeps the words readable where rings pass behind them. */
+.shaft-ui::before { background: linear-gradient(90deg, rgb(0 0 0 / .78), rgb(0 0 0 / .35) 40%, transparent 62%); content: ""; inset: 0; pointer-events: none; position: absolute; }
+.shaft-ui > * { position: relative; }
+.brand strong { font-weight: 800; font-size: 24px; }
+.shaft-grid { align-items: end; display: grid; flex: 1; gap: 24px; grid-template-columns: minmax(0, 1fr) 380px; min-height: 0; padding-bottom: 40px; }
+.shaft-read { align-self: stretch; display: flex; flex-direction: column; min-width: 0; padding-top: 12px; }
+.shaft-read h1 { font-size: clamp(26px, 2.8vw, 38px); font-weight: 800; }
+.led { font: 800 clamp(56px, 10.5vw, 168px)/1 var(--font-display); letter-spacing: -.03em; margin-top: auto; text-shadow: 0 0 22px rgb(255 255 255 / .35); }
+.sub { color: var(--muted); font-size: 18px; }
+.chapter { animation: chapter .45s ease-out; margin-top: 18px; max-width: 46ch; min-height: 104px; }
+.chapter h2 { font: 600 20px var(--font-body); }
+.chapter p { color: var(--muted); }
+@keyframes chapter { from { opacity: 0; transform: translateY(10px); } }
+.ticket .card { backdrop-filter: blur(14px); background: var(--surface); border: 1px solid var(--line-strong); padding: 18px; }
+.ticket h2 { font: 800 26px var(--font-display); margin-bottom: 8px; }
+/* Scrolling the shaft tells this story on desktop; phones read it here instead. */
+.how-fallback { display: none; }
+.price-card { margin-bottom: 40px; max-width: 980px; }
+.lower h2 { font-size: 30px; font-weight: 800; }
+.lower .meter { margin: 0 0 40px; max-width: 760px; }
+@media (max-width: 900px) {
+  .pin { height: auto; }
+  .shaft { height: auto; position: relative; min-height: 0; }
+  .shaft .immersive-canvas { height: 420px; }
+  .shaft-ui::before { background: linear-gradient(180deg, rgb(0 0 0 / .55), transparent 18%, transparent 30%, rgb(0 0 0 / .8) 44%); }
+  .shaft-grid { grid-template-columns: minmax(0, 1fr); }
+  .chapter { display: none; }
+  .how-fallback { display: block; }
+  .led { margin-top: 170px; }
+}

@@ -1,6 +1,7 @@
 import { Bid } from "../hooks/useAuction";
 import { TOKEN_SCALE } from "../lib/auctionMath";
 import { formatEth, formatPrice, secondsToClock, shortAddress } from "../lib/format";
+import { ExternalIcon } from "./icons";
 
 type Props = {
   bids: Bid[];
@@ -64,7 +65,7 @@ export function BidHistory({ bids, saleSupply, startTime, account, explorer, auc
                         rel="noreferrer"
                         title="View this transaction on the block explorer"
                       >
-                        {secondsToClock(elapsed)} ↗
+                        {secondsToClock(elapsed)} <ExternalIcon />
                       </a>
                     ) : (
                       secondsToClock(elapsed)
