@@ -734,3 +734,22 @@ token roadmap to the website?"
 **Agent response:** checked that the branch had not changed since it was pushed, fast-forwarded `main`, ran
 the full check and pushed; recorded the review as E1-E3 with evidence 16. Advised against a roadmap for a
 test token (it would mean inventing plans) and offered a "Security & verification" section instead.
+
+103. "We are thinking of redesigning the website, because some of the boxes are spaced too far apart.
+Sanjeev is looking for a design. Does this mean your previous segments have to be re-recorded?"
+
+**Agent response:** only what shows the site: the user's recording of segments 2-6 and the site
+screenshots in segment 9 (re-taken by script); the slides and the test and audit segments are unaffected.
+Suggested a cut-off (design final by Saturday noon) and a list of constraints for the new design.
+
+104. (Sanjeev's second redesign, "Terrain": `dutchpoint-terrain.patch`, a preview page and his notes, passed
+on.) "Once you're done updating this finalised design, let me know." His notes asked for the patch to be
+applied as it is, and corrected the record: both redesigns were made with Claude, not Codex.
+
+**Agent response:** read the whole patch first (frontend layout, a presentational BidPanel change, README and
+architecture text, fonts released in July), applied it with `git am` on a branch, ran the full check
+including the contract tests, and checked desktop and phone against the real Sepolia auction. Fixed two
+wrong messages in a separate commit (E4). Ran a scripted whole auction on the local chain with a stand-in
+wallet sending real transactions, which passed at every stage. Corrected Codex to Claude for the redesigns
+in the report, evidence 16 and the development log; the independent review (A1-A7) stays Codex, as
+Sanjeev's own report records.

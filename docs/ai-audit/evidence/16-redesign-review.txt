@@ -3,7 +3,9 @@ Recorded 2026-11-06. Commits: 895079d (the patch, unchanged), 2d5ba74 (E1, E2), 
 changes). Merged into main as a fast-forward after the team's wallet test.
 
 == 0. What was delivered
-Sanjeev had the frontend redesigned with Codex and sent dutchpoint-shaft.patch and a self-contained preview
+Sanjeev had the frontend redesigned with Claude (first recorded as Codex, from a message passed on to us;
+corrected on 6 Nov at his request; commit 895079d's message still says Codex) and sent
+dutchpoint-shaft.patch and a self-contained preview
 page running on simulated data. His notes: frontend only; 16 frontend tests and the build passed; bid,
 sell-out, finalize, claim and start tested on simulated data only; a real wallet test still needed; the light
 and dark switch hidden; the quick-bid amounts too big for the Sepolia sale.

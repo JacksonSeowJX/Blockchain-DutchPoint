@@ -1,0 +1,66 @@
+Evidence 17 - Review of the second redesign ("Terrain"), finding E4, and a scripted run through a whole auction.
+Recorded 2026-11-06. Commits: 9207b0c (the patch, applied with `git am`, author Sanjeev), 351120b (E4).
+
+== 0. What was delivered
+dutchpoint-terrain.patch (one commit, built on 8f8d1ad) and terrain-preview.html, made with Claude. His notes:
+the ring tunnel becomes a three.js surface of points (a ridge per bid, a white line for now); no pinned
+scroll; the bid card and one line naming the next step stay on the first screen; bids, price chart, sale
+details and how it works move into tabs; README and architecture doc updated; the earlier fixes kept; fonts
+Instrument Serif and Geist Sans 5.3.0. Tested on simulated data; contract tests and a real wallet not run.
+
+Reviewed before applying (12 files):
+- frontend/src/ui: Layout.tsx, flow.tsx (next step, first-screen action panel, tabs), Surface.tsx (replaces
+  Tunnel.tsx), terrain.css (replaces shaft.css), base.css (tabs). No change to the hooks or to how
+  transactions are built or sent; flow.tsx only chooses which existing panel (Bid, Position, Settlement) is
+  shown first.
+- components/BidPanel.tsx: the "Guaranteed on-chain: ..." note now sits inside <details> behind "What if the
+  price moves?". The quote, the minimum sent with the bid and the button are unchanged.
+- README.md and docs/design/architecture.md: text for the new layout.
+- package.json / lock: @fontsource/doto and instrument-sans replaced by
+  @fontsource/geist-sans 5.3.0       published 2026-07-19T03:48Z
+  @fontsource/instrument-serif 5.3.0 published 2026-07-19T03:40Z
+  three stays at 0.186.1. No URLs to other sites in the CSS; the preview page loads no outside scripts.
+
+$ git am dutchpoint-terrain.patch     (on a branch from main at 8f8d1ad)
+Applied without conflicts: 9207b0c, author Sanjeev Kalaiselvan.
+
+== 1. Checks
+$ npm install                          (no tracked file changed beyond the patch)
+$ npm audit --omit=dev                 found 0 vulnerabilities
+$ npm run check
+63 passing (10 solidity, 53 mocha)
+      Tests  25 passed (25)
+typecheck and build pass; JavaScript bundle 311 KB gzipped (308 KB with Shaft).
+The production build against the real Sepolia auction: the finalized sale (0.00004 ETH, Covered 100.0%,
+Finalized), the summary row (3 bidders), and the Bids tab with all three bids of 3 November, the 15:00 bid
+tagged Cleared with 0.003 ETH returned. At 390 px the page is 375 px wide: no sideways scroll.
+
+== E4 (Low): two wrong next-step messages
+- Loading: "Reading the auction from Sepolia." on every network, the local chain included.
+- Sale complete with nothing to claim: "See the final result under Sale details." The first-screen card is
+  then the Settlement panel with the result, and the Sale details tab leaves Settlement out in that case.
+Fix (351120b): the loading line names the deployment's chain; the finished-sale line reads "The final price
+and totals are below." 25 frontend tests and typecheck pass.
+
+== 2. A whole auction on the local chain, through the new page
+Hardhat node, `START_AUCTION=false npm run deploy:local`, the dev server on 351120b. A stand-in wallet in
+headless Chrome (window.ethereum forwarding to the node, whose test accounts are unlocked) played the issuer
+(#0), Dave (#4) and Erin (#5); each click below sent a real transaction. It is not MetaMask: the team's
+MetaMask test covers the wallet's own screens.
+
+Stage              Account  First-screen step / action offered           Result
+Not started        Issuer   "Start the auction" / Start the 20-minute... "Start auction: confirmed", Live
+Live               Dave     "Pick an amount and bid" / Bid 2 ETH         "Bid: confirmed", step "Bid placed"
+(seed:local: Alice 4, Bob 2.5, Carol 1.5 ETH, +7 min; total committed 10.0 ETH)
+Live               Erin     Sell-out amount, quick amount 5              callout "4.5875 ETH is accepted and
+                                                                          0.4125 ETH comes straight back"
+                            Bid 5 ETH                                    "Bid: confirmed", Sold out,
+                                                                          step "Sold out. Your bid is in."
+Sold out           Erin     Sale details tab: +20 min                    Ready to finalize
+Ready to finalize  Erin     "Finalize the sale" / Finalize auction       "Finalize: confirmed", Finalized
+Finalized          Erin     "Claim your GVRA" / Claim 313.3 GVRA         "Claim GVRA: confirmed", "Claim complete"
+Finalized          Issuer   "Sale complete" / Withdraw 14.5625 ETH       "Proceeds withdrawn: 14.5625 ETH."
+                            proceeds
+Finalized          Dave     "Claim your GVRA" / Claim 137.33 GVRA        "Claim GVRA: confirmed", "Claim complete"
+All 34 checks passed. Final price 0.0145625 ETH: 1,000 x 0.0145625 = 14.5625 ETH of proceeds; Dave's 2 ETH /
+0.0145625 = 137.33 GVRA; Erin's accepted 4.5625 ETH / 0.0145625 = 313.3 GVRA.

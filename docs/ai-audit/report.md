@@ -17,7 +17,7 @@ ran a third pass over the code, an independent review with **Codex**, which foun
 (A1-A5, A7). As that review recommended, A1 was then fixed in the contract itself with an on-chain minimum
 per bid, and checking that change end to end exposed one more frontend defect (C1). A second team member's
 review (Alfred, also with Codex), of an earlier commit, confirmed several of these independently and found two more small
-defects (B1, B2). A check of the live site two days after the last Sepolia run exposed one more (D1). A teammate's Codex-generated redesign of the frontend was reviewed before it was merged, and three problems in it were fixed (E1-E3). Each defect below was reproduced with a test that fails on the code that contained it and
+defects (B1, B2). A check of the live site two days after the last Sepolia run exposed one more (D1). A teammate's two Claude-generated redesigns of the frontend were each reviewed before merging, and four problems in them were fixed (E1-E4). Each defect below was reproduced with a test that fails on the code that contained it and
 passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 
 | ID | Severity | Finding (in the Codex implementation unless noted) | Status |
@@ -39,9 +39,10 @@ passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 | B2 | Low | *(same review)* The constructor accepted a supply whose value at the start price overflows 256 bits, so every bid at that price would fail | Fixed ([`13`](evidence/13-alfred-review-fixes.txt)) |
 | D1 | Medium | *(Claude Code frontend, found on the live site after the Sepolia run)* The bid history relied on the public RPC keeping old logs. Once it pruned them, the live site showed an error and "No bids yet" for a sale with three bidders | Fixed ([`14`](evidence/14-live-site-history.txt)) |
 | D2 | Low | *(Claude Code frontend, in its own D1 fix)* The fallback asked Blockscout's keyless API, which allows about 10 requests an hour from one address, twice per attempt and again on every refresh, so a few reloads left the Bids panel without history for up to an hour | Fixed ([`15`](evidence/15-explorer-rate-limit.txt)) |
-| E1 | Low | *(Codex redesign, a team member's)* Made from the code before D1, the new Bids section dropped the "history couldn't be loaded" state; typecheck failed on `main` | Fixed ([`16`](evidence/16-redesign-review.txt)) |
+| E1 | Low | *(Claude redesign "Shaft", a team member's)* Made from the code before D1, the new Bids section dropped the "history couldn't be loaded" state; typecheck failed on `main` | Fixed ([`16`](evidence/16-redesign-review.txt)) |
 | E2 | Low | *(same)* Added three.js 0.187, released six days earlier, against the project's two-week rule for new releases | Fixed ([`16`](evidence/16-redesign-review.txt)) |
 | E3 | Low | *(same)* Price-chart axis labels were cut off on phones | Fixed ([`16`](evidence/16-redesign-review.txt)) |
+| E4 | Low | *(Claude redesign "Terrain", the same team member's)* Two next-step messages were wrong: loading named Sepolia on every network, and the finished-sale card pointed to a tab that leaves the result out | Fixed ([`17`](evidence/17-terrain-review.txt)) |
 
 Validation: 63 tests (53 Mocha + 5 fuzz tests x 1,000 runs + 5 invariants x 256 runs), **100% line and
 statement coverage** of `DutchAuction.sol` and `GavoraToken.sol`, mutation checks, a gas-scaling test
@@ -115,7 +116,7 @@ trace back to them:
 | Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
 | Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5` and a functional test with the real MetaMask extension. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md)) |
-| Codex, run by a team member (Sanjeev) | The frontend redesign ("Shaft": an LED-ring tunnel behind the live price), delivered as a patch with a preview page. Reviewed, applied unchanged on a branch, fixed (E1-E3), changed as the team decided (dark only, shorter scroll, summary row kept), tested with MetaMask and merged ([`evidence/16`](evidence/16-redesign-review.txt)) |
+| Claude, run by a team member (Sanjeev) | Two frontend redesigns, each delivered as a patch with a preview page. "Shaft" (an LED-ring tunnel behind the live price): reviewed, applied unchanged on a branch, fixed (E1-E3), changed as the team decided (dark only, shorter scroll, summary row kept), tested with MetaMask and merged ([`evidence/16`](evidence/16-redesign-review.txt)). "Terrain" (a surface of points, the next step on the first screen, details in tabs), built on the merged Shaft: applied with `git am` under his name, fixed (E4), run through a whole auction on the local chain ([`evidence/17`](evidence/17-terrain-review.txt)) |
 | ChatGPT Codex (Astra model), run independently by a team member (Alfred) | Evidence-focused review of `c36cb0c` in eight stages: what each record can and cannot prove, fifteen findings, and Node checks of the frontend logic ([`independent-review/alfred/`](independent-review/alfred/AI_Audit_Report.md); [shared Codex session](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de)) |
 
 ### Toolchain
@@ -527,9 +528,9 @@ the Bids panel of both the redesign and `main` said the history could not be loa
 answering 429. The fallback depends on Blockscout's free API, which is recorded as a
 [known limitation](../design/assumptions.md#known-limitations).
 
-### A team member's AI-generated redesign (E1-E3)
+### A team member's AI-generated redesigns (E1-E4)
 
-Sanjeev had the frontend redesigned with Codex and sent it as a patch. It was reviewed before it was
+Sanjeev had the frontend redesigned with Claude and sent it as a patch (first recorded here as Codex; corrected at his request). It was reviewed before it was
 applied: frontend files only, the transaction code moved without changes, three.js and two self-hosted fonts
 added. It was applied unchanged on a branch (`895079d`), so the history shows exactly what the AI produced.
 
@@ -543,6 +544,17 @@ The team also decided three changes: dark only (the hidden theme switch was remo
 and the summary row kept. Sanjeev's note that the quick-bid amounts did not suit the 0.1 ETH Sepolia sale
 described the site as it already was; that was fixed on `main` with failing-first tests (`a0e1fde`,
 `3c02cfc`). Sanjeev then ran the real-wallet test on the local node, and the branch was merged as a fast-forward.
+
+The team then found the page too spread out, and Sanjeev sent a second redesign, "Terrain", built on the
+merged Shaft (`8f8d1ad`): a surface of points with a ridge per bid, the next step and its action on the first
+screen, and the secondary panels in tabs. It kept every earlier fix, so this time the review found only two
+wrong messages. The patch was applied with `git am` (`9207b0c`, under his name) and the fix is a separate
+commit (`351120b`). A scripted run through a whole auction on the local chain, with real transactions, checked
+that the first-screen card offers the right action at every stage ([`evidence/17`](evidence/17-terrain-review.txt)).
+
+| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| E4 | The new next-step card's messages were written for the hosted Sepolia site: the loading line named Sepolia, and the finished-sale line assumed the result sat under *Sale details*, but the card itself shows it and that tab then leaves it out | On the local chain the page claimed to read from Sepolia; a visitor told to look in a tab finds the result missing there | The loading line names the deployment's chain; the finished-sale line says the final price and totals are below (`351120b`) | The scripted local run shows "The final price and totals are below." above the result; 25 frontend tests pass ([`evidence/17`](evidence/17-terrain-review.txt)) |
 
 ## 6. Validation Process & Testing Strategy
 

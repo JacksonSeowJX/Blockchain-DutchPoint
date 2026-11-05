@@ -520,7 +520,7 @@ transaction collided once they came from one request; it now numbers logs by pos
 
 ## 2026-11-06 - A teammate's AI-generated redesign, reviewed and merged (E1-E3)
 
-Sanjeev had the frontend redesigned with Codex ("Shaft": a three.js tunnel of LED rings, one per minute,
+Sanjeev had the frontend redesigned with Claude ("Shaft": a three.js tunnel of LED rings, one per minute,
 behind the live price) and sent it as a patch with a preview page. The patch was read before it was
 applied: frontend files only, the transaction code moved unchanged, three.js and two self-hosted fonts
 added. It was applied unchanged on a branch (`895079d`). It had been made from `main` before the D1 fix, so
@@ -530,8 +530,23 @@ keeping the summary row; a check at phone width found clipped chart labels (E3);
 quick-bid amounts Sanjeev flagged were a problem on `main` already and were fixed there first. Jackson's own
 MetaMask test stalled on MetaMask keeping a separate network per site (the page stayed on the Sepolia
 auction); Sanjeev ran the real-wallet test from the pushed branch, and the branch was merged as a
-fast-forward ([`evidence/16`](evidence/16-redesign-review.txt)).
+fast-forward ([`evidence/16`](evidence/16-redesign-review.txt)). This entry first named Codex as the tool, from the message
+passed on to us; Sanjeev corrected it to Claude on 6 November.
 
 The same day the demo video was planned around one AI voice (macOS "Evan"): segments 1 and 7-10 were
 generated from slides, real command output, committed evidence and screenshots of GitHub, Etherscan and
 the site, and a step-by-step guide was written for recording the hands-on segments 2-6.
+
+## 2026-11-06 - The second redesign, "Terrain" (E4)
+
+The team found Shaft too spread out, and Sanjeev sent a second Claude-generated redesign as a `git am` patch
+built on `8f8d1ad`: a surface of points with a ridge per bid and a line for now, the pinned scroll removed,
+the next step and its action on the first screen, and the bids, price chart, sale details and FAQ in tabs.
+It kept the earlier fixes (D1's props, dark only, the summary row, the quick amounts, pinned three.js) and
+swapped the fonts for Instrument Serif and Geist Sans (5.3.0, July releases). The only change near a
+transaction is in BidPanel: the guarantee note folds behind "What if the price moves?". It applied with
+no conflicts (`9207b0c`, under his name); the full check passed, including the contract tests he had not
+run. Review found two wrong next-step messages (E4), fixed in `351120b`. A scripted run on the local chain,
+with a stand-in wallet sending real transactions as the issuer, Dave and Erin, went from start to the last
+claim and checked that the first-screen card offered the right action at every stage
+([`evidence/17`](evidence/17-terrain-review.txt)).
