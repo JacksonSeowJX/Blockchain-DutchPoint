@@ -17,7 +17,7 @@ ran a third pass over the code, an independent review with **Codex**, which foun
 (A1-A5, A7). As that review recommended, A1 was then fixed in the contract itself with an on-chain minimum
 per bid, and checking that change end to end exposed one more frontend defect (C1). A second team member's
 review (Alfred, also with Codex), of an earlier commit, confirmed several of these independently and found two more small
-defects (B1, B2). A check of the live site two days after the last Sepolia run exposed one more (D1). Each defect below was reproduced with a test that fails on the code that contained it and
+defects (B1, B2). A check of the live site two days after the last Sepolia run exposed one more (D1). A teammate's Codex-generated redesign of the frontend was reviewed before it was merged, and three problems in it were fixed (E1-E3). Each defect below was reproduced with a test that fails on the code that contained it and
 passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 
 | ID | Severity | Finding (in the Codex implementation unless noted) | Status |
@@ -39,6 +39,9 @@ passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 | B2 | Low | *(same review)* The constructor accepted a supply whose value at the start price overflows 256 bits, so every bid at that price would fail | Fixed ([`13`](evidence/13-alfred-review-fixes.txt)) |
 | D1 | Medium | *(Claude Code frontend, found on the live site after the Sepolia run)* The bid history relied on the public RPC keeping old logs. Once it pruned them, the live site showed an error and "No bids yet" for a sale with three bidders | Fixed ([`14`](evidence/14-live-site-history.txt)) |
 | D2 | Low | *(Claude Code frontend, in its own D1 fix)* The fallback asked Blockscout's keyless API, which allows about 10 requests an hour from one address, twice per attempt and again on every refresh, so a few reloads left the Bids panel without history for up to an hour | Fixed ([`15`](evidence/15-explorer-rate-limit.txt)) |
+| E1 | Low | *(Codex redesign, a team member's)* Made from the code before D1, the new Bids section dropped the "history couldn't be loaded" state; typecheck failed on `main` | Fixed ([`16`](evidence/16-redesign-review.txt)) |
+| E2 | Low | *(same)* Added three.js 0.187, released six days earlier, against the project's two-week rule for new releases | Fixed ([`16`](evidence/16-redesign-review.txt)) |
+| E3 | Low | *(same)* Price-chart axis labels were cut off on phones | Fixed ([`16`](evidence/16-redesign-review.txt)) |
 
 Validation: 63 tests (53 Mocha + 5 fuzz tests x 1,000 runs + 5 invariants x 256 runs), **100% line and
 statement coverage** of `DutchAuction.sol` and `GavoraToken.sol`, mutation checks, a gas-scaling test
@@ -112,6 +115,7 @@ trace back to them:
 | Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
 | Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5` and a functional test with the real MetaMask extension. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md)) |
+| Codex, run by a team member (Sanjeev) | The frontend redesign ("Shaft": an LED-ring tunnel behind the live price), delivered as a patch with a preview page. Reviewed, applied unchanged on a branch, fixed (E1-E3), changed as the team decided (dark only, shorter scroll, summary row kept), tested with MetaMask and merged ([`evidence/16`](evidence/16-redesign-review.txt)) |
 | ChatGPT Codex (Astra model), run independently by a team member (Alfred) | Evidence-focused review of `c36cb0c` in eight stages: what each record can and cannot prove, fifteen findings, and Node checks of the frontend logic ([`independent-review/alfred/`](independent-review/alfred/AI_Audit_Report.md); [shared Codex session](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de)) |
 
 ### Toolchain
@@ -523,6 +527,23 @@ the Bids panel of both the redesign and `main` said the history could not be loa
 answering 429. The fallback depends on Blockscout's free API, which is recorded as a
 [known limitation](../design/assumptions.md#known-limitations).
 
+### A team member's AI-generated redesign (E1-E3)
+
+Sanjeev had the frontend redesigned with Codex and sent it as a patch. It was reviewed before it was
+applied: frontend files only, the transaction code moved without changes, three.js and two self-hosted fonts
+added. It was applied unchanged on a branch (`895079d`), so the history shows exactly what the AI produced.
+
+| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| E1 | The patch was made from `main` before the D1 fix. It rewrote the page around the old Bids props, unaware of the two that D1 had just added | Merged by hand, the live site would lose the message that replaces "No bids yet" when the history can't be read, which is the D1 bug's visible half. Here the props are required, so typecheck failed instead (TS2739) | The dashboard hook returns `historyUnavailable`, and the Bids section passes it and the auction address (`2d5ba74`) | Typecheck and all 25 frontend tests pass, including the D1 tests ([`evidence/16`](evidence/16-redesign-review.txt)) |
+| E2 | The patch took the newest three.js, published six days earlier | The project only adopts releases at least two weeks old, so a broken or compromised release has time to be found (section 6, dependency audit) | Pinned three 0.186.1 and its types 0.186.0, both over six weeks old; the tunnel uses only long-stable APIs | `npm audit` is unchanged from `main`; 0 advisories in runtime packages ([`evidence/16`](evidence/16-redesign-review.txt)) |
+| E3 | The redesign enlarged the chart's axis labels on phones without checking that they fit the chart's padding | On a 390 px phone "0.00006" showed as ".00006", a wrong-looking price | The chart may draw its labels past its padding (`26c78bf`) | In a 390 px frame the labels show in full and the page has no sideways scroll |
+
+The team also decided three changes: dark only (the hidden theme switch was removed), a shorter scroll story,
+and the summary row kept. Sanjeev's note that the quick-bid amounts did not suit the 0.1 ETH Sepolia sale
+described the site as it already was; that was fixed on `main` with failing-first tests (`a0e1fde`,
+`3c02cfc`). Sanjeev then ran the real-wallet test on the local node, and the branch was merged as a fast-forward.
+
 ## 6. Validation Process & Testing Strategy
 
 | Layer | What | Result |
@@ -537,7 +558,7 @@ answering 429. The fallback depends on Blockscout's free API, which is recorded 
 | Independent reviews | Sanjeev ran Codex as auditor, re-ran the checks, verified the Sepolia run and tested with MetaMask ([`independent-review/`](independent-review/README.md)). Alfred's review, also with Codex, weighed the repository's evidence and checked the frontend logic | Sanjeev: 6 findings, all confirmed and fixed; MetaMask scenarios all passed. Alfred: 15 items; 2 new (B1, B2) fixed, the rest already fixed or recorded as limitations |
 | Coverage | `npm run coverage` | `DutchAuction.sol` and `GavoraToken.sol`: 100% lines and statements ([`07`](evidence/07-test-suite-and-coverage.txt)) |
 | Static analysis | Slither 0.11.6 on original and current code, token, and vulnerable demo | Original: 19 results incl. High `reentrancy-eth`. Current: 0 High; 4 Medium `incorrect-equality` false positives annotated inline; remaining Low/Info are by design ([`08`](evidence/08-slither.txt)). With bid protection: 15 results, the new one a Low `timestamp` ([`12`](evidence/12-bid-protection.txt)) |
-| Dependency audit | `npm audit`, and `npm audit --omit=dev` for runtime-only packages; each advisory traced to the package that pulls it in and what it is used for | Before: 10 (2 high, 8 low), all in build or verification tooling, none in the contracts or the shipped site. After patch updates and the dependency split: 0 ([`10`](evidence/10-dependency-audit.txt)). Re-check on 26 Oct: 3 new advisories in Hardhat and Mocha tooling, none reachable, 0 in runtime packages. Fixes wait for the two-week rule on new releases; `npm ci` on npm 10 verified |
+| Dependency audit | `npm audit`, and `npm audit --omit=dev` for runtime-only packages; each advisory traced to the package that pulls it in and what it is used for | Before: 10 (2 high, 8 low), all in build or verification tooling, none in the contracts or the shipped site. After patch updates and the dependency split: 0 ([`10`](evidence/10-dependency-audit.txt)). Re-check on 26 Oct: 3 new advisories in Hardhat and Mocha tooling, none reachable, 0 in runtime packages. Re-check on 6 Nov: 17 advisories (13 high), all in development tooling and none in runtime packages; adding three.js changed neither count ([`16`](evidence/16-redesign-review.txt)). Fixes wait for the two-week rule on new releases; `npm ci` on npm 10 verified |
 | Reentrancy demo | Same attacker vs. vulnerable and real auction | 11 ETH drained vs. 0.75 ETH own refund ([`05`](evidence/05-reentrancy-demo.txt)) |
 | End-to-end UI | Local node + deploy + seeded bids; headless Chrome with an injected test wallet clicks Connect, sell-out bid, Finalize, Claim | All steps confirmed; screenshots in [`screenshots/`](../demo/screenshots/) |
 | End-to-end bid protection | Local node; ethers v6 with the frontend's ABI: a protected bid after the auction filled further, the same bid forced through, a fresh protected bid, a sell-out bid | Cancelled in both paths with nothing committed; fresh bid and sell-out accepted. Exposed C1 ([`12`](evidence/12-bid-protection.txt)) |
@@ -644,6 +665,9 @@ answering 429. The fallback depends on Blockscout's free API, which is recorded 
   has to be checked again in the state the reader will see it in. The fix then leaned on a free explorer
   API without modelling its rate limit, and a few reloads used it up (D2): a fallback service's limits
   belong in the tests too.
+- **An AI patch is a snapshot of the code it was made from.** The redesign was generated from `main` as it
+  was before D1 and quietly dropped D1's state (E1). Applying it unchanged on a branch and letting
+  typecheck run against current `main` caught it; copying its files over would not have.
 
 **Recommendations for AI-driven dApp development**
 1. Have a second, different model review the plan and the code, and treat disagreements between them as

@@ -1,0 +1,66 @@
+Evidence 16 - Review of a teammate's AI-generated redesign ("Shaft"), findings E1-E3.
+Recorded 2026-11-06. Commits: 895079d (the patch, unchanged), 2d5ba74 (E1, E2), 26c78bf (E3 and the team's
+changes). Merged into main as a fast-forward after the team's wallet test.
+
+== 0. What was delivered
+Sanjeev had the frontend redesigned with Codex and sent dutchpoint-shaft.patch and a self-contained preview
+page running on simulated data. His notes: frontend only; 16 frontend tests and the build passed; bid,
+sell-out, finalize, claim and start tested on simulated data only; a real wallet test still needed; the light
+and dark switch hidden; the quick-bid amounts too big for the Sepolia sale.
+
+Reviewed before applying:
+- 18 files, all under frontend/ plus package.json and package-lock.json. Nothing in contracts/, scripts/ or CI.
+- The transaction code (account and network checks, contribute / contributeWithMinimum, claimTokens,
+  withdrawRefundTo, start, finalize, burnRemainderAfterAllClaimed, withdrawIssuerProceeds) moved from App.tsx
+  into hooks/useDashboard.ts and ui/shared.tsx unchanged. It still sends to the address in deployments.json.
+- New packages: three (a WebGL tunnel of LED rings, one per minute) and two self-hosted fonts (@fontsource),
+  so no request to Google Fonts. The preview page loads no outside scripts.
+- The patch was made from main before the D1 fix: its App.tsx and BidHistory.tsx base blobs (043b24d,
+  087e6b9) predate 7afb921; every other file matched main.
+
+Applied with `git apply --3way` on a branch. App.tsx conflicted with D1; the patch's version was taken, so
+895079d is the patch exactly as delivered.
+
+== E1 (Low): the patch dropped D1's "history couldn't be loaded" state
+$ npm run typecheck   (the patch alone, on main)
+frontend/src/ui/shared.tsx(183,8): error TS2739: Type '{ bids: Bid[]; saleSupply: bigint; startTime: bigint;
+account: string | null; explorer: string | null; }' is missing the following properties from type 'Props':
+auction, historyUnavailable
+Built on the code before D1, the new Bids section did not pass the two props D1 added. Because they are
+required props, typecheck failed instead of the regression shipping. Fix (2d5ba74): useDashboard returns
+historyUnavailable and the Bids section passes both props.
+
+== E2 (Low): a dependency newer than the project's two-week rule
+$ npm view three time / npm view @types/three time
+three@0.187.0         published 2026-10-30T08:09Z   (6 days before review)
+@types/three@0.187.0  published 2026-10-30T18:05Z
+three@0.186.1         published 2026-09-24T14:42Z
+@types/three@0.186.0  published 2026-09-11T18:07Z
+Fix (2d5ba74): pinned three 0.186.1 and @types/three 0.186.0, and the fonts, to exact versions like every
+other dependency. The tunnel uses only long-stable three.js APIs.
+npm audit: 17 advisories, all in development tooling and identical to main; npm audit --omit=dev: 0.
+
+== E3 (Low): price-chart labels cut off on phones
+At 390 px the redesign's larger axis labels (17 px) did not fit the chart's left padding: "0.00006" showed
+as ".00006". Fix (26c78bf): the chart's SVG may draw past its padding. Checked in a 390 px frame: labels in
+full, page 375 px wide, no horizontal scroll.
+
+== Team decisions, applied in 26c78bf
+- Dark only: the hidden switch, useTheme and the index.html theme script removed; the page declares
+  color-scheme dark. The tunnel is light drawn on black, which a light theme would wash out.
+- Scroll story shortened from 340vh to 200vh: the summary, bids and settlement start after one screen.
+- The summary row restored (price, total committed and bidder count, supply, price range).
+
+Raised in Sanjeev's notes but present before the redesign: the quick-bid amounts (0.1-5 ETH against a
+0.1 ETH Sepolia sale). Fixed on main with failing-first tests (a0e1fde, 3c02cfc).
+
+== Checks
+$ npm run check   (on 26c78bf)
+63 passing (10 solidity, 53 mocha)
+      Tests  25 passed (25)
+typecheck and build pass. JavaScript bundle 177 KB -> 308 KB gzipped (three.js).
+The production build, loaded against the real Sepolia auction in headless Chrome: the tunnel, the finalized
+price 0.00004, the summary row (3 bidders), all three bids of 3 November with the Cleared tag and 0.003 ETH
+returned, settlement 3 / 3 claimed.
+Real-wallet test: Sanjeev, on the local node with MetaMask, on 26c78bf (start, bids, sell-out, finalize,
+claims, withdrawal). The team reported it finished before the merge.

@@ -517,3 +517,21 @@ of the auction's events, waits out a 429 (or a minute after any other failure), 
 settled blocks in the browser on Sepolia, so a reload asks the explorer nothing. Writing it exposed a flaw
 in the test double: the fake chain gave every log index 0, so a bid and its refund credit in one
 transaction collided once they came from one request; it now numbers logs by position in the block.
+
+## 2026-11-06 - A teammate's AI-generated redesign, reviewed and merged (E1-E3)
+
+Sanjeev had the frontend redesigned with Codex ("Shaft": a three.js tunnel of LED rings, one per minute,
+behind the live price) and sent it as a patch with a preview page. The patch was read before it was
+applied: frontend files only, the transaction code moved unchanged, three.js and two self-hosted fonts
+added. It was applied unchanged on a branch (`895079d`). It had been made from `main` before the D1 fix, so
+typecheck failed until the Bids section got D1's props back (E1), and three.js 0.187 was six days old, under
+the two-week rule (E2); both fixed in `2d5ba74`. The team then decided on dark only, a shorter scroll story and
+keeping the summary row; a check at phone width found clipped chart labels (E3); all in `26c78bf`. The
+quick-bid amounts Sanjeev flagged were a problem on `main` already and were fixed there first. Jackson's own
+MetaMask test stalled on MetaMask keeping a separate network per site (the page stayed on the Sepolia
+auction); Sanjeev ran the real-wallet test from the pushed branch, and the branch was merged as a
+fast-forward ([`evidence/16`](evidence/16-redesign-review.txt)).
+
+The same day the demo video was planned around one AI voice (macOS "Evan"): segments 1 and 7-10 were
+generated from slides, real command output, committed evidence and screenshots of GitHub, Etherscan and
+the site, and a step-by-step guide was written for recording the hands-on segments 2-6.

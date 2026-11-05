@@ -678,3 +678,59 @@ redesign too, but dropped it once the user started the same test by hand on the 
 **Agent response:** the second terminal was in the folder above the repository; asked the user to wait
 until the repository was back on the redesign branch, then gave the commands and a checklist (start, bid,
 sell-out bid, finalize, claim, withdraw). The node should keep running for the whole test.
+
+96. "Should we allow users to switch between light and dark mode? Yes, the long scroll is too long, shorten
+it. I think we should keep the summary row. Also, I'm on localhost: what are my steps?"
+
+**Agent response:** recommended dark only (the tunnel is light drawn on black), and made the three changes
+in a separate worktree so the user's test page would not reload mid-test; found and fixed clipped chart
+labels at phone width. Gave the local test steps.
+
+97. "Do you recommend merging into main first, then I test? Also, terminal 1 is still running: what is it
+for?" Then: "I press Connect wallet and add an address from the terminal?", "The terminal is too long, I
+can't scroll", "I connected with account 0 and there's no 10,000 ETH", "Why is there no Start auction
+button?" (with a screenshot)
+
+**Agent response:** test first, because a push to `main` changes the live site; explained the local node;
+import the private key, not the address; printed the test accounts' keys again from Hardhat's public test
+phrase (checked against the running node, keys masked in its own output); MetaMask had to be on Hardhat
+Local. Loaded the page with a stand-in wallet that refuses to sign, showing that the issuer sees the button;
+the screenshot then showed the Sepolia auction, because MetaMask keeps a separate network for each site.
+
+98. "Can I get Sanjeev to do this test?", "Just push and give me the message to send him", "Has it been
+pushed? Can Sanjeev test now?", "GitHub main, right?", "So I ask him to check the branch."
+
+**Agent response:** pushed the `redesign-shaft` branch (not `main`), wrote the message with the setup, the
+MetaMask per-site network step and the checklist, and how to confirm the commit he tests.
+
+99. "Open the demo script here." Then: "The video must be under 10 minutes ... we can have an AI narrating
+voice over it? Check for the AI voices downloaded on this Mac." and "Use Evan."
+
+**Agent response:** opened the draft; listed the Mac's voices and rendered segment 1 with five of them,
+with timings; with Evan chosen, moved the script to `Project/video/` (outside the repository), wrote a
+narration generator, and gave segment 9 five more seconds (planned length 9:00).
+
+100. "Which section do you need me to record with Sanjeev?", "How will you simulate the MetaMask run? It
+involves my account.", "Generate the parts that don't need a live recording first. How many minutes do we
+stop at? Do I need my Sepolia account, and Sanjeev three wallets?", "Can I use Alfred's or Sanjeev's
+accounts?" and "Send me the steps for segments 2-6 in a Markdown file."
+
+**Agent response:** nothing in the video is simulated: a person records the hands-on part with their own
+MetaMask. Built segments 1 and 7-10 from slides, real command output, committed evidence and screenshots,
+with Evan's narration (segment 7 now says 25 frontend tests); explained that the local chain's time skips
+make the 20-minute auction about 5 minutes; teammates' demo accounts can bid if given local ETH, with
+their names kept off screen; wrote the recording guide.
+
+101. "If it's localhost, Alfred can't help; why can't we use his three wallets?" and "Why not merge once
+Sanjeev has tested, then record segments 2-6 on the live site?"
+
+**Agent response:** the local chain exists only on one Mac; a live recording needs a fresh Sepolia auction.
+Checked that the issuer and Alfred's wallets hold enough Sepolia ETH, and listed what changes (no time
+skip, segments 3 and 6 reworked, a new deployment to record and verify). Awaiting the team's choice.
+
+102. "Sanjeev has finished the wallet testing; can we merge this branch into main?" and "Should we add our
+token roadmap to the website?"
+
+**Agent response:** checked that the branch had not changed since it was pushed, fast-forwarded `main`, ran
+the full check and pushed; recorded the review as E1-E3 with evidence 16. Advised against a roadmap for a
+test token (it would mean inventing plans) and offered a "Security & verification" section instead.
