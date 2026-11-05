@@ -70,13 +70,14 @@
 | Module | Responsibility |
 | --- | --- |
 | `hooks/useWallet.ts` | EIP-1193 wallet connection, account/chain tracking, chain switching (adds Hardhat Local if missing); `watchToken` asks the wallet to list GVRA (EIP-747 `wallet_watchAsset`) |
-| `hooks/useTheme.ts` | Auto / Light / Dark choice, applied as `data-theme` on `<html>` and remembered in `localStorage`; an inline script in `index.html` applies it before the first paint |
+| `hooks/useDashboard.ts` | Everything the page reads and does (wallet, auction data, the extrapolated chain clock, transactions and their status), kept apart from the layout |
 | `hooks/useAuction.ts` | Reads all auction state in one batch; refreshes on new blocks (15 s fallback); incremental bid history from `ContributionReceived` events, scanned in 10,000-block chunks because public RPCs cap the `eth_getLogs` range; serialises concurrent refreshes; flags an unreachable RPC (`offline`) |
 | `hooks/useNow.ts` | 1-second clock used to extrapolate chain time between blocks |
 | `lib/auctionMath.ts` | BigInt mirror of `priceAt`, `maxCommitmentAt`, time-based clearing and `status`, so the countdown, price and status update every second without extra RPC calls. `quoteBid` also sets the bid's on-chain minimum: what it buys at the current price, less 1% because the page's chain-time estimate can run a few seconds ahead of the block that includes the bid. A sell-out bid has no minimum, since it buys whatever is left |
 | `lib/contracts.ts` | ABIs and deployments: `deployments.json` (public, committed) merged with `deployments.local.json` (local, gitignored); the default chain and read-only RPC from `VITE_DEFAULT_CHAIN_ID` / `VITE_READ_RPC_URL` |
 | `lib/errors.ts` | Maps wallet errors and custom contract errors to readable messages. ethers v6 decodes a custom error only for read calls, so for a failed transaction the raw revert data (possibly nested in the wallet's or node's error) is decoded against the auction ABI. Also recognises connection failures (timeouts, refused or failed requests) |
-| `components/` | Header (with the theme toggle), PriceChart, DemandMeter, BidPanel, PositionPanel (allocation, share of supply, add-to-wallet), SettlementPanel, BidHistory (Etherscan links on public networks), SaleInfo (contract addresses with copy and explorer links, sale window), HowItWorks, Faq, NotDeployed (empty state), DevTools (local chain only) |
+| `ui/` | The layout, Sanjeev's redesign ("Shaft", made with Codex): a three.js tunnel of light rings, one per minute and coloured by price, behind the live price and the bid panel (`Tunnel.tsx`; `useScene.ts` pauses it off screen, draws one still frame under reduced motion, and drops it without WebGL), then the summary and the panels below (`shared.tsx`). Dark only |
+| `components/` | Header, PriceChart, DemandMeter, BidPanel, PositionPanel (allocation, share of supply, add-to-wallet), SettlementPanel, BidHistory (Etherscan links on public networks), SaleInfo (contract addresses with copy and explorer links, sale window), HowItWorks, Faq, NotDeployed (empty state), DevTools (local chain only) |
 
 Before a wallet connects, the app reads through a read-only RPC (the local node by default, or
 `VITE_READ_RPC_URL`). Once a wallet on a supported chain connects, it reads and writes through the wallet.

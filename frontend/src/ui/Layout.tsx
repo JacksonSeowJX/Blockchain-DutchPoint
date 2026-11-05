@@ -13,7 +13,7 @@ import { Header } from "../components/Header";
 import { HowItWorks } from "../components/HowItWorks";
 import { PriceChart } from "../components/PriceChart";
 import { STATUS_LABELS, Status } from "../lib/auctionMath";
-import { Bid, Bids, Details, DirectionProps, Footer, Missing, Notices, Position, Settlement, countdown, priceFigure } from "./shared";
+import { Bid, Bids, Details, DirectionProps, Footer, Missing, Notices, Position, Settlement, Summary, countdown, priceFigure } from "./shared";
 import { Tunnel } from "./Tunnel";
 
 
@@ -35,7 +35,7 @@ const CHAPTERS = [
 ];
 
 export function Layout({ d }: DirectionProps) {
-  const { snapshot, view, wallet, theme, supported, bids } = d;
+  const { snapshot, view, wallet, supported, bids } = d;
   const pin = useRef<HTMLDivElement>(null);
   const progress = useRef(0);
   const [chapter, setChapter] = useState(0);
@@ -65,7 +65,7 @@ export function Layout({ d }: DirectionProps) {
         <section className="shaft">
           {view && <Tunnel minute={minute} bidMinutes={bidMinutes} stopped={stopped} travel={() => progress.current} />}
           <div className="shaft-ui">
-            <Header wallet={wallet} supported={supported} theme={theme.theme} onCycleTheme={theme.cycle} mark={<Mark />} />
+            <Header wallet={wallet} supported={supported} mark={<Mark />} />
             <Notices d={d} />
             <Missing d={d} />
             <div className="shaft-grid">
@@ -88,6 +88,7 @@ export function Layout({ d }: DirectionProps) {
         </section>
       </div>
       <main className="lower">
+        <Summary d={d} />
         {snapshot && view && <DemandMeter view={view} totalCommitted={snapshot.totalCommitted} />}
         {snapshot && view && (
           <section className="card price-card">

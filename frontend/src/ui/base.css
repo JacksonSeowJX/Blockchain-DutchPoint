@@ -53,7 +53,8 @@ code { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size:
 .issuer h3 { font-size: 16px; font-family: var(--font-body); margin-bottom: 6px; }
 
 .chart { margin: 8px 0 0; }
-.chart svg { display: block; height: auto; width: 100%; }
+/* On phones the axis labels are drawn larger and can reach past the plot's left padding. */
+.chart svg { display: block; height: auto; overflow: visible; width: 100%; }
 .chart-grid { stroke: var(--line); stroke-width: 1; }
 .chart-axis { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .chart-future { stroke: var(--line-strong); stroke-dasharray: 3 5; stroke-width: 2; }
@@ -94,8 +95,6 @@ code { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size:
 .brand span { color: var(--muted); display: block; font-size: 13px; white-space: nowrap; }
 .wallet .btn { white-space: nowrap; }
 .wallet { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.theme-toggle { align-items: center; background: none; border: 0; color: var(--muted); cursor: pointer; display: inline-flex; font-size: 14px; gap: 6px; min-height: 40px; padding: 0 8px; }
-.theme-toggle:hover { color: var(--ink); }
 .network-badge, .account-chip { align-items: center; display: inline-flex; font-size: 14px; font-variant-numeric: tabular-nums; gap: 6px; }
 .account-chip { font-weight: 600; }
 .network-badge .dot { background: var(--good); border-radius: 50%; height: 8px; width: 8px; }
@@ -114,8 +113,6 @@ code { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size:
   .brand span { display: none; }
   .topbar { align-items: center; }
   .wallet { flex-wrap: nowrap; }
-  .theme-toggle { font-size: 0; gap: 0; }
-  .theme-toggle .icon { font-size: 16px; }
   .network-badge { display: none; }
   .btn { padding-inline: 14px; }
   .chart-axis { font-size: 17px; }

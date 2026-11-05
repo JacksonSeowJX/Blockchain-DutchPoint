@@ -8,7 +8,7 @@
   --link: #7fe3ff; --focus: #7fe3ff; --data: #2bd4ff; --signal: #ff2d3f;
   --good: #6cf0b8; --good-soft: #0f3a2c; --good-ink: #b5f8dc; --warn: #ffd76a; --warn-soft: #3e310c; --warn-ink: #ffe7a8; --bad: #ff8a95; --bad-soft: #471018;
 }
-.pin { height: 340vh; }
+.pin { height: 200vh; }
 .shaft { height: 100vh; min-height: 640px; overflow: hidden; position: sticky; top: 0; }
 .shaft-ui { display: flex; flex-direction: column; height: 100%; padding: 14px clamp(16px, 3vw, 40px) 16px; position: relative; }
 /* Keeps the words readable where rings pass behind them. */
@@ -31,6 +31,11 @@
 .price-card { margin-bottom: 40px; max-width: 980px; }
 .lower h2 { font-size: 30px; font-weight: 800; }
 .lower .meter { margin: 0 0 40px; max-width: 760px; }
+.stats { border-bottom: 1px solid var(--line); border-top: 1px solid var(--line-strong); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 40px; }
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 16px 20px 16px 0; }
+.stat + .stat { border-left: 1px solid var(--line); padding-left: 20px; }
+.stat span, .stat small { color: var(--muted); font-size: 14px; }
+.stat strong { font: 600 clamp(22px, 2.2vw, 30px)/1.2 var(--font-figure); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 @media (max-width: 900px) {
   .pin { height: auto; }
   .shaft { height: auto; position: relative; min-height: 0; }
@@ -40,4 +45,7 @@
   .chapter { display: none; }
   .how-fallback { display: block; }
   .led { margin-top: 170px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(3) { border-left: 0; padding-left: 0; }
+  .stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
 }

@@ -8,7 +8,7 @@ import { SettlementPanel } from "../components/SettlementPanel";
 import { Dashboard } from "../hooks/useDashboard";
 import { Status, View } from "../lib/auctionMath";
 import { LOCAL_CHAIN_ID, chainName, defaultChainId } from "../lib/contracts";
-import { secondsToClock, trimDecimal } from "../lib/format";
+import { formatEth, formatPrice, formatToken, secondsToClock, trimDecimal } from "../lib/format";
 import { formatEther } from "ethers";
 
 export type DirectionProps = { d: Dashboard };
@@ -35,6 +35,40 @@ export function countdown(view: View): { clock: string; caption: string } {
     return { clock: secondsToClock(view.remainingSeconds), caption: "until claims open" };
   }
   return { clock: "00:00", caption: "window closed" };
+}
+
+/** The headline figures: the price, what has been committed and by how many bidders, the supply and the price range. */
+export function Summary({ d }: DirectionProps) {
+  const { snapshot, view } = d;
+  if (!snapshot || !view) {
+    return null;
+  }
+  return (
+    <section className="stats" aria-label="Auction summary">
+      <div className="stat">
+        <span>{view.clearing.cleared || view.status === Status.Finalized ? "Clearing price" : "Current price"}</span>
+        <strong>{formatPrice(view.price)}</strong>
+        <small>per GVRA</small>
+      </div>
+      <div className="stat">
+        <span>Total committed</span>
+        <strong>{formatEth(snapshot.totalCommitted)}</strong>
+        <small>
+          {snapshot.participantCount.toString()} {snapshot.participantCount === 1n ? "bidder" : "bidders"}
+        </small>
+      </div>
+      <div className="stat">
+        <span>For sale</span>
+        <strong>{formatToken(snapshot.saleSupply, snapshot.tokenSymbol, 0)}</strong>
+        <small>fixed supply</small>
+      </div>
+      <div className="stat">
+        <span>Price range</span>
+        <strong>{formatPrice(snapshot.startPrice)}</strong>
+        <small>down to {formatPrice(snapshot.reservePrice)} reserve</small>
+      </div>
+    </section>
+  );
 }
 
 export function Notices({ d }: DirectionProps) {

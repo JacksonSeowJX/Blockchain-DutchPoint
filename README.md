@@ -94,8 +94,10 @@ dashboard has history. It also moves the chain clock forward 7 minutes.
 
 ### 5. Run an auction from start to finish
 
-1. The dashboard shows the live auction even before you connect: the falling price, the 20-minute
-   countdown, the price chart and the demand meter.
+1. The dashboard shows the live auction even before you connect. At the top, the falling price and the
+   20-minute countdown sit over a tunnel of light rings, one per minute, coloured from red (high prices)
+   to blue (low) and marked where bids came in; on a desktop, scrolling flies through it. Below are the
+   summary, the demand meter and the price chart.
 2. As a bidder, enter an ETH amount (or click a quick amount) and click *Bid … ETH*. *This bid buys at
    least* shows the minimum the bid is sent with: what it buys at today's price, less 1%. The contract
    enforces it: if the auction fills up before the bid is mined and it would buy less, the bid is cancelled
@@ -113,8 +115,9 @@ dashboard has history. It also moves the chain clock forward 7 minutes.
 forward 1, 5, 10 or 20 minutes, so a demo doesn't wait 20 real minutes. The command-line equivalent is
 `ADVANCE_SECONDS=600 npm run time:advance` (300 seconds if `ADVANCE_SECONDS` is not set).
 
-**Light and dark:** the theme button in the header cycles *Auto* (follows your operating system),
-*Light* and *Dark*, and the browser remembers the choice.
+**Dark only:** the page has one dark design. The tunnel is drawn as light on black, which a light theme
+would wash out. Browsers without WebGL, and visitors who ask for reduced motion, get the same page with
+the tunnel missing or still.
 
 ### Troubleshooting
 

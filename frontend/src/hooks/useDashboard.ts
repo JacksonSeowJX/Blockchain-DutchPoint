@@ -13,7 +13,6 @@ import {
 import { describeError } from "../lib/errors";
 import { useAuction } from "./useAuction";
 import { useNow } from "./useNow";
-import { useTheme } from "./useTheme";
 import { useWallet } from "./useWallet";
 
 export type TxState =
@@ -26,7 +25,6 @@ export type TxState =
 /** Everything the dashboard reads and does, separate from how a layout presents it. */
 export function useDashboard() {
   const wallet = useWallet();
-  const theme = useTheme();
   const now = useNow();
   const [tx, setTx] = useState<TxState>({ stage: "idle" });
 
@@ -96,7 +94,6 @@ export function useDashboard() {
 
   return {
     wallet,
-    theme,
     tx,
     dismissTx: () => setTx({ stage: "idle" }),
     run,
