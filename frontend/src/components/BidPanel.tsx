@@ -139,11 +139,12 @@ export function BidPanel({
           of your ETH comes back.
         </p>
       ) : (
-        <p className="hint">
+        <details className="hint">
+          <summary>What if the price moves?</summary>
           Guaranteed on-chain: if the auction fills up before your bid is mined and it would buy less, the bid
           is cancelled and your ETH stays with you. This is today's price less 1% for mining time; the final
           price can only be lower, so you usually get more.
-        </p>
+        </details>
       )}
 
       <button className="btn primary wide" onClick={action.onClick} disabled={action.disabled}>

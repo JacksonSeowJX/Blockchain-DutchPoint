@@ -126,3 +126,14 @@ code { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size:
 .preview-bar button { background: none; border: 0; border-radius: 5px; color: inherit; cursor: pointer; padding: 8px 10px; white-space: nowrap; }
 .preview-bar button[aria-pressed="true"] { background: #fff; color: #1b1b1f; }
 @media print { .preview-bar { display: none; } }
+
+/* Secondary content, one tab at a time. */
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tabs button { background: none; border: 0; border-radius: var(--radius-control); color: var(--muted); cursor: pointer; flex: none; font-weight: 600; min-height: 44px; padding: 8px 16px; }
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
+.tab-body { padding-top: 16px; min-height: 280px; }
+.tab-body > .card > h2, .tab-two h2 { font-size: 22px; margin-bottom: 6px; }
+.tab-two { display: grid; gap: clamp(24px, 4vw, 56px); grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+.tab-two .how ol { display: grid; gap: 12px; }
+details.hint summary { cursor: pointer; font-weight: 600; min-height: 28px; }
