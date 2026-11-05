@@ -33,9 +33,9 @@ fi
 
 # Matriculation numbers are personal data, so they are never committed: the repository is public. The
 # submitted copy of the AI Audit Report gets them from a private file kept outside the repository
-# (default ../DutchPoint-team-details.md, or TEAM_DETAILS=path), which replaces the report's
+# (default ../private/DutchPoint-team-details.md, or TEAM_DETAILS=path), which replaces the report's
 # <!-- team-details --> line.
-details="${TEAM_DETAILS:-$root/../DutchPoint-team-details.md}"
+details="${TEAM_DETAILS:-$root/../private/DutchPoint-team-details.md}"
 report="$work/$name/docs/ai-audit/report.md"
 if [ -f "$details" ]; then
   if ! grep -qx '<!-- team-details -->' "$report"; then

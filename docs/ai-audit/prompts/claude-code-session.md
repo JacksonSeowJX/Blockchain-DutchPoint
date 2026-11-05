@@ -641,3 +641,16 @@ its own name; gave the same steps for DutchAuction.
 
 **Agent response:** checked both sites: the Sourcify upload had made the auction a full match, and
 Blockscout had taken it from there, so it refused a second upload. Updated the report and this log.
+
+91. "Where is the Word report?" and "What other items do we have on hand?"
+
+**Agent response:** the Word copy's location outside the repository, then the open items: the two missing
+prompt exports, Sanjeev's session link, the division-of-labour facts, the demo video, the design prompt,
+the pending documentation fixes and the submission-day steps.
+
+92. "Can we store all the PDF and Markdown files in a proper folder structure?"
+
+**Agent response:** left the repository's layout alone, since the report links into it, and sorted the
+team's working folder outside it (brief, private team details, teammates' original reviews, guides). The
+packaging script read the team details from that folder, and without them it still builds a zip, only
+without the matriculation numbers, so its default path was updated first and a package run confirmed it.
