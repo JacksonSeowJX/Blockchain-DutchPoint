@@ -163,4 +163,134 @@ describe("useAuction", () => {
       expect(result.current.offline).toBe(false);
     });
   });
+
+  // Found applying the redesign: Blockscout's keyless API allows about 10 requests per hour from one address.
+  // The page asked twice per attempt (one request per event) and retried on every refresh, so a few reloads
+  // left the Bids panel saying the history could not be loaded until the limit reset.
+  describe("D2: the explorer's rate limit", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    const sepoliaRun = () =>
+      fakeChain({
+        chainId: 11155111,
+        auction: "0x000000000000000000000000000000000000e00a",
+        token: "0x000000000000000000000000000000000000e00b",
+        latestBlock: 12_068_000,
+        deployedAtBlock: 12_029_876,
+        prunedBefore: 12_060_000,
+        events: [
+          {
+            name: "ContributionReceived",
+            args: [BIDDER_ON_SEPOLIA, parseEther("1"), parseEther("1"), price, parseEther("1")],
+            blockNumber: 12_040_000,
+            txHash: txHash(7)
+          },
+          {
+            name: "ContributionReceived",
+            args: [BIDDER_ON_LOCAL, parseEther("2"), parseEther("1.5"), price, parseEther("2.5")],
+            blockNumber: 12_040_100,
+            txHash: txHash(8)
+          },
+          { name: "RefundCredited", args: [BIDDER_ON_LOCAL, parseEther("0.5")], blockNumber: 12_040_100, txHash: txHash(8) }
+        ]
+      });
+
+    const counting = (answer: typeof fetch) => {
+      const calls: string[] = [];
+      vi.stubGlobal("fetch", (input: RequestInfo | URL) => {
+        calls.push(String(input));
+        return answer(input);
+      });
+      return calls;
+    };
+
+    it("D2: asks the explorer once, for all of the auction's events", async () => {
+      const chain = sepoliaRun();
+      const calls = counting(chain.explorerFetch);
+
+      const { result } = renderHook(() => useAuction(chain.provider, chain.deployment, null));
+
+      await waitFor(() => expect(result.current.bids).toHaveLength(2));
+      expect(result.current.bids[1].surplusCredited).toBe(true);
+      expect(calls).toHaveLength(1);
+    });
+
+    it("D2: after a 429, waits until the limit resets before asking again", async () => {
+      const chain = sepoliaRun();
+      const calls = counting(
+        async () =>
+          new Response(JSON.stringify({ message: "Too many requests", result: null, status: "0" }), {
+            status: 429,
+            headers: { "x-ratelimit-reset": "600000" } // milliseconds, as Blockscout sends it
+          })
+      );
+
+      const { result } = renderHook(() => useAuction(chain.provider, chain.deployment, null));
+      await waitFor(() => expect(result.current.historyUnavailable).toBe(true));
+      for (let refresh = 0; refresh < 3; refresh += 1) {
+        await act(async () => {
+          await result.current.refresh();
+        });
+      }
+      expect(calls).toHaveLength(1);
+
+      // Ten minutes later the limit has reset, and the next refresh reads the history.
+      const later = Date.now() + 601_000;
+      vi.spyOn(Date, "now").mockReturnValue(later);
+      vi.stubGlobal("fetch", chain.explorerFetch);
+      await act(async () => {
+        await result.current.refresh();
+      });
+      expect(result.current.bids).toHaveLength(2);
+      expect(result.current.historyUnavailable).toBe(false);
+    });
+
+    it("D2: a reload shows the settled history kept in the browser, without asking the explorer", async () => {
+      const chain = sepoliaRun();
+      vi.stubGlobal("fetch", chain.explorerFetch);
+      const first = renderHook(() => useAuction(chain.provider, chain.deployment, null));
+      await waitFor(() => expect(first.result.current.bids).toHaveLength(2));
+      first.unmount();
+
+      const calls = counting(async () => {
+        throw new TypeError("Failed to fetch");
+      });
+      const { result } = renderHook(() => useAuction(chain.provider, chain.deployment, null));
+
+      await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+      await act(async () => {
+        await result.current.refresh();
+      });
+      expect(result.current.bids.map((bid) => bid.account)).toEqual([BIDDER_ON_SEPOLIA, BIDDER_ON_LOCAL]);
+      expect(result.current.bids[0].amount).toBe(parseEther("1"));
+      expect(result.current.historyUnavailable).toBe(false);
+      expect(calls).toHaveLength(0);
+    });
+
+    it("D2: keeps nothing in the browser for the local node, whose addresses repeat after a restart", async () => {
+      const chain = fakeChain({
+        chainId: 31337,
+        auction: "0x000000000000000000000000000000000000e10a",
+        token: "0x000000000000000000000000000000000000e10b",
+        latestBlock: 100,
+        deployedAtBlock: 1,
+        events: [
+          {
+            name: "ContributionReceived",
+            args: [BIDDER_ON_LOCAL, parseEther("2"), parseEther("2"), price, parseEther("2")],
+            blockNumber: 50,
+            txHash: txHash(9)
+          }
+        ]
+      });
+
+      const { result } = renderHook(() => useAuction(chain.provider, chain.deployment, null));
+
+      await waitFor(() => expect(result.current.bids).toHaveLength(1));
+      expect(localStorage.length).toBe(0);
+    });
+  });
 });

@@ -160,7 +160,7 @@ export function fakeChain(options: {
       const toBlock = query.get("toBlock") === "latest" ? options.latestBlock : Number(query.get("toBlock"));
       const result = logs
         .filter((log) => log.address.toLowerCase() === query.get("address")?.toLowerCase())
-        .filter((log) => log.topics[0] === query.get("topic0"))
+        .filter((log) => !query.get("topic0") || log.topics[0] === query.get("topic0"))
         .filter((log) => log.blockNumber >= Number(query.get("fromBlock")) && log.blockNumber <= toBlock)
         .map((log) => ({
           address: log.address.toLowerCase(),
