@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuctionState } from "../lib/auctionMath";
 import { Deployment, LOCAL_CHAIN_ID, LOGS_APIS, auctionAbi, chainName, tokenAbi } from "../lib/contracts";
 import { describeError, isConnectionError } from "../lib/errors";
-import { explorerLogs } from "../lib/explorerLogs";
+import { ExplorerRateLimitError, explorerLogs } from "../lib/explorerLogs";
 
 export type Position = {
   commitment: bigint;
@@ -66,6 +66,10 @@ const FALLBACK_REFRESH_MS = 15_000;
 const LOG_CHUNK_BLOCKS = 10_000;
 // Blocks at the head of the chain that the explorer may not have indexed yet (about 20 minutes on Sepolia).
 const EXPLORER_LAG_BLOCKS = 100;
+// Blockscout's keyless API allows about 10 requests an hour from one address. After a failed request the
+// explorer is left alone for a minute, or until a rate limit resets (at most an hour).
+const EXPLORER_RETRY_MS = 60_000;
+const EXPLORER_MAX_WAIT_MS = 3_600_000;
 
 /** A bid or refund-credit event, from either the RPC or the explorer. */
 type BidLog = { txHash: string; index: number; blockNumber: number; args: Result; timestamp: bigint | null };
@@ -115,11 +119,64 @@ async function rpcBidLogs(auction: Contract, from: number, to: number): Promise<
 }
 
 async function explorerBidLogs(api: string, auction: Contract, from: number, to: number): Promise<[BidLog[], BidLog[]]> {
-  const address = await auction.getAddress();
-  return Promise.all([
-    explorerLogs(api, auction.interface, address, "ContributionReceived", from, to),
-    explorerLogs(api, auction.interface, address, "RefundCredited", from, to)
-  ]);
+  // One request for all of the auction's events, sorted here.
+  const logs = await explorerLogs(api, auction.interface, await auction.getAddress(), from, to);
+  return [logs.filter((log) => log.name === "ContributionReceived"), logs.filter((log) => log.name === "RefundCredited")];
+}
+
+/**
+ * The bid history of blocks old enough not to change, kept in the browser for chains whose public RPC
+ * drops old logs (those with a LOGS_APIS entry), so a reload reads only newer blocks. Not for the local
+ * node: it reuses the same addresses after every restart.
+ */
+type KeptHistory = { scannedTo: number; bids: Bid[] };
+
+const historyKey = (deployment: Deployment) =>
+  `dutchpoint:bids:v1:${deployment.chainId}:${deployment.auction.toLowerCase()}`;
+
+function readKeptHistory(deployment: Deployment): KeptHistory | null {
+  if (!LOGS_APIS[deployment.chainId]) {
+    return null;
+  }
+  try {
+    const kept = JSON.parse(localStorage.getItem(historyKey(deployment)) ?? "null") as {
+      scannedTo: number;
+      bids: Record<keyof Bid, string | number | boolean>[];
+    } | null;
+    if (!kept || !Number.isInteger(kept.scannedTo) || !Array.isArray(kept.bids)) {
+      return null;
+    }
+    const bids = kept.bids.map((bid) => ({
+      key: String(bid.key),
+      txHash: String(bid.txHash),
+      blockNumber: Number(bid.blockNumber),
+      timestamp: BigInt(bid.timestamp as string),
+      account: String(bid.account),
+      amount: BigInt(bid.amount as string),
+      accepted: BigInt(bid.accepted as string),
+      price: BigInt(bid.price as string),
+      totalCommitted: BigInt(bid.totalCommitted as string),
+      surplusCredited: bid.surplusCredited === true
+    }));
+    return { scannedTo: kept.scannedTo, bids };
+  } catch {
+    return null; // unreadable or blocked storage: read the history from the network instead
+  }
+}
+
+function keepHistory(deployment: Deployment, scannedTo: number, bids: Bid[]) {
+  if (!LOGS_APIS[deployment.chainId] || scannedTo < deployment.deployedAtBlock) {
+    return;
+  }
+  const settled = bids.filter((bid) => bid.blockNumber <= scannedTo);
+  try {
+    localStorage.setItem(
+      historyKey(deployment),
+      JSON.stringify({ scannedTo, bids: settled }, (_key, value) => (typeof value === "bigint" ? value.toString() : value))
+    );
+  } catch {
+    // Storage full or blocked: the history is simply read from the network again next time.
+  }
 }
 
 export function useAuction(
@@ -134,6 +191,9 @@ export function useAuction(
   const [historyUnavailable, setHistoryUnavailable] = useState(false);
 
   const lastBidBlock = useRef(-1);
+  const shownBids = useRef<Bid[]>([]);
+  // Not reset with the read context: the explorer's limit applies to this browser, whatever the auction.
+  const explorerRetryAt = useRef(0);
   const blockTimes = useRef(new Map<number, bigint>());
   const inFlight = useRef(false);
   const queued = useRef(false);
@@ -155,15 +215,17 @@ export function useAuction(
 
   useEffect(() => {
     context.current += 1;
+    const kept = deployment ? readKeptHistory(deployment) : null;
+    shownBids.current = kept?.bids ?? [];
     setSnapshot(null);
-    setBids([]);
+    setBids(shownBids.current);
     setError("");
     setOffline(false);
     setHistoryUnavailable(false);
-    lastBidBlock.current = -1;
+    lastBidBlock.current = kept?.scannedTo ?? -1;
     // A new map rather than clear(): a read from the old context keeps writing into its own map.
     blockTimes.current = new Map();
-  }, [contracts]);
+  }, [contracts, deployment]);
 
   const blockTime = useCallback(
     async (cache: Map<number, bigint>, blockNumber: number) => {
@@ -329,7 +391,7 @@ export function useAuction(
           logs = await rpcBidLogs(auction, from, to);
         } catch (rpcError) {
           const api = LOGS_APIS[deployment.chainId];
-          if (!api) {
+          if (!api || Date.now() < explorerRetryAt.current) {
             throw rpcError;
           }
           // The RPC no longer serves these blocks: read everything left from the explorer in one go. The
@@ -337,7 +399,16 @@ export function useAuction(
           // RPC on the next refresh.
           to = latest;
           scanned = Math.max(from - 1, latest - EXPLORER_LAG_BLOCKS);
-          logs = await explorerBidLogs(api, auction, from, to);
+          try {
+            logs = await explorerBidLogs(api, auction, from, to);
+          } catch (explorerError) {
+            const wait =
+              explorerError instanceof ExplorerRateLimitError && explorerError.retryAfterMs !== null
+                ? Math.min(explorerError.retryAfterMs, EXPLORER_MAX_WAIT_MS)
+                : EXPLORER_RETRY_MS;
+            explorerRetryAt.current = Date.now() + wait;
+            throw explorerError;
+          }
         }
         const fresh = await toBids(...logs, (blockNumber) => blockTime(times, blockNumber));
         if (stale()) {
@@ -347,10 +418,9 @@ export function useAuction(
         lastBidBlock.current = scanned;
         if (fresh.length > 0) {
           // A rescanned block can return a bid already shown; keep each bid once.
-          setBids((previous) => {
-            const shown = new Set(previous.map((bid) => bid.key));
-            return [...previous, ...fresh.filter((bid) => !shown.has(bid.key))];
-          });
+          const shown = new Set(shownBids.current.map((bid) => bid.key));
+          shownBids.current = [...shownBids.current, ...fresh.filter((bid) => !shown.has(bid.key))];
+          setBids(shownBids.current);
         }
         from = to + 1;
       }
@@ -360,6 +430,7 @@ export function useAuction(
     if (stale()) {
       return;
     }
+    keepHistory(deployment, Math.min(lastBidBlock.current, latest - EXPLORER_LAG_BLOCKS), shownBids.current);
     setHistoryUnavailable(!historyComplete);
     setError("");
     setOffline(false);

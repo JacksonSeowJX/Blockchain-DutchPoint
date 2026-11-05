@@ -75,8 +75,10 @@ export function fakeChain(options: {
     issuerProceedsWithdrawn: 0n
   };
 
-  const logs = (options.events ?? []).map((event) => {
+  const logs = (options.events ?? []).map((event, position, events) => {
     const { data, topics } = auctionInterface.encodeEventLog(auctionInterface.getEvent(event.name)!, event.args);
+    // A log's index is its position in its block, so two events of one transaction never share it.
+    const index = events.slice(0, position).filter((earlier) => earlier.blockNumber === event.blockNumber).length;
     return {
       address: options.auction,
       data,
@@ -85,7 +87,7 @@ export function fakeChain(options: {
       blockHash: txHash(event.blockNumber + 1_000_000_000),
       transactionHash: event.txHash,
       transactionIndex: 0,
-      index: 0,
+      index,
       removed: false
     };
   });
