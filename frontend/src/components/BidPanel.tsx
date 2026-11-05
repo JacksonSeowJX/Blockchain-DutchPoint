@@ -16,7 +16,14 @@ type Props = {
   onBid: (amount: bigint, minimumTokens: bigint) => void;
 };
 
-const QUICK_AMOUNTS = ["0.1", "0.5", "1", "5"];
+// Shares of the sale's start value, so the shortcuts fit a 20 ETH local sale and a 0.1 ETH testnet sale alike.
+const QUICK_SHARES_BPS = [500n, 1_000n, 2_500n];
+
+function quickAmounts(saleValue: bigint): string[] {
+  return QUICK_SHARES_BPS.map((bps) => trimDecimal(formatEther((saleValue * bps) / 10_000n), 6)).filter(
+    (amount) => amount !== "0"
+  );
+}
 
 export function BidPanel({
   view,
@@ -28,7 +35,8 @@ export function BidPanel({
   onSwitchNetwork,
   onBid
 }: Props) {
-  const [input, setInput] = useState("1");
+  const amounts = quickAmounts(view.saleValue);
+  const [input, setInput] = useState(amounts[0] ?? "");
 
   if (view.status !== Status.Active) {
     const message =
@@ -96,7 +104,7 @@ export function BidPanel({
         </div>
       </label>
       <div className="chips">
-        {QUICK_AMOUNTS.map((value) => (
+        {amounts.map((value) => (
           <button key={value} className="chip" onClick={() => setInput(value)}>
             {value}
           </button>

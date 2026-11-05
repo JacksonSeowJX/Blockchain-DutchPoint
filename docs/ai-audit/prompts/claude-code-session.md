@@ -654,3 +654,13 @@ the pending documentation fixes and the submission-day steps.
 team's working folder outside it (brief, private team details, teammates' original reviews, guides). The
 packaging script read the team details from that folder, and without them it still builds a zip, only
 without the matriculation numbers, so its default path was updated first and a package run confirmed it.
+
+93. (Sanjeev's redesign, "Shaft": `dutchpoint-shaft.patch`, a preview page and his notes, passed on with)
+"Sanjeev used his Codex to come up with a design for the website; refer to these two files and his
+instructions."
+
+**Agent response:** reviewed the patch before applying it (frontend only; transaction code moved unchanged;
+three.js and two self-hosted fonts added) and applied it on a branch, unchanged, as Sanjeev asked. Then
+fixed what broke: the patch predated D1, so typecheck failed until the Bids section got the D1 props again,
+and three.js 0.187 was six days old, under the project's two-week rule. Sanjeev's note on the quick-bid
+amounts turned out to describe the current site, so that fix went to `main` with failing-first tests.

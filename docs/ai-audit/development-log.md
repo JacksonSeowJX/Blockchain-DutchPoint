@@ -497,3 +497,11 @@ whose output equals the deployed bytecode byte for byte) was then uploaded throu
 Blockscout's web forms. Both contracts are now full matches under their own names on Sourcify and
 Blockscout, and verified on Etherscan. Each result was checked afterwards with read-only requests to the
 three explorers.
+
+## 2026-11-05 - Quick bid amounts sized to the sale
+
+Sanjeev's notes on his redesign said the quick-bid buttons (0.1, 0.5, 1 and 5 ETH) were too big for the
+Sepolia sale. They predate the redesign: they suit the 20 ETH local sale, but the whole Sepolia sale is worth
+0.1 ETH at its start price, so every button but 0.1, and the 1 ETH default, would sell it out. Two tests
+were committed failing first; the buttons are now 5%, 10% and 25% of the sale's start value (1, 2 and 5 ETH
+locally; 0.005, 0.01 and 0.025 ETH on Sepolia), and the default amount is the smallest of them.

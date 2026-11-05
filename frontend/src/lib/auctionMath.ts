@@ -99,6 +99,8 @@ export type View = {
   capacity: bigint;
   /** ETH needed in total to buy the whole supply at the current price. */
   demandTarget: bigint;
+  /** ETH that buys the whole supply at the start price: the size of the sale. */
+  saleValue: bigint;
 };
 
 export function viewAt(s: AuctionState, now: bigint): View {
@@ -123,7 +125,9 @@ export function viewAt(s: AuctionState, now: bigint): View {
   const capacity =
     status === Status.Active && demandTarget > s.totalCommitted ? demandTarget - s.totalCommitted : 0n;
 
-  return { status, price, clearing, endTime, remainingSeconds, elapsedSeconds, capacity, demandTarget };
+  const saleValue = maxCommitmentAt(s, s.startPrice);
+
+  return { status, price, clearing, endTime, remainingSeconds, elapsedSeconds, capacity, demandTarget, saleValue };
 }
 
 /**
