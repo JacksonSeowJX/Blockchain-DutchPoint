@@ -1,0 +1,81 @@
+Evidence 18 - The third Sepolia run (6 Nov 2026), read back from the chain, and the two display defects its
+recording showed: D3 (prices cut to six decimals) and D4 ("Burn 1 units").
+Recorded 2026-11-06. Commits: f101187 (deployment record), 7a7afc5 (failing tests), 383d23c (fixes).
+
+== 1. Deployment (deployments/sepolia.json), read back from Sepolia
+Deployer and issuer 0x5D2EB775B96Ff879AE8Caa427Ef8D66BCB301010. Sale: 1,000 GVRA, 0.0001 -> 0.00002 ETH/GVRA,
+deployed unstarted (START_AUCTION=false) so the issuer opens the window from the site.
+  GavoraToken  0x2f3C5e8B944fE3E67d40cDF9a68d3B1512D02Fbf
+  DutchAuction 0xAB0f2B36150eC6D8C9f096CFA592eEDF82A8A8a8
+  deployToken   block 12071375  gas  3,666,125  creation data = repository build + constructor arguments
+  deployAuction block 12071376  gas 12,865,465  creation data = repository build + constructor arguments
+  fundAuction   block 12071377  gas    129,251
+(The comparison encodes the constructor arguments with ethers' AbiCoder, appends them to the bytecode in
+artifacts/ from `npm run compile` at 383d23c, whose contracts are unchanged since 171d16a, and compares the
+result with each transaction's input byte for byte.)
+
+== 2. The run (DutchAuction events, block time UTC 5 Nov = 6 Nov 03:20-03:45 in Singapore)
+Three bidder wallets of one team member. The issuer's wallet sent the start, the finalize (which anyone may
+send) and the withdrawal.
+  19:20:24 AuctionStarted          0x7cd20971ea639516bfdea9b4e896136a3243f3f6f9ff12061f3ad98a66236652  window ends 19:40:24
+  19:22:24 ContributionReceived    0xed5ee4749d944154524f44441f145f1c08b0ffc3589f24e503f70f5dc9a116b5  0.01 ETH, all accepted, price 0.000092
+  19:25:36 ContributionReceived    0xda432ee17fae907132e1d9efd68b99cad0e145ee156ecc1e9dc8c05109bd2fa8  0.025 ETH, all accepted, price 0.0000792
+  19:31:00 ContributionReceived    0x809c0ce34d492624783b6b832aec317bcce187fe6c685563393da04f621b657a  0.03 ETH, 0.0226 accepted, price 0.0000576
+           AuctionCleared          (same transaction)  clearingPrice 0.0000576, totalCommitted 0.0576
+           SurplusRefunded         (same transaction)  0.0074 ETH back to the bidder
+  19:41:12 AuctionFinalized        0x2631dbf9853a42260c3f05d2acf36f4dec7c3f7d8cf854f30072f67bd832dcf1  finalPrice 0.0000576, 1,000 GVRA sold
+  19:42:00 TokensClaimed           0x6b72a7b0866dd2afb25c24bf70e1017ddeffb5a6bf8313562dbea2dd6c009b6c  173.611111111111111111 GVRA
+  19:42:36 TokensClaimed           0x2b901dac424a83d585c2827ac1737ddf2671b00d7fe11fdea34dceda3f813ec2  434.027777777777777777 GVRA
+  19:43:24 TokensClaimed           0x107330afb91ea8028255d7bf12266f0de4a710e8c87695fc07db4d9a0c0bf0a3  392.361111111111111111 GVRA
+  19:44:36 IssuerProceedsWithdrawn 0x1bdbdf7a0c3edc15852098c1a57e026ed216a5ced28672b4a3258f58422f91b3  0.0576 ETH
+The crossing bid came 636 s (10:36) into the window: the room left was 1,000 x 0.0000576 - 0.035 = 0.0226 ETH.
+Every bid settled at 0.0000576: the first bid's 0.01 ETH bought 173.61 GVRA, against 108.70 at its own price.
+
+Final state, read after the withdrawal:
+  totalCommitted 0.0576 ETH   issuerProceedsWithdrawn 0.0576 ETH   refundLiability 0
+  totalTokensSold 1,000 GVRA  totalTokensClaimed 999.999999999999999999 GVRA   burnedUnsold 0
+  participants 3, all claimed; auction balance 0 ETH and 1 unit (1e-18) of GVRA; GVRA total supply 1,000
+The one unit is rounding dust: each claim rounds down, and burnRemainderAfterAllClaimed() exists to burn it.
+
+== 3. D3 and D4 in the recording
+The page showed the final clearing price as 0.000057 ETH (the price paid was 0.0000576), bid 2's price as
+0.000079 (0.0000792), and the dust button as "Burn 1 units of rounding dust". The demo video's captions give
+the exact figures.
+
+Origin: formatPrice() cut every price to six decimals in Codex's first version (0a75a78,
+src/lib/format.ts); Claude Code's frontend rebuild kept it (c689e3c), and the redesign's large price figure
+(priceFigure, 895079d) did the same. The local sale's prices (0.02 -> 0.005) never need more than six. The
+dust label is from c689e3c.
+
+== 4. Failing first (7a7afc5, before the fix)
+$ npx vitest run --root frontend src/lib/format.test.ts src/components/SettlementPanel.test.tsx
+     x D3: shows the 6 Nov Sepolia prices in full
+     x D3: shows the Sepolia clearing price in full
+     x D3: holds the width steady while the price falls, at the decimals the price needs
+     x D4: names a single unit in the singular
+     x D3: shows the final clearing price in full
+ FAIL  src/lib/format.test.ts > formatPrice > D3: shows the 6 Nov Sepolia prices in full
+AssertionError: expected '0.000057 ETH' to be '0.0000576 ETH'
+ FAIL  src/lib/format.test.ts > priceFigure > D3: shows the Sepolia clearing price in full
+AssertionError: expected '0.000057' to be '0.0000576'
+ FAIL  src/lib/format.test.ts > priceFigure > D3: holds the width steady while the price falls, ...
+AssertionError: expected '0.000084' to be '0.00008430'
+ FAIL  src/components/SettlementPanel.test.tsx > SettlementPanel rounding dust > D4: names a single unit ...
+Unable to find an accessible element with the role "button" and name "Burn 1 unit of rounding dust"
+  (the accessible button is named "Burn 1 units of rounding dust")
+ FAIL  src/components/SettlementPanel.test.tsx > SettlementPanel rounding dust > D3: shows the final clearing ...
+Unable to find an element with the text: 0.0000576 ETH   (the panel shows "0.000057 ETH")
+      Tests  5 failed | 2 passed (7)
+The two passing tests check what must not change: local prices keep six decimals, and 3 units stay plural.
+
+== 5. After the fix (383d23c)
+Prices keep six decimals, or more when small, so that they keep four significant digits
+(priceDecimals in frontend/src/lib/format.ts, used by formatPrice and priceFigure). The dust label uses the
+singular for one unit.
+$ npx vitest run --root frontend src/lib/format.test.ts src/components/SettlementPanel.test.tsx
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+$ npm run check
+63 passing (10 solidity, 53 mocha)
+      Tests  32 passed (32)
+typecheck and build pass.

@@ -550,3 +550,30 @@ run. Review found two wrong next-step messages (E4), fixed in `351120b`. A scrip
 with a stand-in wallet sending real transactions as the issuer, Dave and Erin, went from start to the last
 claim and checked that the first-screen card offered the right action at every stage
 ([`evidence/17`](evidence/17-terrain-review.txt)).
+
+## 2026-11-06 - The third Sepolia run, the demo video, D3 and D4
+
+The team chose to record the hands-on part of the video as a real auction on Sepolia rather than on the
+local chain: Jackson as issuer, three bidder wallets of one team member. The 31 October record was archived
+(`b2f38ff`), and Jackson deployed a fresh, unstarted auction with the Sepolia prices. Before its addresses
+were committed (`f101187`), the agent checked it on-chain: unstarted, holding the 1,000 GVRA, with the right
+prices and issuer, and code matching the repository.
+
+GitHub Pages then stalled. The publish of `b2f38ff` timed out on GitHub's side, and its lock refused every
+later publish, even after it was cancelled and on a fresh run, for about 40 minutes. The agent built the site
+with the new addresses and served it on the Mac. Claude Code's safety settings stopped it from opening a
+public tunnel itself and from unpublishing the Pages site (a deletion), so it left both to the student, who
+opened a Cloudflare quick tunnel. MetaMask flagged the temporary `trycloudflare.com` address as possibly
+malicious. The run (03:20-03:45 Singapore time) went ahead on the tunnel; the lock cleared by itself at
+03:35, and the normal site showed the new auction.
+
+The auction sold out 10 min 36 s in at 0.0000576 ETH per GVRA, with 0.0074 ETH of the crossing bid refunded in
+the same transaction; it was finalized, all three bidders claimed, and the issuer withdrew 0.0576 ETH
+([`evidence/18`](evidence/18-sepolia-run-3.txt)). The 25-minute screen recording became the video's live
+segment: twelve captioned steps, cropped to the website, with waiting sped up and the speed shown. The video
+(7:39) has an AI voice and subtitles, and ends with the team's roles.
+
+The recording showed two display defects that no test or screenshot had: prices cut to six decimals
+(0.0000576 shown as 0.000057, D3), a helper Codex wrote and Claude Code and the redesign kept, and "Burn 1
+units" (D4). Both were fixed with failing tests first (`7a7afc5`, `383d23c`). The README was rewritten for
+first-time readers, and the report gained the third run, the team's roles and six figures.

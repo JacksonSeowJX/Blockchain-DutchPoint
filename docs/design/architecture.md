@@ -126,7 +126,7 @@ the updated `deployments.json` committed, the hosted site shows the `NotDeployed
 | `test/GavoraToken.test.ts` | Token metadata, fixed supply, no mint/owner, burn rules |
 | `test/solidity/DutchAuctionFuzz.t.sol` | Fuzz: price bounds, uniform/fair/conserving settlement, exact time-clearing price, protected bids get their minimum or revert |
 | `test/solidity/DutchAuctionInvariant.t.sol` | Invariants under random bid/protected-bid/warp/finalize/claim/withdraw sequences, plus forced ETH and holder burns; allocations always cover every accepted minimum |
-| `frontend/src/**/*.test.ts(x)` | Vitest + React Testing Library (jsdom): `useAuction` against an in-memory fake chain (stale reads after a network switch, refund events), `useWallet` (out-of-order answers), the bid, history and position components (findings A1-A5, A7), and error decoding for failed transactions |
+| `frontend/src/**/*.test.ts(x)` | Vitest + React Testing Library (jsdom): `useAuction` against an in-memory fake chain (stale reads after a network switch, refund events), `useWallet` (out-of-order answers), the bid, history, position and settlement components (findings A1-A5, A7, D4), price formatting (D3), and error decoding for failed transactions |
 
 ## DutchPoint and production launch platforms
 

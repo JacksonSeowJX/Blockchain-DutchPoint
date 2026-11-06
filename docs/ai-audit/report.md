@@ -1,7 +1,15 @@
 # DutchPoint - AI Audit Report
 
 **DutchPoint: A Decentralized Dutch Auction Platform** - SC4053 Blockchain Technology, AY2026-27 Semester 1, Option 2 (Dutch Auction).
-Token: Gavora (GVRA). Group DutchPoint: Seow Jia Xian, Alfred Fong Wei Hao and Kalaiselvan Sanjeev.
+Token: Gavora (GVRA). Group DutchPoint: Jackson Seow Jia Xian, Alfred Fong Wei Hao and Kalaiselvan Sanjeev.
+
+| What | Where |
+| --- | --- |
+| Code | <https://github.com/JacksonSeowJX/Blockchain-DutchPoint>, also submitted as `DutchPoint.zip`. Setup and use: [`README.md`](../../README.md) |
+| Live site | <https://jacksonseowjx.github.io/Blockchain-DutchPoint/>, reading the Sepolia testnet |
+| Demo video | `DutchPoint.mp4`, submitted with the code |
+| Contracts on Sepolia | [GavoraToken](https://sepolia.etherscan.io/address/0x2f3C5e8B944fE3E67d40cDF9a68d3B1512D02Fbf#code) and [DutchAuction](https://sepolia.etherscan.io/address/0xAB0f2B36150eC6D8C9f096CFA592eEDF82A8A8a8#code) |
+
 Every evidence commit cited below is in the history of the `main` branch.
 
 <!-- team-details -->
@@ -17,7 +25,7 @@ ran a third pass over the code, an independent review with **Codex**, which foun
 (A1-A5, A7). As that review recommended, A1 was then fixed in the contract itself with an on-chain minimum
 per bid, and checking that change end to end exposed one more frontend defect (C1). A second team member's
 review (Alfred, also with Codex), of an earlier commit, confirmed several of these independently and found two more small
-defects (B1, B2). A check of the live site two days after the last Sepolia run exposed one more (D1). A teammate's two Claude-generated redesigns of the frontend were each reviewed before merging, and four problems in them were fixed (E1-E4). Each defect below was reproduced with a test that fails on the code that contained it and
+defects (B1, B2). A check of the live site two days after the 3 November Sepolia run exposed one more (D1), and its fix another (D2). The recording of the 6 November run showed two small display defects (D3, D4). A teammate's two Claude-generated redesigns of the frontend were each reviewed before merging, and four problems in them were fixed (E1-E4). Each defect below was reproduced with a test that fails on the code that contained it and
 passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 
 | ID | Severity | Finding (in the Codex implementation unless noted) | Status |
@@ -39,6 +47,8 @@ passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 | B2 | Low | *(same review)* The constructor accepted a supply whose value at the start price overflows 256 bits, so every bid at that price would fail | Fixed ([`13`](evidence/13-alfred-review-fixes.txt)) |
 | D1 | Medium | *(Claude Code frontend, found on the live site after the Sepolia run)* The bid history relied on the public RPC keeping old logs. Once it pruned them, the live site showed an error and "No bids yet" for a sale with three bidders | Fixed ([`14`](evidence/14-live-site-history.txt)) |
 | D2 | Low | *(Claude Code frontend, in its own D1 fix)* The fallback asked Blockscout's keyless API, which allows about 10 requests an hour from one address, twice per attempt and again on every refresh, so a few reloads left the Bids panel without history for up to an hour | Fixed ([`15`](evidence/15-explorer-rate-limit.txt)) |
+| D3 | Low | *(Codex's display helper, kept by Claude Code and the redesign; seen in the 6 Nov run's recording)* Prices were cut to six decimals, so the Sepolia clearing price of 0.0000576 ETH showed as 0.000057 | Fixed ([`18`](evidence/18-sepolia-run-3.txt)) |
+| D4 | Low | *(Claude Code frontend, same recording)* The rounding-dust button read "Burn 1 units" | Fixed ([`18`](evidence/18-sepolia-run-3.txt)) |
 | E1 | Low | *(Claude redesign "Shaft", a team member's)* Made from the code before D1, the new Bids section dropped the "history couldn't be loaded" state; typecheck failed on `main` | Fixed ([`16`](evidence/16-redesign-review.txt)) |
 | E2 | Low | *(same)* Added three.js 0.187, released six days earlier, against the project's two-week rule for new releases | Fixed ([`16`](evidence/16-redesign-review.txt)) |
 | E3 | Low | *(same)* Price-chart axis labels were cut off on phones | Fixed ([`16`](evidence/16-redesign-review.txt)) |
@@ -46,10 +56,15 @@ passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 
 Validation: 63 tests (53 Mocha + 5 fuzz tests x 1,000 runs + 5 invariants x 256 runs), **100% line and
 statement coverage** of `DutchAuction.sol` and `GavoraToken.sol`, mutation checks, a gas-scaling test
-(1 to 100 bidders), 25 frontend unit tests (Vitest) for hooks, components and error messages, Slither before and after, an
+(1 to 100 bidders), 32 frontend unit tests (Vitest) for hooks, components, formatting and error messages, Slither before and after, an
 end-to-end run of the real UI in headless Chrome, manual runs with the real MetaMask extension by two team
-members, two public Sepolia runs (one ending at reserve with a burn, one selling out early across three wallets),
+members, three public Sepolia runs (one ending at reserve with a burn, two selling out early across three wallets),
 and independent reviews by two team members.
+
+![Timeline of the build, the reviews and the Sepolia runs, with the findings each produced](figures/fig1-timeline.png)
+
+*Figure 1. The build, each review and each Sepolia run, with the findings it produced. Details of every finding are in §5.*
+
 
 ---
 
@@ -113,7 +128,7 @@ trace back to them:
 | --- | --- |
 | ChatGPT | Planning: naming, auction flow, contract and function outline, security checklist, test plan ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)) |
 | Codex desktop agent | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`); its log is [`development-log.md`](development-log.md) |
-| Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
+| Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report and its figures, and the scripts that cut the demo video (captions, narration timing, subtitles) ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
 | Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5` and a functional test with the real MetaMask extension. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md)) |
 | Claude, run by a team member (Sanjeev) | Two frontend redesigns, each delivered as a patch with a preview page. "Shaft" (an LED-ring tunnel behind the live price): reviewed, applied unchanged on a branch, fixed (E1-E3), changed as the team decided (dark only, shorter scroll, summary row kept), tested with MetaMask and merged ([`evidence/16`](evidence/16-redesign-review.txt)). "Terrain" (a surface of points, the next step on the first screen, details in tabs), built on the merged Shaft: applied with `git am` under his name, fixed (E4), run through a whole auction on the local chain ([`evidence/17`](evidence/17-terrain-review.txt)) |
@@ -149,6 +164,12 @@ Each step is a separate commit, so the history is itself part of the evidence.
 
 All three members contributed equally.
 
+| Member | Role | Main work |
+| --- | --- | --- |
+| Jackson Seow Jia Xian | Solidity developer and contract deployer | The contracts and their tests, built and reviewed with the AI tools above; Sepolia deployment and source verification; issuer in the testnet runs; demo video |
+| Alfred Fong Wei Hao | Wallet tester and security reviewer | MetaMask wallet testing on Sepolia; the second independent AI audit (B1, B2) |
+| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test |
+
 ## 3. Specification Engineering & Prompt Logs
 
 - **Specification files:** [`spec.md`](../design/spec.md) (auction mathematics and conservation rules),
@@ -179,7 +200,7 @@ All three members contributed equally.
 6. "Propose a folder structure before making any changes", then "go ahead": the agent proposed, waited
    for approval, then made the change and verified it.
 
-The session was compacted once (see the log). Persistent memory files carried the team's decisions
+The session was compacted several times (see the log). Persistent memory files carried the team's decisions
 across that boundary, so the agent did not have to rediscover them.
 
 **Prompt-engineering lesson:** the Codex prompt told the agent to "Handle clearing caused by time
@@ -209,6 +230,10 @@ Both AI tools proposed broadly the same two-contract design. They differed on on
 The final architecture keeps Codex's structure (immutable sale parameters, pull refunds,
 `ReentrancyGuard`, custom errors, no loops). It adopts the ChatGPT plan's crossing-bid rule, and it
 replaces per-bidder proceeds accrual with aggregate accounting ([`architecture.md`](../design/architecture.md)).
+
+![Architecture: bidders, the dashboard, MetaMask, the read path and the two contracts](figures/fig2-architecture.png)
+
+*Figure 2. The architecture as built. The read path's Blockscout fallback is the D1 fix.*
 
 ## 5. Problems Discovered & Vulnerability Analysis
 
@@ -242,6 +267,10 @@ replaces per-bidder proceeds accrual with aggregate accounting ([`architecture.m
   front-running behaviour a Dutch auction is meant to remove.
 - It contradicts the brief's clearing rule: the auction should clear when committed capital meets supply,
   not let capital beyond that point dilute everyone.
+
+![Bar chart: GVRA received by Alice, Bob and the whale under Codex's rule and the fixed rule](figures/fig3-f1-crowd-out.png)
+
+*Figure 3. The crowd-out proof of concept before and after the fix.*
 
 **How it was fixed (`20e24b1`).**
 - Commitments are filled in arrival order.
@@ -557,6 +586,17 @@ The team merged it on that run, without a separate MetaMask test; the demo recor
 | --- | --- | --- | --- | --- |
 | E4 | The new next-step card's messages were written for the hosted Sepolia site: the loading line named Sepolia, and the finished-sale line assumed the result sat under *Sale details*, but the card itself shows it and that tab then leaves it out | On the local chain the page claimed to read from Sepolia; a visitor told to look in a tab finds the result missing there | The loading line names the deployment's chain; the finished-sale line says the final price and totals are below (`351120b`) | The scripted local run shows "The final price and totals are below." above the result; 25 frontend tests pass ([`evidence/17`](evidence/17-terrain-review.txt)) |
 
+### Found in the recording of the third Sepolia run (D3, D4)
+
+The 6 November run was recorded for the demo video (§6, *Sepolia testnet runs*). Its Sepolia prices have
+one more decimal than the local sale's, and the recording showed what no test or screenshot had: every price
+on the page was cut short. Both defects were fixed with tests that failed first (`7a7afc5`, then `383d23c`).
+
+| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| D3 | Codex's `formatPrice` cut every price to six decimals (`0a75a78`). Claude Code's rebuild kept it (`c689e3c`), and the redesign's large price figure did the same (`895079d`). Every test, screenshot and local demo used the local sale's prices (0.02 to 0.005 ETH), which never need more | The sale cleared at 0.0000576 ETH per GVRA, and the page said 0.000057, a price nobody paid; the second bid's 0.0000792 showed as 0.000079. The demo video's captions had to give the real figures | Prices keep six decimals, or more when small, so that they keep four significant digits. Local prices look as before | 5 of 7 new tests fail before the fix (`expected '0.000057 ETH' to be '0.0000576 ETH'`) and all pass after; the other two check that local prices are unchanged ([`evidence/18`](evidence/18-sepolia-run-3.txt)) |
+| D4 | The label put the count before a fixed plural. Claims at one price leave rounding dust in the token's smallest units, and no test reached the state after every claim | After the three claims left 1 unit (10<sup>-18</sup> GVRA), the button read "Burn 1 units of rounding dust" | The singular for one unit | The `D4` test fails before the fix and passes after; 3 units stay plural ([`evidence/18`](evidence/18-sepolia-run-3.txt)) |
+
 ## 6. Validation Process & Testing Strategy
 
 | Layer | What | Result |
@@ -567,18 +607,22 @@ The team merged it on that run, without a separate MetaMask test; the demo recor
 | Invariant tests | Handler drives random bids and protected bids, time jumps, finalization, claims and withdrawals (incl. a rejecting bidder), forced ETH and holder burns. Invariants: ETH fully backed (at least what is owed, exactly owed + forced ETH), tokens conserved, demand ≤ supply, one uniform price, allocations cover every accepted minimum | 5 invariants × 256 runs × depth 50 |
 | Mutation check | Plant M1 (round time-clearing price down), M2 (issuer withdraws raw balance) and M4 (bid minimum not enforced), confirm failures, restore | M1: 6/7 property tests fail; M2: 3/7 fail ([`06`](evidence/06-mutation-check.txt)); M4: 4 tests fail ([`12`](evidence/12-bid-protection.txt)) |
 | Gas scaling | The same six calls (new bid, protected bid, crossing bid with refund, finalize, claim, issuer withdrawal) measured after 1, 10, 50 and 100 earlier bidders, with a 1% tolerance. Mutation M3 plants a loop over bidders in `claimTokens` | Identical gas at every crowd size (spread 0). Under M3 the claim grows from 163,417 to 410,719 gas and the test fails ([`09`](evidence/09-gas-scaling.txt), [`12`](evidence/12-bid-protection.txt)) |
-| Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers, an RPC that has pruned old logs, an explorer that rate-limits), components (quote and its on-chain minimum, amount validation, quick amounts sized to the sale, surplus states, refund recipient) and error decoding for failed transactions | 25 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)), as did the bid-protection, error, B1, D1, D2 and quick-amount tests ([`12`](evidence/12-bid-protection.txt), [`13`](evidence/13-alfred-review-fixes.txt), [`14`](evidence/14-live-site-history.txt), [`15`](evidence/15-explorer-rate-limit.txt)) |
+| Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers, an RPC that has pruned old logs, an explorer that rate-limits), price formatting, components (quote and its on-chain minimum, amount validation, quick amounts sized to the sale, surplus states, refund recipient) and error decoding for failed transactions | 32 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)), as did the bid-protection, error, B1, D1, D2, D3, D4 and quick-amount tests ([`12`](evidence/12-bid-protection.txt), [`13`](evidence/13-alfred-review-fixes.txt), [`14`](evidence/14-live-site-history.txt), [`15`](evidence/15-explorer-rate-limit.txt), [`18`](evidence/18-sepolia-run-3.txt)) |
 | Independent reviews | Sanjeev ran Codex as auditor, re-ran the checks, verified the Sepolia run and tested with MetaMask ([`independent-review/`](independent-review/README.md)). Alfred's review, also with Codex, weighed the repository's evidence and checked the frontend logic | Sanjeev: 6 findings, all confirmed and fixed; MetaMask scenarios all passed. Alfred: 15 items; 2 new (B1, B2) fixed, the rest already fixed or recorded as limitations |
 | Coverage | `npm run coverage` | `DutchAuction.sol` and `GavoraToken.sol`: 100% lines and statements ([`07`](evidence/07-test-suite-and-coverage.txt)) |
 | Static analysis | Slither 0.11.6 on original and current code, token, and vulnerable demo | Original: 19 results incl. High `reentrancy-eth`. Current: 0 High; 4 Medium `incorrect-equality` false positives annotated inline; remaining Low/Info are by design ([`08`](evidence/08-slither.txt)). With bid protection: 15 results, the new one a Low `timestamp` ([`12`](evidence/12-bid-protection.txt)) |
 | Dependency audit | `npm audit`, and `npm audit --omit=dev` for runtime-only packages; each advisory traced to the package that pulls it in and what it is used for | Before: 10 (2 high, 8 low), all in build or verification tooling, none in the contracts or the shipped site. After patch updates and the dependency split: 0 ([`10`](evidence/10-dependency-audit.txt)). Re-check on 26 Oct: 3 new advisories in Hardhat and Mocha tooling, none reachable, 0 in runtime packages. Re-check on 6 Nov: 17 advisories (13 high), all in development tooling and none in runtime packages; adding three.js changed neither count ([`16`](evidence/16-redesign-review.txt)). Fixes wait for the two-week rule on new releases; `npm ci` on npm 10 verified |
 | Reentrancy demo | Same attacker vs. vulnerable and real auction | 11 ETH drained vs. 0.75 ETH own refund ([`05`](evidence/05-reentrancy-demo.txt)) |
-| End-to-end UI | Local node + deploy + seeded bids; headless Chrome with an injected test wallet clicks Connect, sell-out bid, Finalize, Claim | All steps confirmed; screenshots in [`screenshots/`](../demo/screenshots/) |
+| End-to-end UI | Local node + deploy + seeded bids; headless Chrome with an injected test wallet clicks Connect, sell-out bid, Finalize, Claim | All steps confirmed; screenshots of the first design in [`screenshots/`](../demo/screenshots/) |
 | End-to-end bid protection | Local node; ethers v6 with the frontend's ABI: a protected bid after the auction filled further, the same bid forced through, a fresh protected bid, a sell-out bid | Cancelled in both paths with nothing committed; fresh bid and sell-out accepted. Exposed C1 ([`12`](evidence/12-bid-protection.txt)) |
 | Manual MetaMask run | A student drove the local dApp with the real MetaMask extension: network switch (from BNB Chain), imported test accounts, a 1 ETH bid, a sell-out bid, +20 min, finalize, claim, issuer withdrawal. The chain state was then read back | All steps worked. 11.75 ETH sent, 11.5 ETH accepted and 0.25 ETH refunded in the same transaction. Both bids settled at 0.0125 ETH/GVRA (the 1 ETH bid got 80 GVRA, against the 72 quoted as its minimum). 1,000 GVRA claimed, and 12.5 ETH withdrawn by the issuer |
-| Visual checks | Light/dark mode, 1280/820/390 px widths | No horizontal page scroll at 390 px after fix |
+| Visual checks | 1280/820/390 px widths; light and dark mode until the team chose a dark-only design | No horizontal page scroll at 390 px after fix |
 | CI | `.github/workflows/ci.yml`: compile, coverage, typecheck, build, demo, Slither | Passing on GitHub Actions for the PR and for every push to `main` |
-| Testnet | `npm run deploy:sepolia` from a student's machine (key in the encrypted Hardhat keystore), then the auction run on the live site with MetaMask | **Current deployment, 31 Oct 2026** (the contract as submitted): [GavoraToken](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8), [DutchAuction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb); deploy, fund: [token tx](https://sepolia.etherscan.io/tx/0x903c7ccaddbccbf54543e043f5113e2c2355e2fb5aa2976aab5c03326e290ec3), [auction tx](https://sepolia.etherscan.io/tx/0x5343a7fc073b3904a25c10a539634ec4871f2fab3a413b7049c10b17ccf4f01a), [funding tx](https://sepolia.etherscan.io/tx/0x5de5cd0fcdd3ef95ec15e75ade651d01d718a09be39e214e842eefda8c4da1ee). Read back from the chain: the creation data of both deploy transactions equals the repository's build plus the constructor arguments, byte for byte, and the auction held the 1,000 GVRA, unstarted. Source verified on Etherscan on 5 Nov 2026 ([token](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8#code), [auction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb#code)), and both on Blockscout and Sourcify as full matches: the bytecode and its embedded metadata hash match the repository's build. **Sell-out run, 3 Nov 2026**, on the live site with MetaMask, from three wallets of one team member: [start](https://sepolia.etherscan.io/tx/0x3606d894a83114e7eeb4dde77fb5ef936da6d69e8984880f54a9972604434d6b); bids of [0.01 ETH at 0.0000864](https://sepolia.etherscan.io/tx/0x44455a37338828430557c1fe049d1a2cd98d7c3aeb9dfffa9c8ff1be6383032a) (204 s in) and [0.015 ETH at 0.0000616](https://sepolia.etherscan.io/tx/0xdd44321b63aeb04d530c8e5aa4c1fec9e28f58567d250201295fa21393d7cb8b) (576 s in); a [0.018 ETH crossing bid](https://sepolia.etherscan.io/tx/0x2fe8ff425b7f2100b7ebb941bf03b43f68f58c2bfdf26939b275215fd37906f2) at 900 s, of which 0.015 ETH was accepted and 0.003 ETH refunded in the same transaction, clearing the auction 5 minutes early at 0.00004 ETH/GVRA; [finalize](https://sepolia.etherscan.io/tx/0xc9dcc44b9f2badec1e4516f236aef954fe83151ff4e01fe7bd0961e893d12a98) after the window closed; claims of [250](https://sepolia.etherscan.io/tx/0x3920b57243b6738c85aea7ae1591838a476d38152deb8e5b2e650fb1b70b0f01), [375](https://sepolia.etherscan.io/tx/0x9431f0667fcbcc50fe48e472c4e01a3eabb0cf0dec6e54cf412a37330894b107) and [375 GVRA](https://sepolia.etherscan.io/tx/0xdc5890d95fdbf2a57ef0bee2d56247697307fdfe042813cba966e9628d18cbfd); [issuer withdrawal](https://sepolia.etherscan.io/tx/0xb6599347ec878a4fec0f87e90bf86d92c6ab70561abdc4a424402884211c3f94) of 0.04 ETH. Every bid settled at 0.00004, so the first bid received 250 GVRA, against 115.7 at the price when it was placed. Read back from the chain: 1,000 GVRA sold and claimed, none burned, and the auction holds 0 ETH and 0 GVRA and owes no refunds. Sepolia charged far more gas than the local network to create the auction: 12.9M (12.6M on 23 Oct), against 1.85M locally. **First run, 23 Oct 2026** (the contract before bid protection; [record](../../deployments/sepolia-2026-10-23.json)): [GavoraToken](https://sepolia.etherscan.io/address/0xa27d8D74e4e953348b55dc44bD3251bdc0Cc1053), [DutchAuction](https://sepolia.etherscan.io/address/0xe0f23743C959A9b9774114838A5fbD20d75C6FC0); deploy, fund: [token tx](https://sepolia.etherscan.io/tx/0x7ff92a3fbc66ea280f04bd8e610b6501116571dfb3861c7f0a9820e6ff4f5d9e), [auction tx](https://sepolia.etherscan.io/tx/0xab077a62ce7854e6735ffebaab0407c2916a07b5ff2622b1c394edcfbf4b6496), [funding tx](https://sepolia.etherscan.io/tx/0x2fe0a241b7d29d0951945fbd762848410475172ec928739a7393b48fd479de74). Run on the live site with MetaMask, undersubscribed by design: [start](https://sepolia.etherscan.io/tx/0x191b404550c411cca0ed98d8632d44491264117e92d6ce4de4dde57c6529c7d3), bids of [0.01 ETH at 0.0000968](https://sepolia.etherscan.io/tx/0x5be76690b28dd658e23b2522155e935f56d794c29e200ba1146f156d65e2c85a) and [0.005 ETH at 0.0000584](https://sepolia.etherscan.io/tx/0xc6bccbff49828febc70b37cf434ec1e38fdc6dbfb4f2c7c854c1a97b17e89131), [finalize](https://sepolia.etherscan.io/tx/0x6f6f2b258ee65412ce38361d1ba3ecf076a4b67c656ad4f31021fc5c41c211c4) at the 0.00002 reserve (250 GVRA burned; total supply 1,000 → 750), [claim](https://sepolia.etherscan.io/tx/0xf1d4c0b8c15f0b26923c40de0a6e8bedcfd28098b0000943a8078d35860f8b39) of 750 GVRA, [issuer withdrawal](https://sepolia.etherscan.io/tx/0xcb853f26d6a35a4400c3f212c124ce7da379396d308288d19c02d26574b698ea) of 0.015 ETH. Read back from the chain: both bids settled at 0.00002, the auction holds 0 ETH and owes no refunds. MetaMask had turned the issuer into an EIP-7702 smart account mid-run, and every action still worked |
+| Testnet | Three auctions on Sepolia, each deployed with `npm run deploy:sepolia` from a student's machine (key in the encrypted Hardhat keystore) and run through the website with MetaMask | One undersubscribed with a burn, two sold out early with the crossing bid refunded in the same transaction; every figure read back from the chain. See *Sepolia testnet runs* below |
+
+![Line chart: claim gas stays flat as bidders grow; with a planted loop it rises](figures/fig5-gas-scaling.png)
+
+*Figure 5. The gas-scaling test and mutation M3 (the *Gas scaling* row above).*
 
 **Slither triage (current contract).**
 - `incorrect-equality` (Medium, 4): the flagged comparisons are zero-guards on internal accounting values,
@@ -591,6 +635,59 @@ The team merged it on that run, without a separate MetaMask test; the demo recor
   gas. Return values are checked and the calls are guarded.
 - **Slither found none of F1-F4.** They are business-logic defects that only tests encoding the
   intended economics could expose.
+
+### Sepolia testnet runs
+
+Each auction was deployed unstarted, then run from start to finish through the website with MetaMask: the
+issuer opened the window, bidders bid, and the sale was finalized, claimed and withdrawn. Each sold 1,000 GVRA,
+with the price falling from 0.0001 to 0.00002 ETH per GVRA over 20 minutes.
+
+![Three panels: committed ETH against the ETH that buys the whole supply, for each Sepolia run](figures/fig4-sepolia-runs.png)
+
+*Figure 4. The three runs. Where committed ETH meets the falling line, the auction sells out at that moment's price.*
+
+| Run | Contract | Bids (ETH) | Outcome | Price everyone paid (ETH/GVRA) | Read back from the chain |
+| --- | --- | --- | --- | --- | --- |
+| 6 Nov 2026, recorded for the demo | As submitted | 0.01, 0.025, 0.03 | Sold out at 10:36: 0.0226 of the last bid accepted, 0.0074 refunded in the same transaction | 0.0000576 | 1,000 GVRA sold; claims of 173.61, 434.03 and 392.36; 0.0576 ETH withdrawn; 0 ETH and 1 unit of GVRA dust left |
+| 3 Nov 2026 | As submitted | 0.01, 0.015, 0.018 | Sold out at 15:00: 0.015 accepted, 0.003 refunded | 0.00004 | 1,000 GVRA sold and claimed (250, 375, 375); 0.04 ETH withdrawn; 0 ETH and 0 GVRA left |
+| 23 Oct 2026 | Before bid protection | 0.01, 0.005 | Undersubscribed: the window ended | 0.00002 (the reserve) | 750 GVRA claimed, 250 burned (supply 1,000 → 750); 0.015 ETH withdrawn |
+
+**6 November 2026: the current deployment** ([record](../../deployments/sepolia.json), [evidence 18](evidence/18-sepolia-run-3.txt)).
+- Contracts: [GavoraToken](https://sepolia.etherscan.io/address/0x2f3C5e8B944fE3E67d40cDF9a68d3B1512D02Fbf#code),
+  [DutchAuction](https://sepolia.etherscan.io/address/0xAB0f2B36150eC6D8C9f096CFA592eEDF82A8A8a8#code); deploy, fund:
+  [token tx](https://sepolia.etherscan.io/tx/0x6420c2612556804051f183618d01b9c000290bd1cedf2000271d417d43aa9ad8),
+  [auction tx](https://sepolia.etherscan.io/tx/0x9cc33f81ac3fac448b7cea29b4ddbcc3a4a5ffe63c2f3709c5ca8a38d62945fe),
+  [funding tx](https://sepolia.etherscan.io/tx/0x85133cfab3b4879889ead6bfcc6787839870a79954ada71c585006a0420bb26c). Read back from the chain: the
+  creation data of both deploy transactions equals the repository's build plus the constructor arguments, byte
+  for byte. Etherscan shows the source as verified by matching the identical bytecode verified on 5 November
+  ("Similar Match").
+- The run, from three wallets of one team member: [start](https://sepolia.etherscan.io/tx/0x7cd20971ea639516bfdea9b4e896136a3243f3f6f9ff12061f3ad98a66236652);
+  bids of [0.01 ETH at 0.000092](https://sepolia.etherscan.io/tx/0xed5ee4749d944154524f44441f145f1c08b0ffc3589f24e503f70f5dc9a116b5) (2:00 in) and
+  [0.025 ETH at 0.0000792](https://sepolia.etherscan.io/tx/0xda432ee17fae907132e1d9efd68b99cad0e145ee156ecc1e9dc8c05109bd2fa8) (5:12 in); a
+  [0.03 ETH crossing bid](https://sepolia.etherscan.io/tx/0x809c0ce34d492624783b6b832aec317bcce187fe6c685563393da04f621b657a) at 10:36, of which 0.0226 ETH
+  was accepted and 0.0074 ETH refunded in the same transaction;
+  [finalize](https://sepolia.etherscan.io/tx/0x2631dbf9853a42260c3f05d2acf36f4dec7c3f7d8cf854f30072f67bd832dcf1) after the window closed; claims of
+  [173.61](https://sepolia.etherscan.io/tx/0x6b72a7b0866dd2afb25c24bf70e1017ddeffb5a6bf8313562dbea2dd6c009b6c),
+  [434.03](https://sepolia.etherscan.io/tx/0x2b901dac424a83d585c2827ac1737ddf2671b00d7fe11fdea34dceda3f813ec2) and
+  [392.36 GVRA](https://sepolia.etherscan.io/tx/0x107330afb91ea8028255d7bf12266f0de4a710e8c87695fc07db4d9a0c0bf0a3);
+  [issuer withdrawal](https://sepolia.etherscan.io/tx/0x1bdbdf7a0c3edc15852098c1a57e026ed216a5ced28672b4a3258f58422f91b3) of 0.0576 ETH.
+- Every bid settled at 0.0000576, so the first bid's 0.01 ETH bought 173.61 GVRA, against 108.70 at the price
+  when it was placed. The auction holds 0 ETH, owes no refunds, and holds 1 unit (10<sup>-18</sup>) of GVRA:
+  claims round down, and `burnRemainderAfterAllClaimed` exists to burn that dust.
+- Hosting on the day: GitHub Pages' deployment of the new addresses was stuck for about 40 minutes, so the run
+  used the same site served from a team member's machine through a temporary Cloudflare tunnel. MetaMask
+  flagged the temporary `trycloudflare.com` address as possibly malicious, as it should for a domain anyone can
+  create. A dApp should be demonstrated from its own stable domain.
+
+**3 November 2026** (contracts deployed on 31 October, the contract as submitted; [record](../../deployments/sepolia-2026-10-31.json)).
+- Contracts: [GavoraToken](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8), [DutchAuction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb); deploy, fund: [token tx](https://sepolia.etherscan.io/tx/0x903c7ccaddbccbf54543e043f5113e2c2355e2fb5aa2976aab5c03326e290ec3), [auction tx](https://sepolia.etherscan.io/tx/0x5343a7fc073b3904a25c10a539634ec4871f2fab3a413b7049c10b17ccf4f01a), [funding tx](https://sepolia.etherscan.io/tx/0x5de5cd0fcdd3ef95ec15e75ade651d01d718a09be39e214e842eefda8c4da1ee). Read back from the chain: the creation data of both deploy transactions equals the repository's build plus the constructor arguments, byte for byte, and the auction held the 1,000 GVRA, unstarted. Source verified on Etherscan on 5 Nov 2026 ([token](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8#code), [auction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb#code)), and both on Blockscout and Sourcify as full matches: the bytecode and its embedded metadata hash match the repository's build.
+- The run, from three wallets of one team member: [start](https://sepolia.etherscan.io/tx/0x3606d894a83114e7eeb4dde77fb5ef936da6d69e8984880f54a9972604434d6b); bids of [0.01 ETH at 0.0000864](https://sepolia.etherscan.io/tx/0x44455a37338828430557c1fe049d1a2cd98d7c3aeb9dfffa9c8ff1be6383032a) (204 s in) and [0.015 ETH at 0.0000616](https://sepolia.etherscan.io/tx/0xdd44321b63aeb04d530c8e5aa4c1fec9e28f58567d250201295fa21393d7cb8b) (576 s in); a [0.018 ETH crossing bid](https://sepolia.etherscan.io/tx/0x2fe8ff425b7f2100b7ebb941bf03b43f68f58c2bfdf26939b275215fd37906f2) at 900 s, of which 0.015 ETH was accepted and 0.003 ETH refunded in the same transaction, clearing the auction 5 minutes early at 0.00004 ETH/GVRA; [finalize](https://sepolia.etherscan.io/tx/0xc9dcc44b9f2badec1e4516f236aef954fe83151ff4e01fe7bd0961e893d12a98) after the window closed; claims of [250](https://sepolia.etherscan.io/tx/0x3920b57243b6738c85aea7ae1591838a476d38152deb8e5b2e650fb1b70b0f01), [375](https://sepolia.etherscan.io/tx/0x9431f0667fcbcc50fe48e472c4e01a3eabb0cf0dec6e54cf412a37330894b107) and [375 GVRA](https://sepolia.etherscan.io/tx/0xdc5890d95fdbf2a57ef0bee2d56247697307fdfe042813cba966e9628d18cbfd); [issuer withdrawal](https://sepolia.etherscan.io/tx/0xb6599347ec878a4fec0f87e90bf86d92c6ab70561abdc4a424402884211c3f94) of 0.04 ETH. Every bid settled at 0.00004, so the first bid received 250 GVRA, against 115.7 at the price when it was placed. Read back from the chain: 1,000 GVRA sold and claimed, none burned, and the auction holds 0 ETH and 0 GVRA and owes no refunds.
+- Sepolia charged far more gas than the local network to create the auction: 12.9M on 31 October (12.6M on
+  23 October, 12.87M on 6 November), against 1.85M locally.
+
+**23 October 2026** (the contract before bid protection; [record](../../deployments/sepolia-2026-10-23.json)).
+- Contracts: [GavoraToken](https://sepolia.etherscan.io/address/0xa27d8D74e4e953348b55dc44bD3251bdc0Cc1053), [DutchAuction](https://sepolia.etherscan.io/address/0xe0f23743C959A9b9774114838A5fbD20d75C6FC0); deploy, fund: [token tx](https://sepolia.etherscan.io/tx/0x7ff92a3fbc66ea280f04bd8e610b6501116571dfb3861c7f0a9820e6ff4f5d9e), [auction tx](https://sepolia.etherscan.io/tx/0xab077a62ce7854e6735ffebaab0407c2916a07b5ff2622b1c394edcfbf4b6496), [funding tx](https://sepolia.etherscan.io/tx/0x2fe0a241b7d29d0951945fbd762848410475172ec928739a7393b48fd479de74).
+- The run, undersubscribed by design: [start](https://sepolia.etherscan.io/tx/0x191b404550c411cca0ed98d8632d44491264117e92d6ce4de4dde57c6529c7d3), bids of [0.01 ETH at 0.0000968](https://sepolia.etherscan.io/tx/0x5be76690b28dd658e23b2522155e935f56d794c29e200ba1146f156d65e2c85a) and [0.005 ETH at 0.0000584](https://sepolia.etherscan.io/tx/0xc6bccbff49828febc70b37cf434ec1e38fdc6dbfb4f2c7c854c1a97b17e89131), [finalize](https://sepolia.etherscan.io/tx/0x6f6f2b258ee65412ce38361d1ba3ecf076a4b67c656ad4f31021fc5c41c211c4) at the 0.00002 reserve (250 GVRA burned; total supply 1,000 → 750), [claim](https://sepolia.etherscan.io/tx/0xf1d4c0b8c15f0b26923c40de0a6e8bedcfd28098b0000943a8078d35860f8b39) of 750 GVRA, [issuer withdrawal](https://sepolia.etherscan.io/tx/0xcb853f26d6a35a4400c3f212c124ce7da379396d308288d19c02d26574b698ea) of 0.015 ETH. Read back from the chain: both bids settled at 0.00002, the auction holds 0 ETH and owes no refunds. MetaMask had turned the issuer into an EIP-7702 smart account mid-run, and every action still worked.
 
 ## 7. Improvements & Refinements
 
@@ -630,18 +727,27 @@ The team merged it on that run, without a separate MetaMask test; the demo recor
 - Every bid except a sell-out carries an on-chain minimum: today's price, less 1%.
 - Network switching that offers to add the local chain; read-only view before connecting.
 - Local time-travel tools for the demo; dark mode and a mobile layout.
-- From the manual MetaMask run: a light/dark theme toggle, an *Add GVRA to your wallet* button (EIP-747),
-  and a clearer *Sell-out amount* shortcut.
+- From the manual MetaMask run: a light/dark theme toggle (later removed, when the team chose a dark-only
+  design), an *Add GVRA to your wallet* button (EIP-747), and a clearer *Sell-out amount* shortcut.
 - Patterns borrowed from established Dutch auction platforms (Art Blocks, Sushi MISO, Gnosis Auction): a
   *Sale details* card (contract addresses with copy buttons and explorer links, the sale window), visible
   Etherscan links on bids, the bidder's share of supply, and a short FAQ. These borrow the patterns, not
   the platforms' visual design.
 - GitHub Pages hosting (`.github/workflows/pages.yml`) that targets Sepolia, with a friendly "not deployed
   yet" card and an offline warning in place of raw RPC errors.
+- Bid history that survives a public node pruning its logs, through Blockscout's logs API (D1, D2).
+- Two redesigns made with Claude by a team member and reviewed before merging (E1-E4). The current one,
+  "Terrain", shows the next step and its action on the first screen, draws each bid as a ridge on a surface
+  of points, and puts the details in tabs (Figure 6).
+- Prices with four significant digits, so Sepolia's small prices show in full (D3).
+
+![The DutchPoint dashboard during a live auction on the local chain](../demo/screenshots/dashboard.png)
+
+*Figure 6. The dashboard during a live auction on the local chain: the price, time left, demand and the bid panel.*
 
 **Documentation**
-- This report, the evidence folder, prompt logs, an updated spec, assumptions and checklist, and a
-  demo script.
+- This report with its figures, the evidence folder, prompt logs, an updated spec, assumptions and
+  checklist, a README written for first-time readers, and the demo video and its script.
 
 ## 8. Lessons Learned
 
@@ -668,6 +774,9 @@ The team merged it on that run, without a separate MetaMask test; the demo recor
   unusual timing (a network switch mid-read, out-of-order wallet answers, a bid mined seconds after it
   was quoted) or an unusual wallet (one that rejects ETH). Happy-path testing, even with a real wallet,
   does not reach them.
+- **Test data that hides a defect.** Every test, screenshot and local demo used prices that six decimals
+  can show. Sepolia's smaller prices needed seven, and only the recording of a real run showed the page
+  cutting them short (D3).
 - **Display values reused as inputs.** A helper that truncates numbers for display also built the
   sell-out amount (B1). No test followed a value from the screen into a transaction.
 - **Untested failure paths.** The table of friendly contract-error messages was never exercised by a

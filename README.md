@@ -190,7 +190,7 @@ browser:
 | Command | What it runs |
 | --- | --- |
 | `npm test` | All 63 contract tests: 53 Mocha tests, 5 Solidity fuzz tests (1,000 runs each) and 5 invariants (256 runs, depth 50) |
-| `npm run test:frontend` | 25 dashboard unit tests (Vitest and React Testing Library) |
+| `npm run test:frontend` | 32 dashboard unit tests (Vitest and React Testing Library) |
 | `npm run coverage` | All contract tests with coverage: `DutchAuction.sol` and `GavoraToken.sol` are at 100% of lines and statements |
 | `npm run gas` | Gas use per function, and a check that each call costs the same with 1 or 100 earlier bidders |
 | `npm run slither` | Slither static analysis; fails on any Medium or High finding |
@@ -364,7 +364,7 @@ Every script in `package.json`, run from the project folder.
 | `npm test` | All 63 contract tests (Mocha, fuzz and invariants) |
 | `npm run test:mocha` | The 53 Mocha tests |
 | `npm run test:solidity` | The 5 fuzz tests and 5 invariants |
-| `npm run test:frontend` | The 25 dashboard unit tests (Vitest) |
+| `npm run test:frontend` | The 32 dashboard unit tests (Vitest) |
 | `npm run coverage` | All contract tests with a coverage report (`coverage/`) |
 | `npm run gas` | Mocha tests with the gas-scaling table and per-function gas statistics |
 | `npm run slither` | Slither on both contracts (needs `slither-analyzer` and `solc` 0.8.28) |
