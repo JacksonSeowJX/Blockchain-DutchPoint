@@ -66,6 +66,15 @@ refunded in the same transaction. Every bidder then paid 0.0000576, including th
 0.000092, and the issuer received 1,000 × 0.0000576 = 0.0576 ETH.
 [All three Sepolia runs](#three-auctions-run-on-sepolia) are listed below with their transactions.
 
+### The brief's four tricky points
+
+| Tricky point | How DutchPoint answers it | Where it is proved |
+| --- | --- | --- |
+| **Block-based time countdowns and continuous price decay** | The price is a function of `block.timestamp` alone: a straight line from the start price to the reserve over exactly 1,200 seconds from `start()`. Bids revert from the 1,200th second, and `finalize()` only works after it. If falling prices alone make the committed ETH cover the supply, the auction clears at the exact price where that happens, even if no transaction arrives at that moment | Fuzz test: the price is monotonic and bounded. Tests: bids rejected after closing; the exact clearing point when falling prices alone clear the auction. AI Audit Report F2 and Appendix A |
+| **A bid that bridges the clearing threshold** | Bids fill in arrival order. The crossing bid is accepted only up to the room left, its surplus is refunded in the same transaction, and every bidder then claims commitment ÷ the one clearing price | Test: a crossing bid accepted up to capacity, surplus refunded in the same transaction. AI Audit Report F1 (Codex's rule let a late whale take 91%). The 3 and 6 Nov Sepolia runs (0.003 and 0.0074 ETH refunded) |
+| **Safe ETH refunds against reentrancy** | `nonReentrant` and checks-effects-interactions: the refund is the last step, after every record is updated. If a bidder's contract rejects ETH, the refund becomes a credit it can withdraw to any address, so no bidder can block the sale | `npm run demo` scenarios 3-5: the same attacker drains 11 ETH from a deliberately vulnerable auction but gets only its own 0.75 ETH refund from DutchPoint. AI Audit Report F5, F6 |
+| **Permanently burning unsold tokens** | `finalize()` burns unsold GVRA with ERC20 `burn`, which lowers `totalSupply`. The token has no mint function and no owner, so the supply can never grow back. Rounding dust can be burned once every bidder has claimed | Tests: an undersubscribed sale settles at reserve and burns the rest; the full inventory is burned when nobody bids. The 23 Oct Sepolia run: total supply 1,000 → 750 on Etherscan |
+
 ## Quick start: run it on your machine
 
 Everything runs locally: a Hardhat chain, the two contracts and the React dashboard. You don't need

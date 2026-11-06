@@ -715,6 +715,16 @@ with the price falling from 0.0001 to 0.00002 ETH per GVRA over 20 minutes.
 
 ## 7. Improvements & Refinements
 
+**The brief's four tricky points, as finally answered.** §1 records what the AI tools first proposed for
+each; this is where each ended up.
+
+| Tricky point | Final answer | Evidence |
+| --- | --- | --- |
+| Block-based countdowns and continuous price decay | The price is a function of `block.timestamp` alone, linear over exactly 1,200 seconds from `start()`; bids revert from the 1,200th second and `finalize()` only works after it. Clearing by time alone happens at the exact price where committed ETH covers the supply (`ceil(totalCommitted / saleSupply)`), even if no transaction arrives at that moment | F2; fuzz test `testFuzz_PriceIsMonotonicAndBounded`; the exact time-clearing tests (§6); Appendix A on timestamp drift |
+| A bid that bridges the clearing threshold | Arrival-order filling: the crossing bid is accepted up to the room left and its surplus refunded in the same transaction; everyone claims commitment ÷ one clearing price. `contributeWithMinimum` lets a bidder refuse a partial fill | F1, A1; Figure 3; the 3 and 6 Nov Sepolia runs (Figure 4) |
+| Safe ETH refunds against reentrancy | `nonReentrant` plus checks-effects-interactions, refund last; a rejected refund becomes a credit withdrawable to any address (A7) | F5, F6; [`evidence/05`](evidence/05-reentrancy-demo.txt) (11 ETH drained from the vulnerable baseline, 0.75 ETH from DutchPoint); Slither |
+| Permanently burning unsold tokens | `finalize()` burns unsold GVRA through `ERC20Burnable.burn`, lowering `totalSupply`; the token has no mint and no owner; rounding dust is burnable after every claim | The undersubscribed-sale and no-bidder tests; the 23 Oct Sepolia run (supply 1,000 → 750); Appendix A |
+
 **Contracts**
 - Arrival-order filling with an automatic surplus refund that falls back to a pull-based credit.
 - An exact continuous-decay clearing price, `ceil(totalCommitted / saleSupply)`, for time-only clearing,
