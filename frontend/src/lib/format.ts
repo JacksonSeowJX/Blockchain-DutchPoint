@@ -29,8 +29,15 @@ export function formatToken(value: bigint, symbol = "GVRA", places = 2): string 
   return `${groupThousands(trimDecimal(formatUnits(value, 18), places))} ${symbol}`;
 }
 
+/** Decimals for a price: six, or more for a small price so that it keeps four significant digits. */
+export function priceDecimals(value: bigint): number {
+  const fraction = formatEther(value).split(".")[1] ?? "";
+  const zeros = fraction.length - fraction.replace(/^0+/, "").length;
+  return Math.max(6, zeros + 4);
+}
+
 export function formatPrice(value: bigint): string {
-  return `${trimDecimal(formatEther(value), 6)} ETH`;
+  return `${trimDecimal(formatEther(value), priceDecimals(value))} ETH`;
 }
 
 export function parseEthInput(value: string): bigint {

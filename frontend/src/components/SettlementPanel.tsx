@@ -77,7 +77,8 @@ export function SettlementPanel({
       )}
       {finalized && allClaimed && snapshot.auctionTokenBalance > 0n && (
         <button className="btn wide" onClick={onBurnDust} disabled={disabled}>
-          Burn {snapshot.auctionTokenBalance.toString()} units of rounding dust
+          Burn {snapshot.auctionTokenBalance.toString()} {snapshot.auctionTokenBalance === 1n ? "unit" : "units"} of
+          rounding dust
         </button>
       )}
 

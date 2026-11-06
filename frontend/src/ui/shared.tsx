@@ -8,19 +8,20 @@ import { SettlementPanel } from "../components/SettlementPanel";
 import { Dashboard } from "../hooks/useDashboard";
 import { Status, View } from "../lib/auctionMath";
 import { LOCAL_CHAIN_ID, chainName, defaultChainId } from "../lib/contracts";
-import { formatEth, formatPrice, formatToken, secondsToClock, trimDecimal } from "../lib/format";
+import { formatEth, formatPrice, formatToken, priceDecimals, secondsToClock, trimDecimal } from "../lib/format";
 import { formatEther } from "ethers";
 
 export type DirectionProps = { d: Dashboard };
 
-/** A price as bare figures. While it is falling, `steady` keeps six decimals so the width holds still. */
+/** A price as bare figures. While it is falling, `steady` keeps every decimal so the width holds still. */
 export function priceFigure(price: bigint, steady = false): string {
-  const figure = trimDecimal(formatEther(price), 6);
+  const places = priceDecimals(price);
+  const figure = trimDecimal(formatEther(price), places);
   if (!steady) {
     return figure;
   }
   const [whole, fraction = ""] = figure.split(".");
-  return `${whole}.${fraction.padEnd(6, "0")}`;
+  return `${whole}.${fraction.padEnd(places, "0")}`;
 }
 
 /** The clock figure and what it counts down to, for each stage of the auction. */
