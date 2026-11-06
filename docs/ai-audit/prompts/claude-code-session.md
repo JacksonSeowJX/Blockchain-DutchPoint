@@ -1052,3 +1052,12 @@ page numbers (found by laying the PDF out twice), a "Background: how a Dutch auc
 the start of §1 that ends with a worked example from the 6 November run, and a References section of 25
 sources, each cited where the report relies on it. It opened every link first and checked the journal and
 conference details against Crossref.
+
+146. "Can you add the NTU logo to the report's cover page? Follow the style of my past reports, such as my
+     FYP report."
+
+**Agent response:** found the FYP report's LaTeX source and its NTU logo, and rebuilt the PDF's first page
+in the same layout and type sizes: the logo, the title in bold capitals, each member in bold with the
+matriculation number below, the submission statement, the course in capitals and the semester, set in
+Times. The PDF build reads the numbers from the private team-details file, so they still never enter the
+repository; the layout was checked with dummy numbers. The links table moved to the top of the Summary.
