@@ -14,9 +14,6 @@ Every evidence commit cited below is in the history of the `main` branch.
 
 <!-- team-details -->
 
-> Items marked **TODO (team)** need facts only the team has (the original prompts). They are left blank
-> on purpose rather than guessed.
-
 ## Summary
 
 Three AI tools built and reviewed DutchPoint in sequence: **ChatGPT** wrote the plan, **Codex** wrote the
@@ -182,8 +179,8 @@ checked by another model or another person.
   (prompt 96); merging the second redesign on a scripted run (prompt 105); recording the demo as a live
   Sepolia run (prompt 107); the team's roles (prompt 115).
 - **Facts only the team had were asked for, never guessed.** The pre-AI scope, the team's details and the
-  tool each teammate used were asked of the team (§3, item 5 of the prompt chain); what the team could not supply is marked
-  *TODO (team)*.
+  tool each teammate used were asked of the team (§3, item 5 of the prompt chain); the one record the team could not supply, the
+  ChatGPT planning conversation, is named as missing in §3.
 
 ## 3. Specification Engineering & Prompt Logs
 
@@ -198,7 +195,9 @@ checked by another model or another person.
   - The Codex prompts are in Sanjeev's [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view): P01 is the full prompt that produced the
     first implementation, and P10-P21 the independent audit and MetaMask test. Codex's own account is in
     [`development-log.md`](development-log.md).
-  - The ChatGPT output is kept as-is.
+  - The ChatGPT plan is kept as-is in [`chatgpt-plan.txt`](prompts/chatgpt-plan.txt). No export or share
+    link of the ChatGPT conversation is available, so the prompts behind the plan are missing; §4 audits
+    the plan as output only.
 - **Context provided to the agents:** the brief (`project.pdf`), the ChatGPT plan, and the repository
   itself. For review work the agent ran the code (tests, scripts, a local node) rather than only reading
   it.
@@ -226,8 +225,6 @@ refunds or burning". Codex followed both instructions literally,
 but in the state-changing code paths only (F2), and by deferring proceeds to per-bidder settlement (F4).
 Constraints phrased as *properties* ("the UI must never show bidding as open after demand meets
 supply"; "every wei must be withdrawable by someone") would have been harder to satisfy only partly.
-
-**TODO (team):** add the ChatGPT conversation link to [`prompts/`](prompts/README.md).
 
 ## 4. AI-Generated Architecture
 
