@@ -9,7 +9,8 @@ screen. Every figure in it can be checked on Etherscan
 - **Narration:** one AI voice throughout (the macOS voice "Evan"), generated one sentence at a time so the
   subtitles match the audio.
 - **Footage:** segment 2 is cut from the screen recording of the live run, cropped to the website, with a
-  caption bar naming each step. Waiting is sped up, and the caption bar shows by how much. The other
+  caption bar naming each step. At the issuer's three signatures the whole screen is shown for a few
+  seconds, with MetaMask's confirmation. Waiting is sped up, and the caption bar shows by how much. The other
   segments are slides made from real command output and screenshots of the live site and Etherscan.
 
 ## Running order
@@ -17,16 +18,16 @@ screen. Every figure in it can be checked on Etherscan
 | # | Time | Segment | Shows |
 | --- | --- | --- | --- |
 | 1 | 0:00-1:03 | Architecture and design | Title card, architecture slide |
-| 2 | 1:03-4:36 | Live run on Sepolia | The 6 Nov recording, 12 captioned steps |
-| 3 | 4:36-5:41 | Inside the contract | `priceAt`, the crossing bid's refund, `claimTokens`, with real line numbers |
-| 4 | 5:41-6:17 | Undersubscribed sale and burn | `npm run demo` scenario 2, the 23 Oct Sepolia token |
-| 5 | 6:17-6:59 | Security and testing | Reentrancy demo, tests, coverage, CI |
-| 6 | 6:59-7:51 | AI audit: what the AI got wrong | Report summary, F1, A1 |
-| 7 | 7:51-8:21 | Deployment and verification | Live site on GitHub Pages, verified source, the three Sepolia runs |
-| 8 | 8:21-8:57 | Run it yourself | The README's commands with real output, the local dashboard and its demo tools |
-| 9 | 8:57-9:19 | Close | End card with the team's roles |
+| 2 | 1:03-4:48 | Live run on Sepolia | The 6 Nov recording, 12 captioned steps |
+| 3 | 4:48-5:53 | Inside the contract | `priceAt`, the crossing bid's refund, `claimTokens`, with real line numbers |
+| 4 | 5:53-6:29 | Undersubscribed sale and burn | `npm run demo` scenario 2, the 23 Oct Sepolia token |
+| 5 | 6:29-7:10 | Security and testing | Reentrancy demo, tests, coverage, CI |
+| 6 | 7:10-8:03 | AI audit: what the AI got wrong | Report summary, F1, A1 |
+| 7 | 8:03-8:32 | Deployment and verification | Live site on GitHub Pages, verified source, the three Sepolia runs |
+| 8 | 8:32-9:08 | Run it yourself | The README's commands with real output, the local dashboard and its demo tools |
+| 9 | 9:08-9:31 | Close | End card with the team's roles |
 
-Total 9:19.
+Total 9:31.
 
 ## What the brief asks for, and where it is
 
@@ -99,9 +100,9 @@ their bids appear as they reach the chain. Bidders are never named.
 > already committed covers more of the supply.
 >
 > **Step 6 · Bid 3 sells out at 10:36 · 0.0226 accepted, 0.0074 refunded**
-> At 10 minutes 36, the third bidder sends 0.03 ETH. At that second, all 1,000 GVRA cost 0.0576 ETH, and
-> only 0.0226 was still uncovered. So 0.0226 is accepted, the auction sells out, and the price stops
-> falling. The earlier bids are filled in full.
+> At 10 minutes 36, the third bidder sends 0.03 ETH. At that second the price was 0.0000576 ETH per GVRA,
+> so all 1,000 GVRA together cost 0.0576 ETH, and only 0.0226 of that was still uncovered. So 0.0226 is
+> accepted, the auction sells out, and the price stops falling. The earlier bids are filled in full.
 >
 > **Step 7 · Etherscan: the 0.0074 ETH refund is in the same transaction**
 > Jackson opens that transaction on Etherscan. The 0.0074 ETH surplus went straight back to the bidder
