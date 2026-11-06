@@ -1094,3 +1094,10 @@ the page count unchanged, so it recommended justified text, which also matches t
 converted the 17 later findings (A-E) from tables into the F1-F6 layout: a heading with a short title and
 the severity, then the four labels of the brief's breakdown, with the wording unchanged. A label now stays
 on the same page as its first point.
+
+152. "For the issue items, just use the table format; that way we reduce pages and it's easier to read."
+
+**Agent response:** put all 23 findings, F1-F6 included, in one table format: *Finding* (ID, severity
+and a short title), then the brief's four parts as columns. F1-F6 became one table with each defect's
+location at the start of its first cell; F1's numbers table and Figure 3 moved directly below it. Every
+point's wording was checked to be unchanged. The PDF went from 33 to 30 pages.

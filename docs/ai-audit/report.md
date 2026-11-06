@@ -28,12 +28,7 @@ Every evidence commit cited below is in the history of the `main` branch.
 - [3. Specification Engineering & Prompt Logs](#3-specification-engineering--prompt-logs)
 - [4. AI-Generated Architecture](#4-ai-generated-architecture)
 - [5. Problems Discovered & Vulnerability Analysis](#5-problems-discovered--vulnerability-analysis)
-  - [F1 - Late oversized bid crowds out earlier bidders (High)](#f1---late-oversized-bid-crowds-out-earlier-bidders-high)
-  - [F2 - Views ignore clearing caused by time passing (Medium)](#f2---views-ignore-clearing-caused-by-time-passing-medium)
-  - [F3 - A cleared auction can never be finalized from the UI (Medium)](#f3---a-cleared-auction-can-never-be-finalized-from-the-ui-medium)
-  - [F4 - Issuer proceeds locked behind every bidder's claim (Medium)](#f4---issuer-proceeds-locked-behind-every-bidders-claim-medium)
-  - [F5 - State written after external calls (Low; Slither: High)](#f5---state-written-after-external-calls-low-slither-high)
-  - [F6 - The reentrancy "demonstration" could not fail (Low)](#f6---the-reentrancy-demonstration-could-not-fail-low)
+  - [Defects in the first AI implementation (F1-F6)](#defects-in-the-first-ai-implementation-f1-f6)
   - [Other issues found in the AI output](#other-issues-found-in-the-ai-output)
   - [Issues in the second AI pass (Claude Code) caught by validation](#issues-in-the-second-ai-pass-claude-code-caught-by-validation)
   - [Third pass: independent Codex review (A1-A7)](#third-pass-independent-codex-review-a1-a7)
@@ -317,202 +312,31 @@ replaces per-bidder proceeds accrual with aggregate accounting ([`architecture.m
 
 ## 5. Problems Discovered & Vulnerability Analysis
 
-### F1 - Late oversized bid crowds out earlier bidders (High)
+### Defects in the first AI implementation (F1-F6)
 
-**Where:** `0a75a78` `contracts/DutchAuction.sol:457`: `tokens = Math.mulDiv(commitment, saleSupply, totalCommitted)`.
+Claude Code's review of Codex's first implementation (`0a75a78`) found these six on 20 October. *Where* gives each defect's location in that commit.
 
-**Why the AI made the mistake.**
-- The brief asks "How to calculate claims when a bid bridges across the clearing threshold?". Codex
-  treated this as a question of *simplicity*, writing in `assumptions.md` that the rule is
-  "deterministic, simple for students to explain". It chose the pro-rata rule used by oversubscribed
-  token sales.
-- It never modelled an adversary choosing the size of the crossing bid.
-- It recorded the rule as an assumption "not approved by the TA" but did not analyse its consequences.
-- ChatGPT had proposed the correct rule. The two tools contradicted each other, and only cross-checking
-  them exposed the problem.
+| Finding | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| **F1** (High)<br>Late oversized bid crowds out earlier bidders | *Where:* `0a75a78` `contracts/DutchAuction.sol:457`: `tokens = Math.mulDiv(commitment, saleSupply, totalCommitted)`.<br>• The brief asks "How to calculate claims when a bid bridges across the clearing threshold?". Codex treated this as a question of *simplicity*, writing in `assumptions.md` that the rule is "deterministic, simple for students to explain". It chose the pro-rata rule used by oversubscribed token sales.<br>• It never modelled an adversary choosing the size of the crossing bid.<br>• It recorded the rule as an assumption "not approved by the TA" but did not analyse its consequences.<br>• ChatGPT had proposed the correct rule. The two tools contradicted each other, and only cross-checking them exposed the problem. | • Excess ETH is refunded, so over-committing costs nothing. A whale can wait, then commit an arbitrarily large amount at the moment of their choosing and take almost the entire supply.<br>• With Alice 6 ETH and Bob 4 ETH committed early, a 100 ETH bid at t = 700 s took 909.09 GVRA (90.9%) and left Alice 54.55 (the table and Figure 3 below; [`evidence/02`](evidence/02-crowd-out-poc-before-fix.txt)).<br>• This breaks the brief's "fair participant equity" goal and rewards exactly the late sniping and front-running behaviour a Dutch auction is meant to remove.<br>• It contradicts the brief's clearing rule: the auction should clear when committed capital meets supply, not let capital beyond that point dilute everyone. | In `20e24b1`:<br>• Commitments are filled in arrival order.<br>• The crossing bid is accepted only up to the remaining capacity, `floor(saleSupply × price / 1e18) − totalCommitted`.<br>• Its surplus is refunded **in the same transaction**. If the bidder is a contract that rejects ETH, the surplus is credited for `withdrawRefundTo` instead, so the bid cannot be blocked.<br>• Bids after clearing revert with `AuctionAlreadyCleared`.<br>• Every bidder then receives `commitment / clearingPrice` tokens. | • Regression test F1 fails on the original code: `expected 54545454545454545454 to equal 533333333333333333333` ([`evidence/01`](evidence/01-regressions-before-fix.txt)). It passes after the fix ([`evidence/03`](evidence/03-regressions-after-fix.txt)).<br>• The proof of concept after the fix: Alice 533.33 GVRA, Bob 355.56, whale 111.11 GVRA for 1.25 ETH, with 98.75 ETH returned in the bid transaction ([`evidence/04`](evidence/04-crowd-out-poc-after-fix.txt)).<br>• Fuzz property `testFuzz_SettlementIsUniformFairAndConserving` (1,000 random runs) asserts that only the clearing bid can be partly filled, that the surplus is returned immediately, and that everyone pays one price.<br>• Screenshot [`02-sellout-bid-auto-refund.png`](../demo/screenshots/02-sellout-bid-auto-refund.png) shows the same behaviour in the UI. |
+| **F2** (Medium)<br>Views ignore clearing caused by time passing | *Where:* `0a75a78` `DutchAuction.sol:253` (`currentPrice`) and `:267` (`status`); `src/App.tsx:252` (`displayPrice`).<br>• The prompt explicitly required it: "Handle clearing caused by price decay even when no new contribution arrives" ([P01](prompts/codex-p01-original.md)). Codex implemented this in `_syncTimeClearing`, but only on *state-changing* paths (`finalize`, `contribute`).<br>• The view functions read only the stored `clearingTime`, which stays 0 until a transaction writes it.<br>• The AI treated "the auction has cleared" as an event that happens in a transaction, when for time-only clearing it is a property of the current time and must be derived the same way in every read path. | • Once the price falls far enough for existing bids to buy the supply, nothing on-chain changes until someone transacts. `status()` still returns `Active` and `currentPrice()` keeps falling. In the F2 scenario at t = 900 s it returns 0.00875 ETH, while the true clearing price is 0.01 ETH.<br>• The UI keeps the bid button enabled, so users submit bids that revert and waste gas.<br>• It also shows them a price lower than the one they will actually pay (an inaccurate price display). | • A single `clearingState()` view now derives explicit and time-based clearing (`20e24b1`). `status()`, `currentPrice()`, `remainingCapacity()`, `tokensOwed()` and `_contribute()` all use it.<br>• The frontend mirrors the same rules in BigInt (`frontend/src/lib/auctionMath.ts`, `c689e3c`), so the display is right even between blocks. | • Regression test F2: `expected 1 to equal 2` before ([`evidence/01`](evidence/01-regressions-before-fix.txt)), passing after.<br>• Tests `rejects bids once falling prices alone have cleared the auction` and `finds the exact clearing point when falling prices alone clear the auction`.<br>• In the UI check, an auction with 8 ETH committed and no bids after minute 7 is shown as cleared at 0.008 ETH at minute 16, then as ready to finalize after minute 20 ([`06-time-cleared-ready-to-finalize.png`](../demo/screenshots/06-time-cleared-ready-to-finalize.png)). |
+| **F3** (Medium)<br>A cleared auction can never be finalized from the UI | *Where:* `0a75a78` `DutchAuction.sol:274`: `status()` returns `Cleared` before checking the deadline. `src/App.tsx:336`: `canFinalize = snapshot?.status === 3`.<br>• The contract and the frontend were generated and tested separately.<br>• Every contract test and the demo script called `finalize()` directly. Nothing exercised the path from the UI through the `Status` enum to the contract, so an ordering mistake in `status()` was invisible. | • For any auction that sells out early (the *success* path), `status()` reports `Cleared` forever, so the "Finalize auction" button stays disabled.<br>• Without finalization nobody can claim GVRA or withdraw refunds or proceeds through the dApp. Funds appear bricked to every UI user, even though a direct contract call would still work. | • `status()` checks the deadline before clearing, so after 20 minutes it returns `AwaitingFinalization` (`20e24b1`).<br>• The rebuilt UI derives finalizability from the same rule (`c689e3c`). | • Regression test F3: `expected 2 to equal 3` before, passing after.<br>• Test `moves through Pending, Active, Cleared, AwaitingFinalization and Finalized`.<br>• The end-to-end UI run sold out the auction, clicked Finalize and Claim, and confirmed the claim ([`03-finalized-and-claimed.png`](../demo/screenshots/03-finalized-and-claimed.png)).<br>• A time-cleared auction shows "Ready to finalize" after the window ends ([`06-time-cleared-ready-to-finalize.png`](../demo/screenshots/06-time-cleared-ready-to-finalize.png)). |
+| **F4** (Medium)<br>Issuer proceeds locked behind every bidder's claim | *Where:* `0a75a78` `DutchAuction.sol:443`: `issuerProceedsAvailable += acceptedEth` inside per-bidder `_settleAccount`.<br>• The prompt said "Avoid unbounded loops over bidders during settlement, refunds or burning" ([P01](prompts/codex-p01-original.md)). Under pro-rata settlement each bidder's accepted ETH is unknown until that bidder settles. Codex therefore accrued proceeds one bidder at a time, which avoids a loop but makes revenue depend on bidder behaviour.<br>• It listed this as a "known limitation" instead of questioning the design that caused it. | • Any bidder who never claims (lost keys, abandoned wallet) permanently strands their share of the issuer's revenue in the contract.<br>• "ETH becoming permanently stuck" is on the ChatGPT plan's own audit checklist. | In `20e24b1`:<br>• With arrival-order filling, every accepted wei is sale revenue. Proceeds are therefore exactly `totalCommitted`, known at finalization and withdrawable at once.<br>• Refund credits are tracked separately (`refundLiability`), so withdrawing proceeds can never consume ETH owed back to bidders. | • Regression test F4: `reverted with custom error 'NoProceedsAvailable()'` before, passing after.<br>• Invariant `invariant_EthIsFullyBacked`: balance = unwithdrawn proceeds + refund credits, over 256 random sequences.<br>• Mutation M2 in [`evidence/06`](evidence/06-mutation-check.txt): letting the issuer withdraw the raw balance is caught by 3 invariants. |
+| **F5** (Low; Slither: High)<br>State written after external calls | *Where:* `0a75a78` `DutchAuction.sol:207` and `:230`: after a failed ETH transfer the code restored `refundCredits`, `refundLiability`, `refundsWithdrawn` and `issuerProceedsWithdrawn`, then reverted.<br>This is defensive pattern-matching ("undo on failure"). It misses that `revert` already rolls back every state change in the call, so the restoring writes are dead code. | • It is not exploitable, because the functions are `nonReentrant` and revert immediately.<br>• However, it writes state after an external call, which obscures checks-effects-interactions, the ordering recommended against reentrancy [[9, 10, 11]](#references).<br>• Slither reports it as **High** `reentrancy-eth` in two functions ([`evidence/08`](evidence/08-slither.txt), part A). Noise at that severity hides real findings and costs every future reviewer time. | In `20e24b1`:<br>• The dead writes are removed.<br>• The new surplus refund writes state after the call *only when the call failed*. Anything the receiver changed during a failed call has already been reverted. | • Slither on the current contract reports no High findings (part B).<br>• `npm run slither` fails CI on any Medium or High finding. |
+| **F6** (Low)<br>The reentrancy "demonstration" could not fail | *Where:* `0a75a78` `test/DutchAuction.test.ts:382` with `ReentrantRefundAttacker.sol`.<br>• The bonus asks to "demonstrate reentrancy attack resistance". Codex wrote an attacker that re-enters `withdrawRefundTo`, but the refund credit is zeroed before the transfer.<br>• By inspection, even without `ReentrancyGuard` the nested call finds no credit, so the test passes either way. There is also no vulnerable baseline showing what the attack does when it works.<br>• The AI satisfied the wording of the requirement without producing evidence that could discriminate. | A test that cannot fail is not evidence. Markers would see the attacker "fail" without ever seeing why that matters. | In `031b753`:<br>• Added `VulnerableAuction.sol`: a deliberately vulnerable, test-only contract whose refund sends ETH before clearing the credit.<br>• Added a generic `ReentrancyAttacker.sol` that can be pointed at either contract. | • Against `VulnerableAuction`, the attacker re-enters 10 times and leaves with **11 ETH** (its own 1 ETH plus Alice's and Bob's bids).<br>• Against `DutchAuction`, the nested call is rejected and it receives **only its 0.75 ETH refund** ([`evidence/05`](evidence/05-reentrancy-demo.txt)).<br>• Slither flags the vulnerable contract as `reentrancy-eth`, confirming the demonstration targets a real vulnerability class. |
 
-**Why it is problematic.**
-- Excess ETH is refunded, so over-committing costs nothing. A whale can wait, then commit an arbitrarily
-  large amount at the moment of their choosing and take almost the entire supply.
-- With Alice 6 ETH and Bob 4 ETH committed early, a 100 ETH bid at t = 700 s
-  ([`evidence/02`](evidence/02-crowd-out-poc-before-fix.txt)):
+**F1 in numbers.** With Alice 6 ETH and Bob 4 ETH committed early, a 100 ETH bid at t = 700 s
+([`evidence/02`](evidence/02-crowd-out-poc-before-fix.txt)):
 
-  | | Alice | Bob | Whale |
-  | --- | --- | --- | --- |
-  | GVRA received | 54.55 (5.45%) | 36.36 | 909.09 (90.9%) |
-  | ETH paid | | | 10.23 |
-  | Fair allocation at the same price | 533.33 | 355.56 | |
-
-- This breaks the brief's "fair participant equity" goal and rewards exactly the late sniping and
-  front-running behaviour a Dutch auction is meant to remove.
-- It contradicts the brief's clearing rule: the auction should clear when committed capital meets supply,
-  not let capital beyond that point dilute everyone.
+| | Alice | Bob | Whale |
+| --- | --- | --- | --- |
+| GVRA received | 54.55 (5.45%) | 36.36 | 909.09 (90.9%) |
+| ETH paid | | | 10.23 |
+| Fair allocation at the same price | 533.33 | 355.56 | |
 
 ![Bar chart: GVRA received by Alice, Bob and the whale under Codex's rule and the fixed rule](figures/fig3-f1-crowd-out.png)
 
 *Figure 3. The crowd-out proof of concept before and after the fix.*
-
-**How it was fixed (`20e24b1`).**
-- Commitments are filled in arrival order.
-- The crossing bid is accepted only up to the remaining capacity, `floor(saleSupply × price / 1e18) − totalCommitted`.
-- Its surplus is refunded **in the same transaction**. If the bidder is a contract that rejects ETH, the
-  surplus is credited for `withdrawRefundTo` instead, so the bid cannot be blocked.
-- Bids after clearing revert with `AuctionAlreadyCleared`.
-- Every bidder then receives `commitment / clearingPrice` tokens.
-
-**Evidence the fix works.**
-- Regression test F1 fails on the original code: `expected 54545454545454545454 to equal 533333333333333333333`
-  ([`evidence/01`](evidence/01-regressions-before-fix.txt)). It passes after the fix ([`evidence/03`](evidence/03-regressions-after-fix.txt)).
-- The proof of concept after the fix: Alice 533.33 GVRA, Bob 355.56, whale 111.11 GVRA for 1.25 ETH, with
-  98.75 ETH returned in the bid transaction ([`evidence/04`](evidence/04-crowd-out-poc-after-fix.txt)).
-- Fuzz property `testFuzz_SettlementIsUniformFairAndConserving` (1,000 random runs) asserts that only the
-  clearing bid can be partly filled, that the surplus is returned immediately, and that everyone pays one price.
-- Screenshot [`02-sellout-bid-auto-refund.png`](../demo/screenshots/02-sellout-bid-auto-refund.png) shows the same
-  behaviour in the UI.
-
-### F2 - Views ignore clearing caused by time passing (Medium)
-
-**Where:** `0a75a78` `DutchAuction.sol:253` (`currentPrice`) and `:267` (`status`); `src/App.tsx:252` (`displayPrice`).
-
-**Why the AI made the mistake.**
-- The prompt explicitly required it: "Handle clearing caused by price decay even when no new contribution
-  arrives" ([P01](prompts/codex-p01-original.md)). Codex
-  implemented this in `_syncTimeClearing`, but only on *state-changing* paths (`finalize`, `contribute`).
-- The view functions read only the stored `clearingTime`, which stays 0 until a transaction writes it.
-- The AI treated "the auction has cleared" as an event that happens in a transaction, when for time-only
-  clearing it is a property of the current time and must be derived the same way in every read path.
-
-**Why it is problematic.**
-- Once the price falls far enough for existing bids to buy the supply, nothing on-chain changes until
-  someone transacts. `status()` still returns `Active` and `currentPrice()` keeps falling. In the F2
-  scenario at t = 900 s it returns 0.00875 ETH, while the true clearing price is 0.01 ETH.
-- The UI keeps the bid button enabled, so users submit bids that revert and waste gas.
-- It also shows them a price lower than the one they will actually pay (an inaccurate price display).
-
-**How it was fixed.**
-- A single `clearingState()` view now derives explicit and time-based clearing (`20e24b1`). `status()`,
-  `currentPrice()`, `remainingCapacity()`, `tokensOwed()` and `_contribute()` all use it.
-- The frontend mirrors the same rules in BigInt (`frontend/src/lib/auctionMath.ts`, `c689e3c`), so the display is
-  right even between blocks.
-
-**Evidence the fix works.**
-- Regression test F2: `expected 1 to equal 2` before ([`evidence/01`](evidence/01-regressions-before-fix.txt)), passing after.
-- Tests `rejects bids once falling prices alone have cleared the auction` and `finds the exact clearing
-  point when falling prices alone clear the auction`.
-- In the UI check, an auction with 8 ETH committed and no bids after minute 7 is shown as cleared at
-  0.008 ETH at minute 16, then as ready to finalize after minute 20
-  ([`06-time-cleared-ready-to-finalize.png`](../demo/screenshots/06-time-cleared-ready-to-finalize.png)).
-
-### F3 - A cleared auction can never be finalized from the UI (Medium)
-
-**Where:** `0a75a78` `DutchAuction.sol:274`: `status()` returns `Cleared` before checking the deadline.
-`src/App.tsx:336`: `canFinalize = snapshot?.status === 3`.
-
-**Why the AI made the mistake.**
-- The contract and the frontend were generated and tested separately.
-- Every contract test and the demo script called `finalize()` directly. Nothing exercised the path from
-  the UI through the `Status` enum to the contract, so an ordering mistake in `status()` was invisible.
-
-**Why it is problematic.**
-- For any auction that sells out early (the *success* path), `status()` reports `Cleared` forever, so the
-  "Finalize auction" button stays disabled.
-- Without finalization nobody can claim GVRA or withdraw refunds or proceeds through the dApp. Funds
-  appear bricked to every UI user, even though a direct contract call would still work.
-
-**How it was fixed.**
-- `status()` checks the deadline before clearing, so after 20 minutes it returns `AwaitingFinalization`
-  (`20e24b1`).
-- The rebuilt UI derives finalizability from the same rule (`c689e3c`).
-
-**Evidence the fix works.**
-- Regression test F3: `expected 2 to equal 3` before, passing after.
-- Test `moves through Pending, Active, Cleared, AwaitingFinalization and Finalized`.
-- The end-to-end UI run sold out the auction, clicked Finalize and Claim, and confirmed the claim
-  ([`03-finalized-and-claimed.png`](../demo/screenshots/03-finalized-and-claimed.png)).
-- A time-cleared auction shows "Ready to finalize" after the window ends
-  ([`06-time-cleared-ready-to-finalize.png`](../demo/screenshots/06-time-cleared-ready-to-finalize.png)).
-
-### F4 - Issuer proceeds locked behind every bidder's claim (Medium)
-
-**Where:** `0a75a78` `DutchAuction.sol:443`: `issuerProceedsAvailable += acceptedEth` inside per-bidder `_settleAccount`.
-
-**Why the AI made the mistake.**
-- The prompt said "Avoid unbounded loops over bidders during settlement, refunds or burning" ([P01](prompts/codex-p01-original.md)). Under
-  pro-rata settlement
-  each bidder's accepted ETH is unknown until that bidder settles. Codex therefore accrued proceeds one
-  bidder at a time, which avoids a loop but makes revenue depend on bidder behaviour.
-- It listed this as a "known limitation" instead of questioning the design that caused it.
-
-**Why it is problematic.**
-- Any bidder who never claims (lost keys, abandoned wallet) permanently strands their share of the
-  issuer's revenue in the contract.
-- "ETH becoming permanently stuck" is on the ChatGPT plan's own audit checklist.
-
-**How it was fixed (`20e24b1`).**
-- With arrival-order filling, every accepted wei is sale revenue. Proceeds are therefore exactly
-  `totalCommitted`, known at finalization and withdrawable at once.
-- Refund credits are tracked separately (`refundLiability`), so withdrawing proceeds can never consume
-  ETH owed back to bidders.
-
-**Evidence the fix works.**
-- Regression test F4: `reverted with custom error 'NoProceedsAvailable()'` before, passing after.
-- Invariant `invariant_EthIsFullyBacked`: balance = unwithdrawn proceeds + refund credits, over 256 random
-  sequences.
-- Mutation M2 in [`evidence/06`](evidence/06-mutation-check.txt): letting the issuer withdraw the raw
-  balance is caught by 3 invariants.
-
-### F5 - State written after external calls (Low; Slither: High)
-
-**Where:** `0a75a78` `DutchAuction.sol:207` and `:230`: after a failed ETH transfer the code restored
-`refundCredits`, `refundLiability`, `refundsWithdrawn` and `issuerProceedsWithdrawn`, then reverted.
-
-**Why the AI made the mistake.**
-- This is defensive pattern-matching ("undo on failure"). It misses that `revert` already rolls back
-  every state change in the call, so the restoring writes are dead code.
-
-**Why it is problematic.**
-- It is not exploitable, because the functions are `nonReentrant` and revert immediately.
-- However, it writes state after an external call, which obscures checks-effects-interactions, the
-  ordering recommended against reentrancy [[9, 10, 11]](#references).
-- Slither reports it as **High** `reentrancy-eth` in two functions ([`evidence/08`](evidence/08-slither.txt), part A).
-  Noise at that severity hides real findings and costs every future reviewer time.
-
-**How it was fixed (`20e24b1`).**
-- The dead writes are removed.
-- The new surplus refund writes state after the call *only when the call failed*. Anything the receiver
-  changed during a failed call has already been reverted.
-
-**Evidence the fix works.**
-- Slither on the current contract reports no High findings (part B).
-- `npm run slither` fails CI on any Medium or High finding.
-
-### F6 - The reentrancy "demonstration" could not fail (Low)
-
-**Where:** `0a75a78` `test/DutchAuction.test.ts:382` with `ReentrantRefundAttacker.sol`.
-
-**Why the AI made the mistake.**
-- The bonus asks to "demonstrate reentrancy attack resistance". Codex wrote an attacker that re-enters
-  `withdrawRefundTo`, but the refund credit is zeroed before the transfer.
-- By inspection, even without `ReentrancyGuard` the nested call finds no credit, so the test passes either
-  way. There is also no vulnerable baseline showing what the attack does when it works.
-- The AI satisfied the wording of the requirement without producing evidence that could discriminate.
-
-**Why it is problematic.**
-- A test that cannot fail is not evidence. Markers would see the attacker "fail" without ever seeing why
-  that matters.
-
-**How it was fixed (`031b753`).**
-- Added `VulnerableAuction.sol`: a deliberately vulnerable, test-only contract whose refund sends ETH
-  before clearing the credit.
-- Added a generic `ReentrancyAttacker.sol` that can be pointed at either contract.
-
-**Evidence the fix works.**
-- Against `VulnerableAuction`, the attacker re-enters 10 times and leaves with **11 ETH** (its own 1 ETH
-  plus Alice's and Bob's bids).
-- Against `DutchAuction`, the nested call is rejected and it receives **only its 0.75 ETH refund**
-  ([`evidence/05`](evidence/05-reentrancy-demo.txt)).
-- Slither flags the vulnerable contract as `reentrancy-eth`, confirming the demonstration targets a real
-  vulnerability class.
 
 ### Other issues found in the AI output
 
@@ -550,89 +374,14 @@ encoded as a frontend test that failed first ([`evidence/11`](evidence/11-indepe
 All six were in code written by Claude Code in the second pass, and had passed its own tests, headless
 browser runs and two MetaMask sessions.
 
-#### A1 - The bid quote promised a minimum that a partly accepted bid does not get (Medium)
-
-**Why the AI made the mistake.**
-- It applied a true rule ("accepted ETH can only buy more as the price falls") to a bid that was not yet mined. Time alone can shrink the remaining room before inclusion.
-
-**Why it is problematic.**
-- A 1 ETH bid quoted at 88.89 GVRA can be only partly accepted and claim 69.77. The UI, FAQ, README and demo script all promised a minimum.
-
-**How it was fixed.**
-- The quote reads *If fully accepted, at least*, explains partial acceptance, and every document was reworded. A real guarantee would need an on-chain minimum-tokens check, which was added next (below).
-
-**Evidence the fix works.**
-- `A1` test fails, then passes; the browser shows the new label.
-
-#### A2 - A network switch could show the old chain's history (Medium)
-
-**Why the AI made the mistake.**
-- Refresh serialisation was designed for overlapping block events on *one* provider; nothing invalidated work when the provider changed.
-
-**Why it is problematic.**
-- After a network switch the page could show the old chain's bids and block, and stop fetching the new chain's history.
-
-**How it was fixed.**
-- Read contexts: outdated reads finish without writing state; per-context block-time cache; queued refreshes run the current context's read.
-
-**Evidence the fix works.**
-- `A2` test: snapshot block 12,000,000 before the fix, 100 after; new-chain logs queried.
-
-#### A3 - An out-of-order wallet response could show the wrong account (Medium)
-
-**Why the AI made the mistake.**
-- It assumed wallet responses complete in the order they were requested.
-
-**Why it is problematic.**
-- The header could show account A while the wallet signs as B.
-
-**How it was fixed.**
-- Numbered syncs, newest wins. Every transaction also checks the signer and network just before sending.
-
-**Evidence the fix works.**
-- `A3` test: the stale answer overwrote B before the fix, not after.
-
-#### A4 - Negative bid amounts were accepted (Low)
-
-**Why the AI made the mistake.**
-- Validation checked `amount === 0n`; ethers parses "-1" into a negative bigint.
-
-**Why it is problematic.**
-- The form offered "Bid -1 ETH" and passed a negative value onwards.
-
-**How it was fixed.**
-- Amounts must be above 0 and fit uint256, with a field message.
-
-**Evidence the fix works.**
-- `A4` tests: negative rejected; a normal positive bid still works.
-
-#### A5 - History said "Refunded" for a surplus that was only credited (Medium)
-
-**Why the AI made the mistake.**
-- History inferred "refunded" from `amount - accepted` and ignored the push-or-credit fallback the contract implements.
-
-**Why it is problematic.**
-- It reported money as returned that was still held for withdrawal.
-
-**How it was fixed.**
-- The history reads `RefundCredited`; the *Surplus* column marks *returned* or *held*.
-
-**Evidence the fix works.**
-- `A5` hook and component tests; the browser shows "0.7625 ETH held" for a rejecting contract.
-
-#### A7 - A rejected refund could only be retried to the same wallet (Medium)
-
-**Why the AI made the mistake.**
-- The UI implemented the common EOA path and hard-coded the connected account as the refund recipient.
-
-**Why it is problematic.**
-- A wallet that rejects ETH could not recover its refund through the dApp, although the contract supports another recipient.
-
-**How it was fixed.**
-- *Send refund to* field, validated, defaulting to the connected account.
-
-**Evidence the fix works.**
-- `A7` tests: other address used, default used, invalid refused.
+| Finding | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| **A1** (Medium)<br>The bid quote promised a minimum that a partly accepted bid does not get | It applied a true rule ("accepted ETH can only buy more as the price falls") to a bid that was not yet mined. Time alone can shrink the remaining room before inclusion. | A 1 ETH bid quoted at 88.89 GVRA can be only partly accepted and claim 69.77. The UI, FAQ, README and demo script all promised a minimum. | The quote reads *If fully accepted, at least*, explains partial acceptance, and every document was reworded. A real guarantee would need an on-chain minimum-tokens check, which was added next (below). | `A1` test fails, then passes; the browser shows the new label. |
+| **A2** (Medium)<br>A network switch could show the old chain's history | Refresh serialisation was designed for overlapping block events on *one* provider; nothing invalidated work when the provider changed. | After a network switch the page could show the old chain's bids and block, and stop fetching the new chain's history. | Read contexts: outdated reads finish without writing state; per-context block-time cache; queued refreshes run the current context's read. | `A2` test: snapshot block 12,000,000 before the fix, 100 after; new-chain logs queried. |
+| **A3** (Medium)<br>An out-of-order wallet response could show the wrong account | It assumed wallet responses complete in the order they were requested. | The header could show account A while the wallet signs as B. | Numbered syncs, newest wins. Every transaction also checks the signer and network just before sending. | `A3` test: the stale answer overwrote B before the fix, not after. |
+| **A4** (Low)<br>Negative bid amounts were accepted | Validation checked `amount === 0n`; ethers parses "-1" into a negative bigint. | The form offered "Bid -1 ETH" and passed a negative value onwards. | Amounts must be above 0 and fit uint256, with a field message. | `A4` tests: negative rejected; a normal positive bid still works. |
+| **A5** (Medium)<br>History said "Refunded" for a surplus that was only credited | History inferred "refunded" from `amount - accepted` and ignored the push-or-credit fallback the contract implements. | It reported money as returned that was still held for withdrawal. | The history reads `RefundCredited`; the *Surplus* column marks *returned* or *held*. | `A5` hook and component tests; the browser shows "0.7625 ETH held" for a rejecting contract. |
+| **A7** (Medium)<br>A rejected refund could only be retried to the same wallet | The UI implemented the common EOA path and hard-coded the connected account as the refund recipient. | A wallet that rejects ETH could not recover its refund through the dApp, although the contract supports another recipient. | *Send refund to* field, validated, defaulting to the connected account. | `A7` tests: other address used, default used, invalid refused. |
 
 The review's note on the invariant tests was also accepted. `invariant_EthIsFullyBacked` asserted an
 exact balance, which ETH forced in from outside (e.g. a `selfdestruct` payout) would break without any
@@ -669,19 +418,9 @@ and Gnosis Auction bids carry a minimum buy amount too. It was the one change fr
 Checking the change end to end on a local node, with ethers and the frontend's ABI, exposed a defect that
 had been in the Claude Code frontend since the second pass:
 
-#### C1 - Contract errors from failed transactions were never decoded (Low)
-
-**Why the AI made the mistake.**
-- It assumed ethers decodes custom errors for every failure. ethers v6 does so only for read calls; for a transaction the raw revert data sits in `error.data`, or nested inside the wallet's or node's error. The table of friendly messages was never exercised by a failing transaction.
-
-**Why it is problematic.**
-- No friendly contract-error message could appear for a failed transaction. A bid cancelled by its minimum would have said "Transaction failed.", and a bid after sell-out "could not coalesce error".
-
-**How it was fixed.**
-- `describeError` finds the revert data wherever it is nested and decodes it against the auction ABI. A transaction that reverted after mining, with no data, gets a plain explanation.
-
-**Evidence the fix works.**
-- Error shapes recorded from the node; 3 of 4 `errors.test.ts` tests fail on `689c41f` and pass on `2765efa`.
+| Finding | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| **C1** (Low)<br>Contract errors from failed transactions were never decoded | It assumed ethers decodes custom errors for every failure. ethers v6 does so only for read calls; for a transaction the raw revert data sits in `error.data`, or nested inside the wallet's or node's error. The table of friendly messages was never exercised by a failing transaction. | No friendly contract-error message could appear for a failed transaction. A bid cancelled by its minimum would have said "Transaction failed.", and a bid after sell-out "could not coalesce error". | `describeError` finds the revert data wherever it is nested and decodes it against the auction ABI. A transaction that reverted after mining, with no data, gets a plain explanation. | Error shapes recorded from the node; 3 of 4 `errors.test.ts` tests fail on `689c41f` and pass on `2765efa`. |
 
 ### Second independent review (Alfred)
 
@@ -704,33 +443,10 @@ verbatim, and the architecture document claimed `ReentrancyGuard` on every state
 `start()` is not. Both were corrected. On its note that an unused compiler profile could make source
 verification fail, that profile now matches the default.
 
-#### B1 - The sell-out shortcut rounded the amount down (Low)
-
-**Why the AI made the mistake.**
-- Claude Code's frontend rebuild (`c689e3c`) reused a display helper, which truncates to 6 decimals, to build a transaction amount.
-
-**Why it is problematic.**
-- The shortcut promised the amount that sells out but filled in slightly less. Since bid protection, such a bid also carries a minimum, so if mined a block or more later it would usually be cancelled instead of selling out.
-
-**How it was fixed.**
-- The shortcut rounds the room left *up* to 6 decimals; the excess comes back with the rest of the surplus.
-
-**Evidence the fix works.**
-- `B1` test: the input reads 1.126543 before the fix, and 1.126544 with no minimum after ([`evidence/13`](evidence/13-alfred-review-fixes.txt)).
-
-#### B2 - The constructor accepted a supply whose value overflows 256 bits (Low)
-
-**Why the AI made the mistake.**
-- Codex's constructor validated the price order and a zero supply, and Claude Code's revision added a check that the auction can clear. Neither asked whether the amounts fit in 256 bits.
-
-**Why it is problematic.**
-- With absurd parameters (far beyond any real sale) deployment succeeded, but every bid at the start price would then fail on an arithmetic overflow.
-
-**How it was fixed.**
-- The constructor also rejects a supply whose value at the start price does not fit in 256 bits. A first version using `Math.tryMul` ignored part of its result and failed Slither's Medium gate; the committed check is a division.
-
-**Evidence the fix works.**
-- A new fuzz property (every accepted configuration can price its supply) found a counterexample before the fix and passes 1,000 runs after; `B2` Mocha test ([`evidence/13`](evidence/13-alfred-review-fixes.txt)).
+| Finding | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| **B1** (Low)<br>The sell-out shortcut rounded the amount down | Claude Code's frontend rebuild (`c689e3c`) reused a display helper, which truncates to 6 decimals, to build a transaction amount. | The shortcut promised the amount that sells out but filled in slightly less. Since bid protection, such a bid also carries a minimum, so if mined a block or more later it would usually be cancelled instead of selling out. | The shortcut rounds the room left *up* to 6 decimals; the excess comes back with the rest of the surplus. | `B1` test: the input reads 1.126543 before the fix, and 1.126544 with no minimum after ([`evidence/13`](evidence/13-alfred-review-fixes.txt)). |
+| **B2** (Low)<br>The constructor accepted a supply whose value overflows 256 bits | Codex's constructor validated the price order and a zero supply, and Claude Code's revision added a check that the auction can clear. Neither asked whether the amounts fit in 256 bits. | With absurd parameters (far beyond any real sale) deployment succeeded, but every bid at the start price would then fail on an arithmetic overflow. | The constructor also rejects a supply whose value at the start price does not fit in 256 bits. A first version using `Math.tryMul` ignored part of its result and failed Slither's Medium gate; the committed check is a division. | A new fuzz property (every accepted configuration can price its supply) found a counterexample before the fix and passes 1,000 runs after; `B2` Mocha test ([`evidence/13`](evidence/13-alfred-review-fixes.txt)). |
 
 ### Found on the live site after the Sepolia run (D1, D2)
 
@@ -738,33 +454,10 @@ Two days after the 3 November run, the live site was checked while reviewing the
 Sepolia segment shows that run. The bid history was gone ([screenshot](evidence/14-live-site-before.png)).
 The earlier hosted checks had passed because they ran while the auction's logs were still recent.
 
-#### D1 - The bid history was lost once the public RPC pruned old logs (Medium)
-
-**Why the AI made the mistake.**
-- When the Pages subagent found that the public RPC limits one `eth_getLogs` call to 50,000 blocks, the fix split the scan into 10,000-block chunks (`388399e`). Both assumed that a node keeps every log, as an archive node does, and no test modelled a node that forgets. PublicNode's keyless Sepolia RPC keeps about two days of logs, then answers "pruned history unavailable" for any range, however small.
-
-**Why it is problematic.**
-- The README sends readers to the live site. For any auction older than two days, it showed "could not coalesce error" over the page and "No bids yet" under "3 bidders". The run's main result, the crossing bid and its same-transaction refund, was no longer visible.
-
-**How it was fixed.**
-- A chunk the RPC refuses is read from Blockscout's keyless, Etherscan-compatible logs API, which keeps the full history. The newest 100 blocks are scanned again over the RPC, because the explorer can trail the chain, and each bid is kept once. If no source answers, the page shows no error: the Bids panel says the history could not be loaded, links to the auction on Etherscan and keeps retrying.
-
-**Evidence the fix works.**
-- Three tests failed first (`ee4ddf3`); 19 pass after. The production build, run against the real Sepolia network, lists the three bids of 3 November, the last tagged *Cleared* with *0.003 ETH returned* ([`evidence/14`](evidence/14-live-site-history.txt), [screenshot](evidence/14-live-site-after.png)).
-
-#### D2 - The fallback used up Blockscout's keyless rate limit (Low)
-
-**Why the AI made the mistake.**
-- The D1 fix was the agent's own. Its tests modelled an explorer that answers every request, and the live check loaded the page only a few times, so the explorer's limits were never part of the test. The fallback asked once per event and, while history was missing, again on every refresh (each block, and every 15 seconds).
-
-**Why it is problematic.**
-- Blockscout's keyless API answers HTTP 429 after about 10 requests from one address (`x-ratelimit-limit: 10`) for up to an hour. A few reloads, as when recording the demo, used them up, and the page's retries kept them at zero: the Bids panel said the history could not be loaded.
-
-**How it was fixed.**
-- One request per attempt, for all of the auction's events. After a failure the explorer is left alone for a minute, or until the 429's reset time. Bids from blocks old enough not to change are kept in the browser on Sepolia, so a reload asks the explorer nothing; not on the local node, whose addresses repeat after a restart. The fake chain now numbers logs within a block, as a real chain does.
-
-**Evidence the fix works.**
-- Three tests failed first (`db94b4f`), with 2 requests per attempt and 8 over three refreshes; 25 pass after ([`evidence/15`](evidence/15-explorer-rate-limit.txt)).
+| Finding | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| **D1** (Medium)<br>The bid history was lost once the public RPC pruned old logs | When the Pages subagent found that the public RPC limits one `eth_getLogs` call to 50,000 blocks, the fix split the scan into 10,000-block chunks (`388399e`). Both assumed that a node keeps every log, as an archive node does, and no test modelled a node that forgets. PublicNode's keyless Sepolia RPC keeps about two days of logs, then answers "pruned history unavailable" for any range, however small. | The README sends readers to the live site. For any auction older than two days, it showed "could not coalesce error" over the page and "No bids yet" under "3 bidders". The run's main result, the crossing bid and its same-transaction refund, was no longer visible. | A chunk the RPC refuses is read from Blockscout's keyless, Etherscan-compatible logs API, which keeps the full history. The newest 100 blocks are scanned again over the RPC, because the explorer can trail the chain, and each bid is kept once. If no source answers, the page shows no error: the Bids panel says the history could not be loaded, links to the auction on Etherscan and keeps retrying. | Three tests failed first (`ee4ddf3`); 19 pass after. The production build, run against the real Sepolia network, lists the three bids of 3 November, the last tagged *Cleared* with *0.003 ETH returned* ([`evidence/14`](evidence/14-live-site-history.txt), [screenshot](evidence/14-live-site-after.png)). |
+| **D2** (Low)<br>The fallback used up Blockscout's keyless rate limit | The D1 fix was the agent's own. Its tests modelled an explorer that answers every request, and the live check loaded the page only a few times, so the explorer's limits were never part of the test. The fallback asked once per event and, while history was missing, again on every refresh (each block, and every 15 seconds). | Blockscout's keyless API answers HTTP 429 after about 10 requests from one address (`x-ratelimit-limit: 10`) for up to an hour. A few reloads, as when recording the demo, used them up, and the page's retries kept them at zero: the Bids panel said the history could not be loaded. | One request per attempt, for all of the auction's events. After a failure the explorer is left alone for a minute, or until the 429's reset time. Bids from blocks old enough not to change are kept in the browser on Sepolia, so a reload asks the explorer nothing; not on the local node, whose addresses repeat after a restart. The fake chain now numbers logs within a block, as a real chain does. | Three tests failed first (`db94b4f`), with 2 requests per attempt and 8 over three refreshes; 25 pass after ([`evidence/15`](evidence/15-explorer-rate-limit.txt)). |
 
 D2 was found three hours after D1, while screenshotting a teammate's redesign against the real auction:
 the Bids panel of both the redesign and `main` said the history could not be loaded, and Blockscout was
@@ -777,47 +470,11 @@ Sanjeev had the frontend redesigned with Claude and sent it as a patch (first re
 applied: frontend files only, the transaction code moved without changes, three.js and two self-hosted fonts
 added. It was applied unchanged on a branch (`895079d`), so the history shows exactly what the AI produced.
 
-#### E1 - The redesign dropped the "history could not be loaded" state (Low)
-
-**Why the AI made the mistake.**
-- The patch was made from `main` before the D1 fix. It rewrote the page around the old Bids props, unaware of the two that D1 had just added.
-
-**Why it is problematic.**
-- Merged by hand, the live site would lose the message that replaces "No bids yet" when the history can't be read, which is the D1 bug's visible half. Here the props are required, so typecheck failed instead (TS2739).
-
-**How it was fixed.**
-- The dashboard hook returns `historyUnavailable`, and the Bids section passes it and the auction address (`2d5ba74`).
-
-**Evidence the fix works.**
-- Typecheck and all 25 frontend tests pass, including the D1 tests ([`evidence/16`](evidence/16-redesign-review.txt)).
-
-#### E2 - The redesign added a three.js release only six days old (Low)
-
-**Why the AI made the mistake.**
-- The patch took the newest three.js, published six days earlier.
-
-**Why it is problematic.**
-- The project only adopts releases at least two weeks old, so a broken or compromised release has time to be found (section 6, dependency audit).
-
-**How it was fixed.**
-- Pinned three 0.186.1 and its types 0.186.0, both over six weeks old; the tunnel uses only long-stable APIs.
-
-**Evidence the fix works.**
-- `npm audit` is unchanged from `main`; 0 advisories in runtime packages ([`evidence/16`](evidence/16-redesign-review.txt)).
-
-#### E3 - Price-chart labels were cut off on phones (Low)
-
-**Why the AI made the mistake.**
-- The redesign enlarged the chart's axis labels on phones without checking that they fit the chart's padding.
-
-**Why it is problematic.**
-- On a 390 px phone "0.00006" showed as ".00006", a wrong-looking price.
-
-**How it was fixed.**
-- The chart may draw its labels past its padding (`26c78bf`).
-
-**Evidence the fix works.**
-- In a 390 px frame the labels show in full and the page has no sideways scroll.
+| Finding | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| **E1** (Low)<br>The redesign dropped the "history could not be loaded" state | The patch was made from `main` before the D1 fix. It rewrote the page around the old Bids props, unaware of the two that D1 had just added. | Merged by hand, the live site would lose the message that replaces "No bids yet" when the history can't be read, which is the D1 bug's visible half. Here the props are required, so typecheck failed instead (TS2739). | The dashboard hook returns `historyUnavailable`, and the Bids section passes it and the auction address (`2d5ba74`). | Typecheck and all 25 frontend tests pass, including the D1 tests ([`evidence/16`](evidence/16-redesign-review.txt)). |
+| **E2** (Low)<br>The redesign added a three.js release only six days old | The patch took the newest three.js, published six days earlier. | The project only adopts releases at least two weeks old, so a broken or compromised release has time to be found (section 6, dependency audit). | Pinned three 0.186.1 and its types 0.186.0, both over six weeks old; the tunnel uses only long-stable APIs. | `npm audit` is unchanged from `main`; 0 advisories in runtime packages ([`evidence/16`](evidence/16-redesign-review.txt)). |
+| **E3** (Low)<br>Price-chart labels were cut off on phones | The redesign enlarged the chart's axis labels on phones without checking that they fit the chart's padding. | On a 390 px phone "0.00006" showed as ".00006", a wrong-looking price. | The chart may draw its labels past its padding (`26c78bf`). | In a 390 px frame the labels show in full and the page has no sideways scroll. |
 
 The team also decided three changes: dark only (the hidden theme switch was removed), a shorter scroll story,
 and the summary row kept. Sanjeev's note that the quick-bid amounts did not suit the 0.1 ETH Sepolia sale
@@ -833,19 +490,9 @@ commit (`351120b`). A scripted run through a whole auction on the local chain, w
 that the first-screen card offers the right action at every stage ([`evidence/17`](evidence/17-terrain-review.txt)).
 The team merged it on that run, without a separate MetaMask test; the demo recording uses MetaMask.
 
-#### E4 - Two next-step messages were wrong (Low)
-
-**Why the AI made the mistake.**
-- The new next-step card's messages were written for the hosted Sepolia site: the loading line named Sepolia, and the finished-sale line assumed the result sat under *Sale details*, but the card itself shows it and that tab then leaves it out.
-
-**Why it is problematic.**
-- On the local chain the page claimed to read from Sepolia; a visitor told to look in a tab finds the result missing there.
-
-**How it was fixed.**
-- The loading line names the deployment's chain; the finished-sale line says the final price and totals are below (`351120b`).
-
-**Evidence the fix works.**
-- The scripted local run shows "The final price and totals are below." above the result; 25 frontend tests pass ([`evidence/17`](evidence/17-terrain-review.txt)).
+| Finding | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| **E4** (Low)<br>Two next-step messages were wrong | The new next-step card's messages were written for the hosted Sepolia site: the loading line named Sepolia, and the finished-sale line assumed the result sat under *Sale details*, but the card itself shows it and that tab then leaves it out. | On the local chain the page claimed to read from Sepolia; a visitor told to look in a tab finds the result missing there. | The loading line names the deployment's chain; the finished-sale line says the final price and totals are below (`351120b`). | The scripted local run shows "The final price and totals are below." above the result; 25 frontend tests pass ([`evidence/17`](evidence/17-terrain-review.txt)). |
 
 ### Found in the recording of the third Sepolia run (D3, D4)
 
@@ -853,33 +500,10 @@ The 6 November run was recorded for the demo video (§6, *Sepolia testnet runs*)
 one more decimal than the local sale's, and the recording showed what no test or screenshot had: every price
 on the page was cut short. Both defects were fixed with tests that failed first (`7a7afc5`, then `383d23c`).
 
-#### D3 - Prices were cut to six decimals (Low)
-
-**Why the AI made the mistake.**
-- Codex's `formatPrice` cut every price to six decimals (`0a75a78`). Claude Code's rebuild kept it (`c689e3c`), and the redesign's large price figure did the same (`895079d`). Every test, screenshot and local demo used the local sale's prices (0.02 to 0.005 ETH), which never need more.
-
-**Why it is problematic.**
-- The sale cleared at 0.0000576 ETH per GVRA, and the page said 0.000057, a price nobody paid; the second bid's 0.0000792 showed as 0.000079. The demo video's captions had to give the real figures.
-
-**How it was fixed.**
-- Prices keep six decimals, or more when small, so that they keep four significant digits. Local prices look as before.
-
-**Evidence the fix works.**
-- 5 of 7 new tests fail before the fix (`expected '0.000057 ETH' to be '0.0000576 ETH'`) and all pass after; the other two check that local prices are unchanged ([`evidence/18`](evidence/18-sepolia-run-3.txt)).
-
-#### D4 - The dust button read "Burn 1 units" (Low)
-
-**Why the AI made the mistake.**
-- The label put the count before a fixed plural. Claims at one price leave rounding dust in the token's smallest units, and no test reached the state after every claim.
-
-**Why it is problematic.**
-- After the three claims left 1 unit (10<sup>-18</sup> GVRA), the button read "Burn 1 units of rounding dust".
-
-**How it was fixed.**
-- The singular for one unit.
-
-**Evidence the fix works.**
-- The `D4` test fails before the fix and passes after; 3 units stay plural ([`evidence/18`](evidence/18-sepolia-run-3.txt)).
+| Finding | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
+| --- | --- | --- | --- | --- |
+| **D3** (Low)<br>Prices were cut to six decimals | Codex's `formatPrice` cut every price to six decimals (`0a75a78`). Claude Code's rebuild kept it (`c689e3c`), and the redesign's large price figure did the same (`895079d`). Every test, screenshot and local demo used the local sale's prices (0.02 to 0.005 ETH), which never need more. | The sale cleared at 0.0000576 ETH per GVRA, and the page said 0.000057, a price nobody paid; the second bid's 0.0000792 showed as 0.000079. The demo video's captions had to give the real figures. | Prices keep six decimals, or more when small, so that they keep four significant digits. Local prices look as before. | 5 of 7 new tests fail before the fix (`expected '0.000057 ETH' to be '0.0000576 ETH'`) and all pass after; the other two check that local prices are unchanged ([`evidence/18`](evidence/18-sepolia-run-3.txt)). |
+| **D4** (Low)<br>The dust button read "Burn 1 units" | The label put the count before a fixed plural. Claims at one price leave rounding dust in the token's smallest units, and no test reached the state after every claim. | After the three claims left 1 unit (10<sup>-18</sup> GVRA), the button read "Burn 1 units of rounding dust". | The singular for one unit. | The `D4` test fails before the fix and passes after; 3 units stay plural ([`evidence/18`](evidence/18-sepolia-run-3.txt)). |
 
 ## 6. Validation Process & Testing Strategy
 
