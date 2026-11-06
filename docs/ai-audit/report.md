@@ -160,15 +160,30 @@ The working rule was **"the AI proposes, tests decide"**:
 
 Each step is a separate commit, so the history is itself part of the evidence.
 
-### Team
+### Team, division of labour and decisions
 
-All three members contributed equally.
+All three members contributed equally. Each worked with different AI tools, so each member's AI output was
+checked by another model or another person.
 
-| Member | Role | Main work |
-| --- | --- | --- |
-| Jackson Seow Jia Xian | Solidity developer and contract deployer | The contracts and their tests, built and reviewed with the AI tools above; Sepolia deployment and source verification; issuer in the testnet runs; demo video |
-| Alfred Fong Wei Hao | Wallet tester and security reviewer | MetaMask wallet testing on Sepolia; the second independent AI audit (B1, B2) |
-| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test |
+| Member | Role | Main work | AI tools used |
+| --- | --- | --- | --- |
+| Jackson Seow Jia Xian | Solidity developer and contract deployer | The contracts and their tests, built and reviewed with the AI tools above; Sepolia deployment and source verification; issuer in the testnet runs; demo video | Claude Code (VS Code extension) and one Claude Code subagent ([prompt log](prompts/claude-code-session.md)) |
+| Alfred Fong Wei Hao | Wallet tester and security reviewer | MetaMask wallet testing on Sepolia; the second independent AI audit (B1, B2) | ChatGPT Codex (Astra model) |
+| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test | Codex for the audit; Claude for the two redesigns |
+
+**How decisions were made.** The AI tools proposed; tests and the team decided.
+- **No AI output was accepted on its own word.** The plan and the first implementation were reviewed by a
+  different model, and every teammate's AI audit and AI-made patch was checked by the main session before
+  anything changed: all six of Sanjeev's findings held, and two of Alfred's fifteen items were new.
+- **Disagreements between tools were treated as audit leads.** ChatGPT and Codex chose different rules for
+  the bid that crosses the clearing line; a test with an attacker in mind decided between them (F1).
+- **The team made the product decisions; the AI recommended.** Building an on-chain minimum per bid (agent's
+  recommendation, approved in prompt 57); a dark-only design, a shorter scroll and keeping the summary row
+  (prompt 96); merging the second redesign on a scripted run (prompt 105); recording the demo as a live
+  Sepolia run (prompt 107); the team's roles (prompt 115).
+- **Facts only the team had were asked for, never guessed.** The pre-AI scope, the team's details and the
+  tool each teammate used were asked of the team (§3, item 5 of the prompt chain); what the team could not supply is marked
+  *TODO (team)*.
 
 ## 3. Specification Engineering & Prompt Logs
 
