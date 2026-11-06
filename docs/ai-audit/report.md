@@ -14,6 +14,41 @@ Every evidence commit cited below is in the history of the `main` branch.
 
 <!-- team-details -->
 
+## Contents
+
+- [Summary](#summary)
+- [1. Initial Specification & System Scope](#1-initial-specification--system-scope)
+  - [Background: how a Dutch auction works](#background-how-a-dutch-auction-works)
+  - [The initial scope](#the-initial-scope)
+- [2. Development Methodology & AI Tooling Infrastructure](#2-development-methodology--ai-tooling-infrastructure)
+  - [Tools](#tools)
+  - [Toolchain](#toolchain)
+  - [Workflow](#workflow)
+  - [Team, division of labour and decisions](#team-division-of-labour-and-decisions)
+- [3. Specification Engineering & Prompt Logs](#3-specification-engineering--prompt-logs)
+- [4. AI-Generated Architecture](#4-ai-generated-architecture)
+- [5. Problems Discovered & Vulnerability Analysis](#5-problems-discovered--vulnerability-analysis)
+  - [F1 - Late oversized bid crowds out earlier bidders (High)](#f1---late-oversized-bid-crowds-out-earlier-bidders-high)
+  - [F2 - Views ignore clearing caused by time passing (Medium)](#f2---views-ignore-clearing-caused-by-time-passing-medium)
+  - [F3 - A cleared auction can never be finalized from the UI (Medium)](#f3---a-cleared-auction-can-never-be-finalized-from-the-ui-medium)
+  - [F4 - Issuer proceeds locked behind every bidder's claim (Medium)](#f4---issuer-proceeds-locked-behind-every-bidders-claim-medium)
+  - [F5 - State written after external calls (Low; Slither: High)](#f5---state-written-after-external-calls-low-slither-high)
+  - [F6 - The reentrancy "demonstration" could not fail (Low)](#f6---the-reentrancy-demonstration-could-not-fail-low)
+  - [Other issues found in the AI output](#other-issues-found-in-the-ai-output)
+  - [Issues in the second AI pass (Claude Code) caught by validation](#issues-in-the-second-ai-pass-claude-code-caught-by-validation)
+  - [Third pass: independent Codex review (A1-A7)](#third-pass-independent-codex-review-a1-a7)
+  - [Follow-up: an on-chain minimum for A1, and finding C1](#follow-up-an-on-chain-minimum-for-a1-and-finding-c1)
+  - [Second independent review (Alfred)](#second-independent-review-alfred)
+  - [Found on the live site after the Sepolia run (D1, D2)](#found-on-the-live-site-after-the-sepolia-run-d1-d2)
+  - [A team member's AI-generated redesigns (E1-E4)](#a-team-members-ai-generated-redesigns-e1-e4)
+  - [Found in the recording of the third Sepolia run (D3, D4)](#found-in-the-recording-of-the-third-sepolia-run-d3-d4)
+- [6. Validation Process & Testing Strategy](#6-validation-process--testing-strategy)
+  - [Sepolia testnet runs](#sepolia-testnet-runs)
+- [7. Improvements & Refinements](#7-improvements--refinements)
+- [8. Lessons Learned](#8-lessons-learned)
+- [References](#references)
+- [Appendix A: Course concepts applied](#appendix-a-course-concepts-applied)
+
 ## Summary
 
 Three AI tools built and reviewed DutchPoint in sequence: **ChatGPT** wrote the plan, **Codex** wrote the
@@ -67,6 +102,34 @@ and independent reviews by two team members.
 
 ## 1. Initial Specification & System Scope
 
+### Background: how a Dutch auction works
+
+In a classic **Dutch auction**, the auctioneer starts at a high price and lowers it until a bidder accepts;
+the first bidder to accept wins at that price. Vickrey showed that this descending auction is strategically
+equivalent to a first-price sealed-bid auction: either way, each bidder in effect decides in advance the price
+at which to stop, and the highest such price wins [[1, 2]](#references).
+
+Selling many identical units, such as a token supply, uses a multi-unit version. In a **uniform-price**
+descending auction, the price falls until the demand at that price covers the supply, and every winning
+bidder then pays that one clearing price, not the price at which they joined [[2, 3]](#references). Bidding early
+therefore costs nothing extra.
+
+On Ethereum the auctioneer is a smart contract. The price is computed from the current block's timestamp, so
+it falls without anyone sending a transaction, and the contract itself holds the tokens, enforces the supply
+and refunds surplus ETH. Production designs build on the same ideas: Paradigm's *Gradual Dutch Auctions*
+sell assets at a price that decays over time [[4]](#references), and Gnosis Auction (EasyAuction) settles token sales
+at a single uniform clearing price [[5]](#references). The token itself follows the ERC-20 standard [[6]](#references).
+
+**DutchPoint's version.** 1,000 GVRA are for sale over exactly 20 minutes (1,200 seconds), and the price falls
+in a straight line from the start price to the reserve. Bidders commit ETH, not a token count. As soon as the
+committed ETH can buy the whole supply at the current price, the sale clears at that price and everyone pays
+it; the bid that crosses the line is accepted only up to the room left, and its surplus is refunded. If the
+window ends first, everyone pays the reserve and the unsold tokens are burned. In the 6 November Sepolia run
+(§6, Figure 4), the third bid crossed the line 636 seconds in, at 0.0000576 ETH per GVRA, so the first
+bidder's 0.01 ETH, placed when the price was 0.000092, bought 173.61 GVRA instead of 108.70.
+
+### The initial scope
+
 **How this scope was recorded.** Before the first AI prompt, the team read the brief, chose Option 2 and
 discussed what to build, but kept no notes. At that stage the team also chose the names **DutchPoint**
 (platform) and **Gavora** (token), and gave them to ChatGPT with the first prompt. The scope below was
@@ -74,8 +137,8 @@ written down afterwards from the brief and the team's recollection, so it is a r
 document from the time. The first *written* plan was ChatGPT's
 ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)), and this report treats it as AI output (§3-§4).
 
-**Core requirements (brief, Option 2)**
-- An ERC20 project token and a *separate* auction contract.
+**Core requirements (brief, Option 2 [[24]](#references))**
+- An ERC20 project token [[6]](#references) and a *separate* auction contract.
 - A token launch where bidders commit ETH during a Dutch auction lasting exactly 20 minutes.
 - The price starts high and decays automatically; the auction clears when committed ETH meets the
   total token supply; every winner pays the same clearing price and excess ETH is refunded.
@@ -123,9 +186,9 @@ trace back to them:
 
 | Tool | Role |
 | --- | --- |
-| ChatGPT, run by a team member (Sanjeev) | Planning: naming, auction flow, contract and function outline, security checklist, test plan ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)) |
-| Codex desktop agent, run by a team member (Sanjeev) | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`). The prompt is P01 ([original wording](prompts/codex-p01-original.md); paraphrased in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view)); Codex's own log is [`development-log.md`](development-log.md) |
-| Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report and its figures, and the scripts that cut the demo video (captions, narration timing, subtitles) ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
+| ChatGPT [[23]](#references), run by a team member (Sanjeev) | Planning: naming, auction flow, contract and function outline, security checklist, test plan ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)) |
+| Codex desktop agent [[22]](#references), run by a team member (Sanjeev) | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`). The prompt is P01 ([original wording](prompts/codex-p01-original.md); paraphrased in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view)); Codex's own log is [`development-log.md`](development-log.md) |
+| Claude Code [[21]](#references) (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report and its figures, and the scripts that cut the demo video (captions, narration timing, subtitles) ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
 | Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5`, and a functional test in which Codex itself drove the real MetaMask extension on his laptop. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md); prompts P10-P21 in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view)) |
 | Claude, run by a team member (Sanjeev) | Two frontend redesigns, each delivered as a patch with a preview page ([shared Claude session](https://claude.ai/share/3d6cc119-122a-404b-a457-77d3e28d5afe)). "Shaft" (an LED-ring tunnel behind the live price): reviewed, applied unchanged on a branch, fixed (E1-E3), changed as the team decided (dark only, shorter scroll, summary row kept), tested with MetaMask and merged ([`evidence/16`](evidence/16-redesign-review.txt)). "Terrain" (a surface of points, the next step on the first screen, details in tabs), built on the merged Shaft: applied with `git am` under his name, fixed (E4), run through a whole auction on the local chain ([`evidence/17`](evidence/17-terrain-review.txt)) |
@@ -133,9 +196,10 @@ trace back to them:
 
 ### Toolchain
 
-Solidity 0.8.28, OpenZeppelin Contracts 5.6.1, Hardhat 3.18 (Mocha + ethers v6 tests, and native
-Solidity tests with forge-std 1.9.7 for fuzzing and invariants), Slither 0.11.6, React 19 + Vite 8 +
-ethers 6, GitHub Actions, and headless Chrome driven over the DevTools protocol for end-to-end UI checks.
+Solidity 0.8.28 [[9]](#references), OpenZeppelin Contracts 5.6.1 [[7, 8]](#references), Hardhat 3.18 [[14]](#references) (Mocha + ethers
+v6 tests, and native Solidity tests with forge-std 1.9.7 for fuzzing and invariants [[16]](#references)), Slither
+0.11.6 [[15]](#references), React 19 + Vite 8 [[18]](#references) + ethers 6 [[17]](#references), MetaMask [[19]](#references), GitHub Actions, and
+headless Chrome driven over the DevTools protocol for end-to-end UI checks.
 
 ### Workflow
 
@@ -408,7 +472,8 @@ replaces per-bidder proceeds accrual with aggregate accounting ([`architecture.m
 
 **Why it is problematic.**
 - It is not exploitable, because the functions are `nonReentrant` and revert immediately.
-- However, it writes state after an external call, which obscures checks-effects-interactions.
+- However, it writes state after an external call, which obscures checks-effects-interactions, the
+  ordering recommended against reentrancy [[9, 10, 11]](#references).
 - Slither reports it as **High** `reentrancy-eth` in two functions ([`evidence/08`](evidence/08-slither.txt), part A).
   Noise at that severity hides real findings and costs every future reviewer time.
 
@@ -647,7 +712,7 @@ on the page was cut short. Both defects were fixed with tests that failed first 
 - `incorrect-equality` (Medium, 4): the flagged comparisons are zero-guards on internal accounting values,
   not balances an attacker can steer. The one balance check (`burnRemainderAfterAllClaimed`) can only be
   affected by donations, which just add tokens to burn. Annotated inline.
-- `timestamp` (Low, 11 with bid protection): the auction is time-based by design. After the Merge, slots are fixed at 12 s,
+- `timestamp` (Low, 11 with bid protection): the auction is time-based by design. After the Merge, slots are fixed at 12 s [[12]](#references),
   so a proposer cannot meaningfully move `block.timestamp`.
 - `reentrancy-benign` (Low, 1): explained under F5.
 - `low-level-calls` (Info, 3): `call` is used deliberately so contract wallets receive ETH with enough
@@ -657,7 +722,8 @@ on the page was cut short. Both defects were fixed with tests that failed first 
 
 ### Sepolia testnet runs
 
-Each auction was deployed unstarted, then run from start to finish through the website with MetaMask: the
+Each auction was deployed unstarted on Sepolia, Ethereum's public test network [[13]](#references), then run from start
+to finish through the website with MetaMask [[19]](#references): the
 issuer opened the window, bidders bid, and the sale was finalized, claimed and withdrawn. Each sold 1,000 GVRA,
 with the price falling from 0.0001 to 0.00002 ETH per GVRA over 20 minutes.
 
@@ -678,7 +744,7 @@ with the price falling from 0.0001 to 0.00002 ETH per GVRA over 20 minutes.
   [auction tx](https://sepolia.etherscan.io/tx/0x9cc33f81ac3fac448b7cea29b4ddbcc3a4a5ffe63c2f3709c5ca8a38d62945fe),
   [funding tx](https://sepolia.etherscan.io/tx/0x85133cfab3b4879889ead6bfcc6787839870a79954ada71c585006a0420bb26c). Read back from the chain: the
   creation data of both deploy transactions equals the repository's build plus the constructor arguments, byte
-  for byte. Source code: Blockscout lists both contracts as fully verified, and Sourcify has the auction as an
+  for byte. Source code [[20]](#references): Blockscout lists both contracts as fully verified, and Sourcify has the auction as an
   exact match and the token as a partial match. Etherscan shows both as "Source Code Verified" through a
   *Similar Match* to the 31 October contracts, which have identical bytecode and are fully verified, and it
   declined a fresh submission (`verify:sepolia --force`) as already verified.
@@ -840,9 +906,67 @@ each; this is where each ended up.
 
 ---
 
+## References
+
+**Auction design**
+
+1. W. Vickrey, "Counterspeculation, auctions, and competitive sealed tenders," *The Journal of Finance*,
+   vol. 16, no. 1, pp. 8-37, 1961. doi: [10.1111/j.1540-6261.1961.tb02789.x](https://doi.org/10.1111/j.1540-6261.1961.tb02789.x)
+2. V. Krishna, *Auction Theory*, 2nd ed. Burlington, MA: Academic Press (Elsevier), 2010.
+   ISBN 978-0-12-374507-1.
+3. P. Milgrom, *Putting Auction Theory to Work*. Cambridge: Cambridge University Press, 2004.
+   doi: [10.1017/CBO9780511813825](https://doi.org/10.1017/CBO9780511813825)
+4. Frankie, D. Robinson, D. White and andy8052, "Gradual Dutch Auctions," Paradigm, 4 April 2022.
+   <https://www.paradigm.xyz/writing/gda>
+5. Gnosis, "EasyAuction (Gnosis Auction)": batch auctions with one uniform clearing price, smart contracts
+   and documentation. <https://github.com/gnosis/ido-contracts>
+
+**Ethereum standards and smart-contract security**
+
+6. F. Vogelsteller and V. Buterin, "ERC-20: Token Standard," Ethereum Improvement Proposal 20, 19 November
+   2015. <https://eips.ethereum.org/EIPS/eip-20>
+7. OpenZeppelin, "ERC 20" (`ERC20`, `ERC20Burnable`), OpenZeppelin Contracts 5.x API documentation.
+   <https://docs.openzeppelin.com/contracts/5.x/api/token/erc20>
+8. OpenZeppelin, "Utils" (`ReentrancyGuard`), OpenZeppelin Contracts 5.x API documentation.
+   <https://docs.openzeppelin.com/contracts/5.x/api/utils>
+9. Solidity Team, "Security Considerations" (re-entrancy and the Checks-Effects-Interactions pattern),
+   Solidity 0.8.28 documentation. <https://docs.soliditylang.org/en/v0.8.28/security-considerations.html>
+10. ethereum.org, "Smart contract security." <https://ethereum.org/developers/docs/smart-contracts/security/>
+11. Smart Contract Weakness Classification Registry, "SWC-107: Reentrancy." <https://swcregistry.io/docs/SWC-107/>
+12. ethereum.org, "Proof-of-stake (PoS)" (12-second slots). <https://ethereum.org/developers/docs/consensus-mechanisms/pos/>
+13. ethereum.org, "Networks" (the Sepolia test network). <https://ethereum.org/developers/docs/networks/>
+
+**Development and verification tools**
+
+14. Nomic Foundation, Hardhat 3 documentation. <https://hardhat.org/docs>
+15. J. Feist, G. Grieco and A. Groce, "Slither: A static analysis framework for smart contracts," in *Proc.
+    2019 IEEE/ACM 2nd International Workshop on Emerging Trends in Software Engineering for Blockchain
+    (WETSEB)*, 2019, pp. 8-15. doi: [10.1109/WETSEB.2019.00008](https://doi.org/10.1109/WETSEB.2019.00008).
+    Tool: <https://github.com/crytic/slither>
+16. Foundry, `forge-std` <https://github.com/foundry-rs/forge-std> and "Invariant Testing"
+    <https://www.getfoundry.sh/guides/invariant-testing>
+17. ethers.js v6 documentation. <https://docs.ethers.org/v6/>
+18. React documentation <https://react.dev/> and Vite documentation <https://vite.dev/>
+19. MetaMask developer documentation. <https://docs.metamask.io/>
+20. Sourcify documentation <https://docs.sourcify.dev/docs/intro/> and Blockscout documentation
+    <https://docs.blockscout.com/>
+
+**AI tools**
+
+21. Anthropic, Claude Code documentation. <https://code.claude.com/docs/en/overview>
+22. OpenAI, Codex. <https://chatgpt.com/codex/>
+23. OpenAI, ChatGPT. <https://chatgpt.com/>
+
+**Course material**
+
+24. Nanyang Technological University, SC4053 Blockchain Technology, *Development Project* brief
+    (`project.pdf`) and the course's Development Project page, AY2026-27 Semester 1.
+25. SC4053 Blockchain Technology lecture slides, AY2026-27 Semester 1: Module 2 Lectures 3-4, Module 3
+    Lectures 1-2 and the invited talk *Smart Contracts and Tokens* (mapped in Appendix A).
+
 ## Appendix A: Course concepts applied
 
-The final design was checked against the SC4053 lecture slides. Slide numbers are the page numbers of
+The final design was checked against the SC4053 lecture slides [[25]](#references). Slide numbers are the page numbers of
 each deck: Module 2 Lectures 3-4 (Bitcoin mining and consensus), Module 3 Lectures 1-2 (Ethereum, the
 "World Computer"), and the invited talk *Smart Contracts and Tokens*.
 

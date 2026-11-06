@@ -1004,3 +1004,51 @@ properties, hidden text) and the report's images for watermarks, and found none.
 the prompts and responses for Days 5 and 6 now read as proper English, the student is referred to
 consistently, and prompts 124-140 were added. The prompt numbers are unchanged, so the report, which cites
 prompts 57, 96, 105, 107 and 115, needed no change.
+
+141. "Just to check: are all three members' prompt logs in, and can they be referenced from the report?"
+
+**Agent response:** confirmed that each member's log is in the repository or linked from the report, and
+that every link opens. It added Alfred's and Sanjeev's links to the §2 team table, which had linked only
+Jackson's (`2bea7e9`). It noted that Alfred's shared session renders only in a browser, so its content
+could not be read, and that the Claude session's content had not yet been confirmed.
+
+142. "Sanjeev used Claude to build the website's frontend. His ChatGPT planning conversation is this:" (the
+     same Google Drive file) "I can confirm this, and Alfred's link opens."
+
+**Agent response:** recorded both confirmations; the report already described the Claude session as the
+redesigns. It did not relabel the Drive file as the planning conversation: the file's own header calls it
+a Codex thread log, it contains none of the plan's wording ("Dutch Auction Summary", Gavora, "GAV or GVR"),
+and its first prompt names the project FairLaunch, so the plan cannot have been written there. It asked
+whether to credit Sanjeev with the plan.
+
+143. "Sure, credit him then. What's the video's size in MB? Does any file need reorganising? We are also
+     marked on code clarity. Please set the project up so that it is ready for the two submissions (the
+     report has to be submitted as a PDF), and remove redundant files if necessary."
+
+**Agent response:** credited Sanjeev with the ChatGPT plan (`7526fe7`) and gave the video's size (112.2
+MB). It checked every tracked file for references, and every frontend export and CSS class for a user, and
+removed a function and two CSS rules left over from the Shaft redesign (`6d93745`; full check passing). It
+built the report PDF with headless Chrome, after Word's automation stalled on a file-access prompt,
+checked the layout on a copy without the team details, and confirmed the final copy holds the
+matriculation numbers by counting them rather than displaying them. `npm run package` now copies the PDF
+into the zip (`7c3784f`). It tested the zip from an empty folder (`npm ci`, the full check and the demo),
+put both upload files in one folder, removed two stale subagent worktrees whose work was already on
+`main`, and moved Sanjeev's redesign files into his review folder.
+
+144. "Are there any pending items? Also, the codebase submission requires a zip of the project; can we make
+     sure that irrelevant things, like the video, are not in that zip?"
+
+**Agent response:** listed the zip's contents by folder and size: no video or audio, no `node_modules`,
+build output or `.env`, and no media file anywhere in the git history. The zip is built from committed
+files only, and the videos live outside the repository. It listed what remained: the two uploads, a check
+of the PDF's team-details page, one viewing of the video with sound, telling Sanjeev that P01 is public,
+and the peer evaluation.
+
+145. "For the report, please add a contents page and references, perhaps covering how a Dutch auction works
+     and other items."
+
+**Agent response:** added a Contents list to the report, which the PDF turns into a page of its own with
+page numbers (found by laying the PDF out twice), a "Background: how a Dutch auction works" subsection at
+the start of §1 that ends with a worked example from the 6 November run, and a References section of 25
+sources, each cited where the report relies on it. It opened every link first and checked the journal and
+conference details against Crossref.
