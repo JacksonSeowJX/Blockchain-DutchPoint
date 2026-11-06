@@ -19,7 +19,7 @@ SC4053 Blockchain Technology, AY2026-27 Semester 1 - Development Project, Option
 | Run it and bid myself | [Quick start](#quick-start-run-it-on-your-machine): a local chain, about 5 minutes, no API keys or test ETH |
 | See every rule work in one command | [`npm run demo`](#see-it-work-without-a-wallet), no wallet or browser needed |
 | Watch the demo | `DutchPoint.mp4`, the demo video submitted with this code (under 10 minutes) |
-| Read the AI Audit Report | [`docs/ai-audit/report.md`](docs/ai-audit/report.md) |
+| Read the AI Audit Report | [`docs/ai-audit/report.md`](docs/ai-audit/report.md), or `DutchPoint-AI-Audit-Report.pdf` at the top of the submitted zip |
 | Check the contracts on-chain | [GavoraToken](https://sepolia.etherscan.io/address/0x2f3C5e8B944fE3E67d40cDF9a68d3B1512D02Fbf#code) and [DutchAuction](https://sepolia.etherscan.io/address/0xAB0f2B36150eC6D8C9f096CFA592eEDF82A8A8a8#code) on Sepolia Etherscan |
 
 ## Contents
@@ -383,7 +383,7 @@ Every script in `package.json`, run from the project folder.
 | `npm run deploy:sepolia` | Deploy, fund and (unless `START_AUCTION=false`) start the auction on Sepolia |
 | `npm run verify:sepolia -- <address> <constructor args>` | Verify a contract's source on Etherscan, Blockscout and Sourcify (the deploy script prints the exact commands) |
 | **Submission** | |
-| `npm run package` | Build `DutchPoint.zip` from the last commit, with the full git history (cited as evidence in the AI Audit Report) and without `node_modules` or build output. Refuses to run with uncommitted changes |
+| `npm run package` | Build `DutchPoint.zip` from the last commit, with the full git history (cited as evidence in the AI Audit Report) and without `node_modules` or build output, plus the AI Audit Report as a PDF. Refuses to run with uncommitted changes |
 
 ## Documentation
 

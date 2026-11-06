@@ -49,6 +49,20 @@ else
   echo "Note: $details not found, so the report in the zip has no matriculation numbers." >&2
 fi
 
+# The report is also submitted as a PDF. It carries the matriculation numbers too, so it is built outside the
+# repository (default ../private/DutchPoint-AI-Audit-Report.pdf, or REPORT_PDF=path) and only copied into the zip.
+pdf="${REPORT_PDF:-$root/../private/DutchPoint-AI-Audit-Report.pdf}"
+if [ -f "$pdf" ]; then
+  pdf_time="$(stat -c %Y "$pdf" 2>/dev/null || stat -f %m "$pdf")"
+  if [ "$(git log -1 --format=%ct -- docs/ai-audit)" -gt "$pdf_time" ]; then
+    echo "Note: $pdf is older than the last commit to docs/ai-audit; rebuild it so the two match." >&2
+  fi
+  cp "$pdf" "$work/$name/DutchPoint-AI-Audit-Report.pdf"
+  echo "Added the AI Audit Report PDF from $pdf."
+else
+  echo "Note: $pdf not found, so the zip has no PDF of the report." >&2
+fi
+
 rm -f "$root/$name.zip"
 (cd "$work" && zip -qr "$root/$name.zip" "$name")
 
