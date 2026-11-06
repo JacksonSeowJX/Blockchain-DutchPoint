@@ -165,8 +165,8 @@ checked by another model or another person.
 | Member | Role | Main work | AI tools used |
 | --- | --- | --- | --- |
 | Jackson Seow Jia Xian | Solidity developer and contract deployer | The contracts and their tests, built and reviewed with the AI tools above; Sepolia deployment and source verification; issuer in the testnet runs; demo video | Claude Code (VS Code extension) and one Claude Code subagent ([prompt log](prompts/claude-code-session.md)) |
-| Alfred Fong Wei Hao | Wallet tester and security reviewer | MetaMask wallet testing on Sepolia; the second independent AI audit (B1, B2) | ChatGPT Codex (Astra model) |
-| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The first implementation, built with Codex; the dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test | Codex for the first implementation, the audit and the wallet tests; Claude for the two redesigns |
+| Alfred Fong Wei Hao | Wallet tester and security reviewer | MetaMask wallet testing on Sepolia; the second independent AI audit (B1, B2) | ChatGPT Codex (Astra model) ([shared session](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de)) |
+| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The first implementation, built with Codex; the dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test | Codex for the first implementation, the audit and the wallet tests ([prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view); [P01 in full](prompts/codex-p01-original.md)); Claude for the two redesigns ([shared session](https://claude.ai/share/3d6cc119-122a-404b-a457-77d3e28d5afe)) |
 
 **How decisions were made.** The AI tools proposed; tests and the team decided.
 - **No AI output was accepted on its own word.** The plan and the first implementation were reviewed by a
