@@ -123,7 +123,7 @@ trace back to them:
 
 | Tool | Role |
 | --- | --- |
-| ChatGPT | Planning: naming, auction flow, contract and function outline, security checklist, test plan ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)) |
+| ChatGPT, run by a team member (Sanjeev) | Planning: naming, auction flow, contract and function outline, security checklist, test plan ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)) |
 | Codex desktop agent, run by a team member (Sanjeev) | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`). The prompt is P01 ([original wording](prompts/codex-p01-original.md); paraphrased in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view)); Codex's own log is [`development-log.md`](development-log.md) |
 | Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report and its figures, and the scripts that cut the demo video (captions, narration timing, subtitles) ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
@@ -166,7 +166,7 @@ checked by another model or another person.
 | --- | --- | --- | --- |
 | Jackson Seow Jia Xian | Solidity developer and contract deployer | The contracts and their tests, built and reviewed with the AI tools above; Sepolia deployment and source verification; issuer in the testnet runs; demo video | Claude Code (VS Code extension) and one Claude Code subagent ([prompt log](prompts/claude-code-session.md)) |
 | Alfred Fong Wei Hao | Wallet tester and security reviewer | MetaMask wallet testing on Sepolia; the second independent AI audit (B1, B2) | ChatGPT Codex (Astra model) ([shared session](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de)) |
-| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The first implementation, built with Codex; the dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test | Codex for the first implementation, the audit and the wallet tests ([prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view); [P01 in full](prompts/codex-p01-original.md)); Claude for the two redesigns ([shared session](https://claude.ai/share/3d6cc119-122a-404b-a457-77d3e28d5afe)) |
+| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The project plan, written with ChatGPT; the first implementation, built with Codex; the dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test | ChatGPT for the plan ([output](prompts/chatgpt-plan.txt)); Codex for the first implementation, the audit and the wallet tests ([prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view); [P01 in full](prompts/codex-p01-original.md)); Claude for the two redesigns ([shared session](https://claude.ai/share/3d6cc119-122a-404b-a457-77d3e28d5afe)) |
 
 **How decisions were made.** The AI tools proposed; tests and the team decided.
 - **No AI output was accepted on its own word.** The plan and the first implementation were reviewed by a
