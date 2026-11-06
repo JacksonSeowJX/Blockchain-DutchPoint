@@ -1,4 +1,4 @@
-# Claude Code Session - 20 October to 6 November 2026
+# Claude Code Session - 20 October to 7 November 2026
 
 Tool: Claude Code VS Code extension, model Claude Opus 5.5.
 Context given to the agent: `project.pdf` (the brief), `dutch auction summary.txt` (the ChatGPT plan,
@@ -423,18 +423,18 @@ Prompts 41-52 guided the student through the deployment and the run, so they are
 
 ## Day 5 - independent review by a teammate (26 October)
 
-53. "Once you're done, push to GitHub." The agent confirmed everything was already pushed, and asked
-    whether to add the two guides that are kept outside the repository.
-54. "My groupmate Sanjeev used Codex to analyse DutchPoint; his audit report is
+53. "Once you're done, push to GitHub." The agent confirmed that everything had already been pushed, and
+    asked whether to add the two guides kept outside the repository.
+54. "My teammate Sanjeev used Codex to analyse DutchPoint; his audit report is
     `sanjeev_codex_audit_report`. Please check whether we need to make changes because of it."
 55. "Yes, go ahead with the fixes. His MetaMask report is in this folder now. Also, you mentioned adding
     architecture elements from real Dutch auction and crypto projects; can you go over that first?"
 
 **Agent response:** checked every finding before agreeing with it, recomputing A1's numbers (88.89
 GVRA quoted against 69.77 claimed) and A4's parser behaviour. It proposed nine architecture elements,
-recommending one to build (an on-chain minimum-tokens guarantee) and the rest to document; this awaits the
-team's decision. It then wrote failing tests for each finding first, installed the test tools at
-versions at least two weeks old (working round an npm 10 resolver crash with npm 11), and fixed A1-A5
+recommending one to build (an on-chain minimum-tokens guarantee) and the rest to document, and left the
+decision to the team. It then wrote failing tests for each finding first, installed the test tools at
+versions at least two weeks old (working around an npm 10 resolver crash with npm 11), and fixed A1-A5
 and A7. It broadened the invariant tests, checked the result in a browser with a contract wallet that
 rejects ETH, and recorded the third pass in the audit report.
 
@@ -453,14 +453,14 @@ tooling advisories under the two-week rule. For Sanjeev, it listed the reproduct
 to.
 
 58. "Here are our names and matriculation numbers [not reproduced here]. Our team name is DutchPoint. What
-    roles are available? We all contributed equally; can I take Solidity developer?"
-59. "Could you also push the audit report we will submit to GitHub, so my groupmates can see it?"
+    roles are available? We all contributed equally; can I take the Solidity developer role?"
+59. "Could you also push the audit report we will submit to GitHub, so my teammates can see it?"
 60. "Is Sanjeev's folder important? What's inside? And if roles are not required, leave them out of the
     report."
 61. "The files you wanted are in the `sanjeev docs` folder."
 
-**Agent response:** checked the brief, which defines no roles, and left roles out of the report and README;
-added the names and the equal-contribution statement. It held back the matriculation numbers, because the
+**Agent response:** checked the brief, which defines no roles, so it left roles out of the report and README
+and added the names and the equal-contribution statement. It held back the matriculation numbers, because the
 repository is public, and asked the team to decide. It pointed out that the audit report was already on
 GitHub. Before publishing Sanjeev's files it confirmed his two reports matched the committed copies byte for
 byte, scanned every file for keys and personal data, read the scripts and a third report it had not seen,
@@ -494,7 +494,8 @@ passwords, emails, paths and names, the Word file's metadata, the scripts and th
 folder unchanged and described it on the review page, and noted that the files do not say which AI tool
 Alfred used.
 
-66. "I'm ready to redeploy to Sepolia; give me the steps, and how to verify the code on Etherscan."
+66. "I'm ready to redeploy to Sepolia. Please give me the steps, and tell me how to verify the code on
+    Etherscan."
 
 **Agent response:** read the deploy script, the Hardhat configuration and the verify task's options before
 writing the steps, checked which secrets the keystore holds (names only) and that the deployer had enough
@@ -516,17 +517,19 @@ only need to bid within the 20 minutes, and proposed bid sizes and times.
 
 69. "So you need all three of us for the sell-out run?"
 
-**Agent response:** no: the contract sees addresses, not people. Two or more wallets are enough, and one
-person with several wallets shows the same mechanism, provided the report says so.
+**Agent response:** answered no: the contract sees addresses, not people. Two or more wallets are enough,
+and one person with several wallets demonstrates the same mechanism, provided the report says so.
 
-70. "We are all down to do the run for the sell-out test; give me the guide so I can send it to them."
+70. "We are all available for the sell-out test run. Please give me the guide so that I can send it to
+    them."
 
 **Agent response:** checked the site's button labels, status names and error messages, the contract's
 rules for starting, finalizing and claiming, and the gas the first Sepolia run used, then wrote a run sheet
 for the team: roles, test ETH per wallet, bid times by the site's countdown, the expected prices and
 allocations, and what to do when something goes wrong.
 
-71. "Alfred created three MetaMask accounts, but he needs my deployer account to start the auction; how?"
+71. "Alfred has created three MetaMask accounts, but he needs my deployer account to start the auction.
+    How should we handle that?"
 
 **Agent response:** advised against sharing the deployer's key: only starting the auction and withdrawing
 the proceeds need the owner, and both can be done from the owner's own machine at an agreed time, while
@@ -534,15 +537,15 @@ bidding, finalizing and claiming are open to anyone.
 
 72. "Is our deployer account the one named DutchPoint Sepolia?"
 
-**Agent response:** account names are local MetaMask labels it cannot see; gave the deployer's address to
-compare, and noted that only the owner sees the Issuer controls on the site.
+**Agent response:** explained that account names are local MetaMask labels it cannot see, gave the
+deployer's address for comparison, and noted that only the owner sees the Issuer controls on the site.
 
 73. "He is bidding at three different times now. What else do we need to do for the project?"
 
 **Agent response:** listed the remaining steps: finish the run (finalize, claims, withdrawal), the report
 TODOs, optional Etherscan verification, the demo video and the submission steps.
 
-74. "Alfred has bid three times; how come it is sold out?"
+74. "Alfred has bid three times. Why does the site say it is sold out?"
 
 **Agent response:** read the auction's totals and explained the result as a sell-out by time. That was
 wrong: the event log, read after the run, shows the third bid crossed and its surplus was refunded. The
@@ -553,15 +556,15 @@ agent corrected itself to the team and recorded the run from the event log.
 **Agent response:** recorded them (`DutchPoint.zip` and `DutchPoint.mp4` or a video link, separate
 portals) and checked them against the packaging script and the remaining work: the video is the main item.
 
-76. "I've withdrawn the proceeds from Alfred's three bids; what's next?"
+76. "I've withdrawn the proceeds from Alfred's three bids. What's next?"
 
 **Agent response:** read the final state and the auction's event log from the chain, found its own earlier
 error about how the auction sold out, and recorded the run in the report, the README and this log.
 
-77. "Alfred used ChatGPT Codex with the Astra model, and here is his Codex session link; Sanjeev will send
-his session link later. Assign a subagent to each task: what else we have to settle, a script for the demo
-video (don't start it yet), the steps for Etherscan verification, and whether to add pages such as a
-roadmap to the website. Then wait for my prompt on the website design."
+77. "Alfred used ChatGPT Codex with the Astra model; here is his Codex session link. Sanjeev will send his
+session link later. Please assign a subagent to each of these tasks: what else we still have to settle, a
+script for the demo video (but don't start the video yet), the steps for Etherscan verification, and
+whether to add pages such as a roadmap to the website. Then wait for my prompt on the website design."
 
 **Agent response:** recorded Alfred's tool and session link in the report, the review README and the
 prompt index; the shared page renders only in a browser, so the link is recorded as given. Then ran four
@@ -578,16 +581,17 @@ against the Office schema. The first build failed validation (properties out of 
 page margins); both were fixed. The Word copy is kept outside the repository because, like the report in
 the submission zip, it includes the team-details block.
 
-79. "I got the Etherscan API key and ran the keystore command; it now asks for the secret to store. Is that
-the API key?"
+79. "I've got the Etherscan API key and run the keystore command, which now asks for the secret to store.
+Is that the API key?"
 
-**Agent response:** yes, the Etherscan API key, not the wallet's private key; then the two verify commands.
+**Agent response:** confirmed that the secret is the Etherscan API key, not the wallet's private key, then
+gave the two verify commands.
 
 80. (The output of the token's verification, pasted.)
 
-**Agent response:** confirmed the token was verified on Etherscan. Reviewing the draft demo script, whose
-Sepolia segment relies on the live site, the agent then loaded the live site and found its bid history
-gone (finding D1), traced the cause to the public RPC pruning old logs, and proposed a fix.
+**Agent response:** confirmed that the token was verified on Etherscan. While reviewing the draft demo
+script, whose Sepolia segment relies on the live site, the agent loaded the site and found its bid history
+missing (finding D1). It traced the cause to the public RPC pruning old logs, and proposed a fix.
 
 81. "Yes, go ahead with the live-site bug repair while I look through the other items."
 
@@ -598,17 +602,17 @@ marking every block as read could miss a new bid. The newest blocks are now scan
 
 82. "Note: we are allowed to use an AI voice for the demo video, so it will be one consistent voice."
 
-**Agent response:** noted; the draft script's narration is to be rewritten for a single narrator.
+**Agent response:** noted that the draft script's narration would be rewritten for a single narrator.
 
 83. "For the Etherscan steps, how do I do step 5? How do I find the address of each contract?"
 
-**Agent response:** the addresses are the ones in the verify commands, also recorded in
-`deployments/sepolia.json` and the README; gave both Contract-tab links. The auction's Etherscan page still
+**Agent response:** explained that the addresses are the ones in the verify commands, which are also
+recorded in `deployments/sepolia.json` and the README, and gave both Contract-tab links. The auction's Etherscan page still
 offered "Verify and Publish", so its verification had to run first.
 
-84. "Put step 4 here."
+84. "Please put step 4 here."
 
-**Agent response:** the auction's verify command again, with what success looks like.
+**Agent response:** gave the auction's verify command again, with what a successful result looks like.
 
 85. (The output of the auction's verification, pasted.)
 
@@ -616,7 +620,7 @@ offered "Verify and Publish", so its verification had to run first.
 linked the verified source from the README, the report and the architecture notes, and corrected the README,
 which described the command as Etherscan-only.
 
-86. "Let's do this [replace the ObinaNetwork listing on Blockscout and Sourcify]; give me the steps."
+86. "Let's do this [replace the ObinaNetwork listing on Blockscout and Sourcify]. Please give me the steps."
 
 **Agent response:** compared the deployed bytecode with the build (the token byte for byte, the auction
 except its constructor-set values), confirmed from Sourcify's documentation and Blockscout's source that a
@@ -625,17 +629,17 @@ repository, and gave the steps for both sites.
 
 87. "There is no Sepolia (11155111) on Sourcify, but there is OP Sepolia Testnet (11155420) and others."
 
-**Agent response:** Sourcify's chain list names it "Ethereum Sepolia Testnet"; any other chain number would
-fail, because the contracts exist only on 11155111.
+**Agent response:** explained that Sourcify's chain list names it "Ethereum Sepolia Testnet", and that any
+other chain number would fail, because the contracts exist only on 11155111.
 
-88. "I've done steps 1 and 2, help me check. And how do I do the optional step?"
+88. "I've done steps 1 and 2; please help me check them. And how do I do the optional step?"
 
-**Agent response:** GavoraToken was now an exact match on Sourcify and fully verified on Blockscout, under
-its own name; gave the same steps for DutchAuction.
+**Agent response:** confirmed that GavoraToken was now an exact match on Sourcify and fully verified on
+Blockscout under its own name, and gave the same steps for DutchAuction.
 
 89. "On Blockscout, they're asking for the contract license and the verification method."
 
-**Agent response:** MIT, as both contracts declare, and Solidity (Standard JSON input).
+**Agent response:** answered MIT, as both contracts declare, and Solidity (Standard JSON input).
 
 90. "It says the contract has already been verified."
 
@@ -644,7 +648,7 @@ Blockscout had taken it from there, so it refused a second upload. Updated the r
 
 91. "Where is the Word report?" and "What other items do we have on hand?"
 
-**Agent response:** the Word copy's location outside the repository, then the open items: the two missing
+**Agent response:** gave the Word copy's location outside the repository, then listed the open items: the two missing
 prompt exports, Sanjeev's session link, the division-of-labour facts, the demo video, the design prompt,
 the pending documentation fixes and the submission-day steps.
 
@@ -652,11 +656,12 @@ the pending documentation fixes and the submission-day steps.
 
 **Agent response:** left the repository's layout alone, since the report links into it, and sorted the
 team's working folder outside it (brief, private team details, teammates' original reviews, guides). The
-packaging script read the team details from that folder, and without them it still builds a zip, only
-without the matriculation numbers, so its default path was updated first and a package run confirmed it.
+packaging script reads the team details from that folder and, without them, still builds a zip, only
+without the matriculation numbers; so its default path was updated first, and a package run confirmed the
+change.
 
 93. (Sanjeev's redesign, "Shaft": `dutchpoint-shaft.patch`, a preview page and his notes, passed on with)
-"Sanjeev used his Codex to come up with a design for the website; refer to these two files and his
+"Sanjeev used Codex to come up with a design for the website. Please refer to these two files and his
 instructions."
 
 **Agent response:** reviewed the patch before applying it (frontend only; transaction code moved unchanged;
@@ -670,63 +675,67 @@ amounts turned out to describe the current site, so that fix went to `main` with
 **Agent response:** took this as approval for the D2 fix it had proposed, with tests. Committed four tests
 (three failing) that count explorer requests, then made the fallback ask once per attempt, wait out a
 rate limit, and keep settled bids in the browser on Sepolia only. Planned an automated wallet run of the
-redesign too, but dropped it once the user started the same test by hand on the local node.
+redesign too, but dropped it once the student started the same test by hand on the local node.
 
-95. "I ran `npm run node` in the first terminal, but the second terminal gives ENOENT for
-`Project/package.json`." and "The first terminal is mining blocks; do I stop it?"
+95. "I ran `npm run node` in the first terminal, but the second terminal gives an ENOENT error for
+`Project/package.json`." and "The first terminal is mining blocks. Should I stop it?"
 
-**Agent response:** the second terminal was in the folder above the repository; asked the user to wait
-until the repository was back on the redesign branch, then gave the commands and a checklist (start, bid,
-sell-out bid, finalize, claim, withdraw). The node should keep running for the whole test.
+**Agent response:** found that the second terminal was in the folder above the repository, asked the
+student to wait until the repository was back on the redesign branch, then gave the commands and a
+checklist (start, bid, sell-out bid, finalize, claim, withdraw). The node had to keep running for the
+whole test.
 
-96. "Should we allow users to switch between light and dark mode? Yes, the long scroll is too long, shorten
-it. I think we should keep the summary row. Also, I'm on localhost: what are my steps?"
+96. "Should we let users switch between light and dark mode? And yes, the page is too long to scroll;
+please shorten it. I think we should keep the summary row. Also, I'm on localhost: what are my steps?"
 
 **Agent response:** recommended dark only (the tunnel is light drawn on black), and made the three changes
-in a separate worktree so the user's test page would not reload mid-test; found and fixed clipped chart
-labels at phone width. Gave the local test steps.
+in a separate worktree so the student's test page would not reload mid-test. It also found and fixed
+clipped chart labels at phone width, and gave the local test steps.
 
-97. "Do you recommend merging into main first, then I test? Also, terminal 1 is still running: what is it
-for?" Then: "I press Connect wallet and add an address from the terminal?", "The terminal is too long, I
-can't scroll", "I connected with account 0 and there's no 10,000 ETH", "Why is there no Start auction
-button?" (with a screenshot)
+97. "Do you recommend merging into main first and then testing? Also, terminal 1 is still running: what is
+it for?" Then: "Do I press Connect wallet and add an address from the terminal?", "The terminal output is
+too long; I can't scroll back.", "I connected with account 0, but it doesn't show 10,000 ETH." and "Why
+is there no Start auction button?" (with a screenshot)
 
-**Agent response:** test first, because a push to `main` changes the live site; explained the local node;
-import the private key, not the address; printed the test accounts' keys again from Hardhat's public test
-phrase (checked against the running node, keys masked in its own output); MetaMask had to be on Hardhat
-Local. Loaded the page with a stand-in wallet that refuses to sign, showing that the issuer sees the button;
-the screenshot then showed the Sepolia auction, because MetaMask keeps a separate network for each site.
+**Agent response:** recommended testing first, because a push to `main` changes the live site, and
+explained what the local node does. MetaMask needs the private key, not the address, so it printed the
+test accounts' keys again from Hardhat's public test phrase (checked against the running node, with the
+keys masked in its own output); MetaMask also had to be on Hardhat Local. It loaded the page with a
+stand-in wallet that refuses to sign, which showed that the issuer does see the button; the screenshot
+turned out to show the Sepolia auction, because MetaMask keeps a separate network for each site.
 
-98. "Can I get Sanjeev to do this test?", "Just push and give me the message to send him", "Has it been
-pushed? Can Sanjeev test now?", "GitHub main, right?", "So I ask him to check the branch."
+98. "Can I get Sanjeev to do this test?", "Just push it and give me the message to send him.", "Has it
+been pushed? Can Sanjeev test now?", "Is it on main on GitHub?" and "So I ask him to check out the
+branch?"
 
 **Agent response:** pushed the `redesign-shaft` branch (not `main`), wrote the message with the setup, the
 MetaMask per-site network step and the checklist, and how to confirm the commit he tests.
 
-99. "Open the demo script here." Then: "The video must be under 10 minutes ... we can have an AI narrating
-voice over it? Check for the AI voices downloaded on this Mac." and "Use Evan."
+99. "Please open the demo script here." Then: "The video must be under 10 minutes. Can we have an AI voice
+narrate it? Please check which AI voices are downloaded on this Mac." and "Use Evan."
 
-**Agent response:** opened the draft; listed the Mac's voices and rendered segment 1 with five of them,
-with timings; with Evan chosen, moved the script to `Project/video/` (outside the repository), wrote a
-narration generator, and gave segment 9 five more seconds (planned length 9:00).
+**Agent response:** opened the draft, listed the Mac's voices and rendered segment 1 with five of them,
+with timings. Once Evan was chosen, it moved the script to `Project/video/` (outside the repository),
+wrote a narration generator, and gave segment 9 five more seconds (planned length 9:00).
 
 100. "Which section do you need me to record with Sanjeev?", "How will you simulate the MetaMask run? It
 involves my account.", "Generate the parts that don't need a live recording first. How many minutes do we
-stop at? Do I need my Sepolia account, and Sanjeev three wallets?", "Can I use Alfred's or Sanjeev's
+record before stopping? Do I need my Sepolia account, and does Sanjeev need three wallets?", "Can I use Alfred's or Sanjeev's
 accounts?" and "Send me the steps for segments 2-6 in a Markdown file."
 
-**Agent response:** nothing in the video is simulated: a person records the hands-on part with their own
-MetaMask. Built segments 1 and 7-10 from slides, real command output, committed evidence and screenshots,
-with Evan's narration (segment 7 now says 25 frontend tests); explained that the local chain's time skips
-make the 20-minute auction about 5 minutes; teammates' demo accounts can bid if given local ETH, with
-their names kept off screen; wrote the recording guide.
+**Agent response:** explained that nothing in the video is simulated: a person records the hands-on part
+with their own MetaMask. It built segments 1 and 7-10 from slides, real command output, committed evidence
+and screenshots, with Evan's narration (segment 7 now says 25 frontend tests). It explained that skipping
+time on the local chain makes the 20-minute auction take about 5 minutes, and that teammates' demo accounts
+can bid if they are given local ETH, with their names kept off screen. Then it wrote the recording guide.
 
 101. "If it's localhost, Alfred can't help; why can't we use his three wallets?" and "Why not merge once
 Sanjeev has tested, then record segments 2-6 on the live site?"
 
-**Agent response:** the local chain exists only on one Mac; a live recording needs a fresh Sepolia auction.
-Checked that the issuer and Alfred's wallets hold enough Sepolia ETH, and listed what changes (no time
-skip, segments 3 and 6 reworked, a new deployment to record and verify). Awaiting the team's choice.
+**Agent response:** explained that the local chain exists on only one Mac, so a live recording needs a
+fresh Sepolia auction. It checked that the issuer's and Alfred's wallets held enough Sepolia ETH, and
+listed what would change (no time skips, segments 3 and 6 reworked, a new deployment to record and verify).
+The choice was left to the team.
 
 102. "Sanjeev has finished the wallet testing; can we merge this branch into main?" and "Should we add our
 token roadmap to the website?"
@@ -738,9 +747,9 @@ test token (it would mean inventing plans) and offered a "Security & verificatio
 103. "We are thinking of redesigning the website, because some of the boxes are spaced too far apart.
 Sanjeev is looking for a design. Does this mean your previous segments have to be re-recorded?"
 
-**Agent response:** only what shows the site: the user's recording of segments 2-6 and the site
-screenshots in segment 9 (re-taken by script); the slides and the test and audit segments are unaffected.
-Suggested a cut-off (design final by Saturday noon) and a list of constraints for the new design.
+**Agent response:** explained that only what shows the site would change: the student's recording of
+segments 2-6 and the site screenshots in segment 9 (re-taken by script). The slides and the test and
+audit segments were unaffected. It suggested a cut-off (design final by Saturday noon) and a list of constraints for the new design.
 
 104. (Sanjeev's second redesign, "Terrain": `dutchpoint-terrain.patch`, a preview page and his notes, passed
 on.) "Once you're done updating this finalised design, let me know." His notes asked for the patch to be
@@ -760,7 +769,9 @@ Sanjeev's own report records.
 the team merged on the scripted run without a separate MetaMask test, fast-forwarded `main` and pushed, then
 checked the live page's bid history as Sanjeev had asked.
 
-## Day 6 - the live Sepolia run, the demo video, the README and the report (6 November)
+---
+
+## Day 6 - the live Sepolia run, the demo video, the README and the report (6-7 November)
 
 106. "Have the steps for segments 2-6 changed? If so, can I have the updated version to send to Alfred and
      Sanjeev?"
@@ -769,7 +780,7 @@ checked the live page's bid history as Sanjeev had asked.
 tabs. It rewrote the recording guide for the Terrain layout as a shareable document and listed what had
 changed.
 
-107. "I'd rather do the live Sepolia run with Alfred's wallets. That's better, no?"
+107. "I'd rather do the live Sepolia run with Alfred's wallets. That's better, isn't it?"
 
 **Agent response:** agreed, because graders can then check every step on Etherscan, and named the costs: no
 skipping time, the cancelled-bid moment is hard to stage across two computers, and the undersubscribed case
@@ -777,13 +788,13 @@ would need a second auction, so it became a generated clip of the 23 October bur
 guide (who does what, the deploy command with the Sepolia prices, a bid plan sized to the wallets' balances,
 a minute-by-minute table) and archived the 31 October deployment record (`b2f38ff`).
 
-108. "git switch main && git pull && npm ci: I can't do this in the terminal."
+108. "I can't run `git switch main && git pull && npm ci` in the terminal."
 109. "So every time I want to start a new auction, I need to deploy? When does the timer start, and after
      which command?" Then: "I've deployed. Where is the Start button? And do I record the whole 20 minutes?"
 
-**Agent response:** the repository was already on `main`, up to date and installed, so that step could be
-skipped; every command has to run inside the repository folder. One deployment per auction, by design, and
-the 20 minutes start when the issuer's Start transaction is mined, not at deployment (`START_AUCTION=false`).
+**Agent response:** explained that the repository was already on `main`, up to date and installed, so that
+step could be skipped, and that every command has to run inside the repository folder. Each auction needs
+its own deployment, by design, and the 20 minutes start when the issuer's Start transaction is mined, not at deployment (`START_AUCTION=false`).
 Before committing the new addresses (`f101187`), it checked the new auction on Sepolia: unstarted, holding
 the 1,000 GVRA, with the right prices and issuer, and code matching the repository.
 
@@ -791,15 +802,15 @@ the 1,000 GVRA, with the right prices and issuer, and code matching the reposito
      here now; it's this issue that's making us wait." and "Is this because the site refers to the old
      contract source code? If so, we just need new contract source code."
 
-**Agent response:** the site switches by itself once GitHub publishes the commit, but GitHub Pages had
-stalled: the previous publish timed out on GitHub's side, and its lock refused every later one, even after
+**Agent response:** explained that the site switches by itself once GitHub publishes the commit, but GitHub
+Pages had stalled: the previous publish timed out on GitHub's side, and its lock refused every later one, even after
 it was cancelled and on a fresh run. The contracts were unchanged, so a redeploy would hit the same wall. It
 built the site with the new addresses and served it on the Mac. Claude Code's safety settings stopped it
 from opening a public tunnel itself, so it gave the student the `cloudflared` command.
 
 111. "I ran the Cloudflare command but there's no link yet." Then: "What exactly is the root cause? Why is the
      live site showing old data? The Cloudflare URL works, by the way."
-112. "Settle the GitHub issue; we'll record on the Cloudflare link first. Does my screen recording need to
+112. "Please settle the GitHub issue; we'll record on the Cloudflare link first. Does my screen recording need to
      cover my MetaMask account, or just the website?" and "So my job is to start the auction, let Alfred bid
      and record the whole 20 minutes?"
 
@@ -818,8 +829,8 @@ by itself at 03:35 Singapore time, during the run.
 with 0.0074 ETH refunded in the crossing bid's transaction) and matched each to the recording's timeline.
 
 114. (After compacting) "I've closed the Cloudflare terminal. How is the demo video going?", then: "Feel
-     free to add instructions, like steps, on the live segments; it will help the professor understand the
-     project." "Also put my name as Jackson Seow Jia Xian and refer to me as Jackson. State that the work was
+     free to add instructions, such as numbered steps, to the live segments; they will help the professor
+     understand the project." "Also put my name as Jackson Seow Jia Xian and refer to me as Jackson. State that the work was
      done equally by the three members, and that the roles are Solidity developer, wallet tester, contract
      deployer and demo videographer (check whether these roles fit). I'm also thinking of adding light
      background music; I'll tell you which later." "Add subtitles to the video as well."
@@ -845,7 +856,7 @@ new contracts.
 
 116. "Since the video limit is 10 minutes and ours is shorter, should we add more content or explain more?"
 
-**Agent response:** about a minute and a half more, not padding: a look inside the contract (the price
+**Agent response:** recommended about a minute and a half more, without padding: a look inside the contract (the price
 formula, the crossing bid's refund, the single-price claim) and a short "run it yourself" segment, both built
 from the real code and terminal output. The decision was left to the team.
 
@@ -899,3 +910,97 @@ is now 9:19. The Drive file was Sanjeev's Codex prompt log. It holds the prompt 
 implementation and his audit prompts, and it shows that Codex itself drove MetaMask in his wallet tests. The
 agent linked both, replaced two paraphrased quotes of the Codex prompt with its exact words, and corrected
 who ran the wallet tests.
+
+124. "Does the audit report have an AI watermark? Please help me check." Then: "I've already given you
+     Sanjeev's AI links; that's all he sent. And yes, I'm looking for music now; back soon."
+
+**Agent response:** scanned the 71 documents in the repository and the Word copy for hidden characters
+(zero-width and other invisible formatting characters, the usual carriers of a text watermark) and found
+none; the Word file's metadata names only "Group DutchPoint" as its creator. It pointed out that the
+visible AI attribution is deliberate: the report names every AI tool, as the brief requires, and 85
+commits carry a Co-Authored-By line for Claude.
+
+125. "Have we accounted for the brief's 'Tricky Points to Ponder'? How to enforce block-based EVM time
+     countdowns and continuous price decay; how to calculate claims when a bid bridges the clearing
+     threshold; how to process ETH refunds safely against reentrancy; and how unsold tokens are
+     permanently burned from the supply."
+
+**Agent response:** confirmed that all four were handled and showed where: a price that depends on
+`block.timestamp` alone, a crossing bid accepted only up to the room left with its surplus refunded in the
+same transaction, refunds sent as the last step under `nonReentrant`, and `finalize()` burning unsold GVRA
+from a token that cannot mint more. It added one table answering the four points, with the code and tests
+for each, to the README and report §7 (`0985b93`).
+
+126. "Check the music folder. I'd like 'Scream & Shout' first, then 'Feel This Moment'. Please make sure the
+     music isn't too loud, so that the AI voice can still be heard clearly."
+
+**Agent response:** mixed the two instrumental tracks in that order with a three-second crossfade, matched
+their loudness, cut the music slightly in the voice's frequency range, and lowered it automatically
+whenever the narrator speaks. Measuring the first mix showed two problems: the music sat 33 dB under the
+voice, almost inaudible, and the final limiter was raising the level of the whole mix. Both were fixed.
+
+127. "Sure, add the music credit."
+128. "What's the music volume as a percentage? I think it could be higher."
+
+**Agent response:** added a credit for both songs to the video's end card, then gave the music's level
+relative to the voice and raised it. The music now sits at about 10-35% of the voice's level, and the
+finished mix measures -16 LUFS with peaks at -1.4 dBFS. It advised using a copy without music for any
+public upload, because the songs are copyrighted.
+
+129. "For the video's slides, especially the architecture one, I think icons for the parts of the system
+     would help."
+130. "OK, do it." (icons for the report's architecture figure and the video's other slides)
+
+**Agent response:** added icons from an openly licensed set (Lucide, ISC licence) to the architecture
+slide and, once approved, to the report's architecture figure (Figure 2, `29c4595`) and the video's other
+slides.
+
+131. "The document 'DutchPoint.mp4' could not be opened."
+
+**Agent response:** found that the file had been opened while the build was still writing it. The build
+now writes to a temporary file and replaces the video only once it is complete.
+
+132. "I've noticed that you cut out my MetaMask screen recording. Why? You told me to record it."
+133. "What do you recommend? Also, for the third bid, the video says a token cost 0.0576 ETH at that time.
+     Are you sure?"
+134. "OK, do it."
+
+**Agent response:** explained that the live steps had been cropped to the website, which removed
+MetaMask's confirmation windows along with its warnings about the temporary address, and recommended
+bringing the confirmations back at full screen, at moments after the warnings had been dismissed. It
+checked the third bid against the chain: the price was 0.0000576 ETH per GVRA, and 0.0576 ETH was the
+total for all 1,000 GVRA, so the line was reworded to give both figures. It restored the three
+confirmations (start, finalize and withdrawal) at normal speed; the video now runs 9:31 (`2c3c708`).
+
+135. "Has the report changed? I'd like to view it."
+136. "I've sent you the ChatGPT conversation link from Sanjeev."
+137. "You have 31% of the context remaining. Do you recommend compacting?"
+
+**Agent response:** opened the rebuilt Word copy. Only two of Sanjeev's links had arrived (the shared
+Claude session and the Drive file), so it asked for the ChatGPT link to be pasted again. It recommended
+compacting at that pause, since everything was committed and the project notes were in its memory.
+
+138. (After compacting) "Sanjeev sent me the link," with the same Google Drive file.
+
+**Agent response:** found that the file was the Codex prompt log the report already cites; a fresh
+download showed no ChatGPT conversation, only a new note of when the GitHub repository was created. It
+replaced the report's TODOs with a factual note: no export or share link of the ChatGPT conversation is
+available, so the plan is audited as output only (`5b1b724`).
+
+139. "Check the link again; Sanjeev says the content has changed."
+
+**Agent response:** downloaded it again and found every prompt now given as an edited paraphrase, so the
+three exact P01 quotes the report relies on (§3, F2 and F4) could no longer be checked against it. It
+asked the student how to handle this. On the student's choice, it added P01 in its original wording to
+the repository as [`codex-p01-original.md`](codex-p01-original.md), from the version shared earlier that
+day, which holds no private details. It linked the quotes to it and described the Drive log as
+paraphrased (`70176dd`).
+
+140. "(1) Check whether the report has an AI watermark. (2) What about our session's prompt log? Can you
+     make its English proper? (3) How much of the report is going to change?"
+
+**Agent response:** scanned the repository's 111 text files, the Word copy (metadata, comments, custom
+properties, hidden text) and the report's images for watermarks, and found none. It then edited this log:
+the prompts and responses for Days 5 and 6 now read as proper English, the student is referred to
+consistently, and prompts 124-140 were added. The prompt numbers are unchanged, so the report, which cites
+prompts 57, 96, 105, 107 and 115, needed no change.
