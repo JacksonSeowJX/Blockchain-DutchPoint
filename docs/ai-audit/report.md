@@ -57,8 +57,8 @@ passes after the fix. Both outputs are committed under [`evidence/`](evidence/).
 Validation: 63 tests (53 Mocha + 5 fuzz tests x 1,000 runs + 5 invariants x 256 runs), **100% line and
 statement coverage** of `DutchAuction.sol` and `GavoraToken.sol`, mutation checks, a gas-scaling test
 (1 to 100 bidders), 32 frontend unit tests (Vitest) for hooks, components, formatting and error messages, Slither before and after, an
-end-to-end run of the real UI in headless Chrome, manual runs with the real MetaMask extension by two team
-members, three public Sepolia runs (one ending at reserve with a burn, two selling out early across three wallets),
+end-to-end run of the real UI in headless Chrome, runs with the real MetaMask extension, by hand and driven by
+Codex, three public Sepolia runs (one ending at reserve with a burn, two selling out early across three wallets),
 and independent reviews by two team members.
 
 ![Timeline of the build, the reviews and the Sepolia runs, with the findings each produced](figures/fig1-timeline.png)
@@ -127,11 +127,11 @@ trace back to them:
 | Tool | Role |
 | --- | --- |
 | ChatGPT | Planning: naming, auction flow, contract and function outline, security checklist, test plan ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)) |
-| Codex desktop agent | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`); its log is [`development-log.md`](development-log.md) |
+| Codex desktop agent, run by a team member (Sanjeev) | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`). The prompt is P01 in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view); Codex's own log is [`development-log.md`](development-log.md) |
 | Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report and its figures, and the scripts that cut the demo video (captions, narration timing, subtitles) ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
-| Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5` and a functional test with the real MetaMask extension. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md)) |
-| Claude, run by a team member (Sanjeev) | Two frontend redesigns, each delivered as a patch with a preview page. "Shaft" (an LED-ring tunnel behind the live price): reviewed, applied unchanged on a branch, fixed (E1-E3), changed as the team decided (dark only, shorter scroll, summary row kept), tested with MetaMask and merged ([`evidence/16`](evidence/16-redesign-review.txt)). "Terrain" (a surface of points, the next step on the first screen, details in tabs), built on the merged Shaft: applied with `git am` under his name, fixed (E4), run through a whole auction on the local chain ([`evidence/17`](evidence/17-terrain-review.txt)) |
+| Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5`, and a functional test in which Codex itself drove the real MetaMask extension on his laptop. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md); prompts P10-P21 in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view)) |
+| Claude, run by a team member (Sanjeev) | Two frontend redesigns, each delivered as a patch with a preview page ([shared Claude session](https://claude.ai/share/3d6cc119-122a-404b-a457-77d3e28d5afe)). "Shaft" (an LED-ring tunnel behind the live price): reviewed, applied unchanged on a branch, fixed (E1-E3), changed as the team decided (dark only, shorter scroll, summary row kept), tested with MetaMask and merged ([`evidence/16`](evidence/16-redesign-review.txt)). "Terrain" (a surface of points, the next step on the first screen, details in tabs), built on the merged Shaft: applied with `git am` under his name, fixed (E4), run through a whole auction on the local chain ([`evidence/17`](evidence/17-terrain-review.txt)) |
 | ChatGPT Codex (Astra model), run independently by a team member (Alfred) | Evidence-focused review of `c36cb0c` in eight stages: what each record can and cannot prove, fifteen findings, and Node checks of the frontend logic ([`independent-review/alfred/`](independent-review/alfred/AI_Audit_Report.md); [shared Codex session](https://chatgpt.com/s/cx_6ae9e517ff7c8191aaae189a076bc9de)) |
 
 ### Toolchain
@@ -169,7 +169,7 @@ checked by another model or another person.
 | --- | --- | --- | --- |
 | Jackson Seow Jia Xian | Solidity developer and contract deployer | The contracts and their tests, built and reviewed with the AI tools above; Sepolia deployment and source verification; issuer in the testnet runs; demo video | Claude Code (VS Code extension) and one Claude Code subagent ([prompt log](prompts/claude-code-session.md)) |
 | Alfred Fong Wei Hao | Wallet tester and security reviewer | MetaMask wallet testing on Sepolia; the second independent AI audit (B1, B2) | ChatGPT Codex (Astra model) |
-| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test | Codex for the audit; Claude for the two redesigns |
+| Kalaiselvan Sanjeev | Frontend developer and security reviewer | The first implementation, built with Codex; the dashboard's current design (E1-E4 record its review); the first independent AI audit (A1-A7) with a MetaMask test | Codex for the first implementation, the audit and the wallet tests; Claude for the two redesigns |
 
 **How decisions were made.** The AI tools proposed; tests and the team decided.
 - **No AI output was accepted on its own word.** The plan and the first implementation were reviewed by a
@@ -195,7 +195,9 @@ checked by another model or another person.
 - **Prompt logs:** [`prompts/`](prompts/README.md).
   - Claude Code prompts are listed in order with what each produced. Their wording is edited for
     grammar and tone only, and the log says so.
-  - The Codex prompt is summarised in [`development-log.md`](development-log.md).
+  - The Codex prompts are in Sanjeev's [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view): P01 is the full prompt that produced the
+    first implementation, and P10-P21 the independent audit and MetaMask test. Codex's own account is in
+    [`development-log.md`](development-log.md).
   - The ChatGPT output is kept as-is.
 - **Context provided to the agents:** the brief (`project.pdf`), the ChatGPT plan, and the repository
   itself. For review work the agent ran the code (tests, scripts, a local node) rather than only reading
@@ -218,13 +220,14 @@ checked by another model or another person.
 The session was compacted several times (see the log). Persistent memory files carried the team's decisions
 across that boundary, so the agent did not have to rediscover them.
 
-**Prompt-engineering lesson:** the Codex prompt told the agent to "Handle clearing caused by time
-passing without a new bid" and "Avoid unbounded loops". Codex followed both instructions literally,
+**Prompt-engineering lesson:** the Codex prompt (P01) told the agent to "Handle clearing caused by price
+decay even when no new contribution arrives" and "Avoid unbounded loops over bidders during settlement,
+refunds or burning". Codex followed both instructions literally,
 but in the state-changing code paths only (F2), and by deferring proceeds to per-bidder settlement (F4).
 Constraints phrased as *properties* ("the UI must never show bidding as open after demand meets
 supply"; "every wei must be withdrawable by someone") would have been harder to satisfy only partly.
 
-**TODO (team):** add the ChatGPT conversation link and the Codex session export to [`prompts/`](prompts/README.md).
+**TODO (team):** add the ChatGPT conversation link to [`prompts/`](prompts/README.md).
 
 ## 4. AI-Generated Architecture
 
@@ -310,7 +313,8 @@ replaces per-bidder proceeds accrual with aggregate accounting ([`architecture.m
 **Where:** `0a75a78` `DutchAuction.sol:253` (`currentPrice`) and `:267` (`status`); `src/App.tsx:252` (`displayPrice`).
 
 **Why the AI made the mistake.**
-- The prompt explicitly required handling "clearing caused by time passing without a new bid". Codex
+- The prompt explicitly required it: "Handle clearing caused by price decay even when no new contribution
+  arrives" (P01). Codex
   implemented this in `_syncTimeClearing`, but only on *state-changing* paths (`finalize`, `contribute`).
 - The view functions read only the stored `clearingTime`, which stays 0 until a transaction writes it.
 - The AI treated "the auction has cleared" as an event that happens in a transaction, when for time-only
@@ -371,7 +375,8 @@ replaces per-bidder proceeds accrual with aggregate accounting ([`architecture.m
 **Where:** `0a75a78` `DutchAuction.sol:443`: `issuerProceedsAvailable += acceptedEth` inside per-bidder `_settleAccount`.
 
 **Why the AI made the mistake.**
-- The prompt said "Avoid unbounded loops for settlement, refunds, and burning". Under pro-rata settlement
+- The prompt said "Avoid unbounded loops over bidders during settlement, refunds or burning" (P01). Under
+  pro-rata settlement
   each bidder's accepted ETH is unknown until that bidder settles. Codex therefore accrued proceeds one
   bidder at a time, which avoids a loop but makes revenue depend on bidder behaviour.
 - It listed this as a "known limitation" instead of questioning the design that caused it.
@@ -587,7 +592,8 @@ added. It was applied unchanged on a branch (`895079d`), so the history shows ex
 The team also decided three changes: dark only (the hidden theme switch was removed), a shorter scroll story,
 and the summary row kept. Sanjeev's note that the quick-bid amounts did not suit the 0.1 ETH Sepolia sale
 described the site as it already was; that was fixed on `main` with failing-first tests (`a0e1fde`,
-`3c02cfc`). Sanjeev then ran the real-wallet test on the local node, and the branch was merged as a fast-forward.
+`3c02cfc`). Sanjeev then had Codex run the real-wallet test with MetaMask on his laptop's local node (all six
+checklist steps passed; P25-P30 in his log), and the branch was merged as a fast-forward.
 
 The team then found the page too spread out, and Sanjeev sent a second redesign, "Terrain", built on the
 merged Shaft (`8f8d1ad`): a surface of points with a ridge per bid, the next step and its action on the first
@@ -623,7 +629,7 @@ on the page was cut short. Both defects were fixed with tests that failed first 
 | Mutation check | Plant M1 (round time-clearing price down), M2 (issuer withdraws raw balance) and M4 (bid minimum not enforced), confirm failures, restore | M1: 6/7 property tests fail; M2: 3/7 fail ([`06`](evidence/06-mutation-check.txt)); M4: 4 tests fail ([`12`](evidence/12-bid-protection.txt)) |
 | Gas scaling | The same six calls (new bid, protected bid, crossing bid with refund, finalize, claim, issuer withdrawal) measured after 1, 10, 50 and 100 earlier bidders, with a 1% tolerance. Mutation M3 plants a loop over bidders in `claimTokens` | Identical gas at every crowd size (spread 0). Under M3 the claim grows from 163,417 to 410,719 gas and the test fails ([`09`](evidence/09-gas-scaling.txt), [`12`](evidence/12-bid-protection.txt)) |
 | Frontend unit tests (Vitest, React Testing Library, jsdom) | Hooks against an in-memory fake chain (stale network reads, refund events, out-of-order wallet answers, an RPC that has pruned old logs, an explorer that rate-limits), price formatting, components (quote and its on-chain minimum, amount validation, quick amounts sized to the sale, surplus states, refund recipient) and error decoding for failed transactions | 32 passing; all 9 finding tests failed first ([`11`](evidence/11-independent-codex-review.txt)), as did the bid-protection, error, B1, D1, D2, D3, D4 and quick-amount tests ([`12`](evidence/12-bid-protection.txt), [`13`](evidence/13-alfred-review-fixes.txt), [`14`](evidence/14-live-site-history.txt), [`15`](evidence/15-explorer-rate-limit.txt), [`18`](evidence/18-sepolia-run-3.txt)) |
-| Independent reviews | Sanjeev ran Codex as auditor, re-ran the checks, verified the Sepolia run and tested with MetaMask ([`independent-review/`](independent-review/README.md)). Alfred's review, also with Codex, weighed the repository's evidence and checked the frontend logic | Sanjeev: 6 findings, all confirmed and fixed; MetaMask scenarios all passed. Alfred: 15 items; 2 new (B1, B2) fixed, the rest already fixed or recorded as limitations |
+| Independent reviews | Sanjeev ran Codex as auditor, re-ran the checks, verified the Sepolia run, and had Codex drive a MetaMask test ([`independent-review/`](independent-review/README.md)). Alfred's review, also with Codex, weighed the repository's evidence and checked the frontend logic | Sanjeev: 6 findings, all confirmed and fixed; MetaMask scenarios all passed. Alfred: 15 items; 2 new (B1, B2) fixed, the rest already fixed or recorded as limitations |
 | Coverage | `npm run coverage` | `DutchAuction.sol` and `GavoraToken.sol`: 100% lines and statements ([`07`](evidence/07-test-suite-and-coverage.txt)) |
 | Static analysis | Slither 0.11.6 on original and current code, token, and vulnerable demo | Original: 19 results incl. High `reentrancy-eth`. Current: 0 High; 4 Medium `incorrect-equality` false positives annotated inline; remaining Low/Info are by design ([`08`](evidence/08-slither.txt)). With bid protection: 15 results, the new one a Low `timestamp` ([`12`](evidence/12-bid-protection.txt)) |
 | Dependency audit | `npm audit`, and `npm audit --omit=dev` for runtime-only packages; each advisory traced to the package that pulls it in and what it is used for | Before: 10 (2 high, 8 low), all in build or verification tooling, none in the contracts or the shipped site. After patch updates and the dependency split: 0 ([`10`](evidence/10-dependency-audit.txt)). Re-check on 26 Oct: 3 new advisories in Hardhat and Mocha tooling, none reachable, 0 in runtime packages. Re-check on 6 Nov: 17 advisories (13 high), all in development tooling and none in runtime packages; adding three.js changed neither count ([`16`](evidence/16-redesign-review.txt)). Fixes wait for the two-week rule on new releases; `npm ci` on npm 10 verified |
@@ -694,7 +700,8 @@ with the price falling from 0.0001 to 0.00002 ETH per GVRA over 20 minutes.
 - Hosting on the day: GitHub Pages' deployment of the new addresses was stuck for about 40 minutes, so the run
   used the same site served from a team member's machine through a temporary Cloudflare tunnel. MetaMask
   flagged the temporary `trycloudflare.com` address as possibly malicious, as it should for a domain anyone can
-  create. A dApp should be demonstrated from its own stable domain.
+  create. A dApp should be demonstrated from its own stable domain. A Codex session on Sanjeev's account
+  kept time and checked each transaction read-only during the run; it signed nothing (P31-P33 in his log).
 
 **3 November 2026** (contracts deployed on 31 October, the contract as submitted; [record](../../deployments/sepolia-2026-10-31.json)).
 - Contracts: [GavoraToken](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8), [DutchAuction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb); deploy, fund: [token tx](https://sepolia.etherscan.io/tx/0x903c7ccaddbccbf54543e043f5113e2c2355e2fb5aa2976aab5c03326e290ec3), [auction tx](https://sepolia.etherscan.io/tx/0x5343a7fc073b3904a25c10a539634ec4871f2fab3a413b7049c10b17ccf4f01a), [funding tx](https://sepolia.etherscan.io/tx/0x5de5cd0fcdd3ef95ec15e75ade651d01d718a09be39e214e842eefda8c4da1ee). Read back from the chain: the creation data of both deploy transactions equals the repository's build plus the constructor arguments, byte for byte, and the auction held the 1,000 GVRA, unstarted. Source verified on Etherscan on 5 Nov 2026 ([token](https://sepolia.etherscan.io/address/0x37183Ae4119bd59A44738788E4839c49EFc4f2f8#code), [auction](https://sepolia.etherscan.io/address/0x713e80Bea173f595b191ce635fa7dB45395cB1Eb#code)), and both on Blockscout and Sourcify as full matches: the bytecode and its embedded metadata hash match the repository's build.

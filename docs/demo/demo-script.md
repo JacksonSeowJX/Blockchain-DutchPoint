@@ -18,28 +18,30 @@ screen. Every figure in it can be checked on Etherscan
 | --- | --- | --- | --- |
 | 1 | 0:00-1:03 | Architecture and design | Title card, architecture slide |
 | 2 | 1:03-4:36 | Live run on Sepolia | The 6 Nov recording, 12 captioned steps |
-| 3 | 4:36-5:12 | Undersubscribed sale and burn | `npm run demo` scenario 2, the 23 Oct Sepolia token |
-| 4 | 5:12-5:54 | Security and testing | Reentrancy demo, tests, coverage, CI |
-| 5 | 5:54-6:46 | AI audit: what the AI got wrong | Report summary, F1, A1 |
-| 6 | 6:46-7:16 | Deployment and verification | Live site on GitHub Pages, verified source, the three Sepolia runs |
-| 7 | 7:16-7:38 | Close | End card |
+| 3 | 4:36-5:41 | Inside the contract | `priceAt`, the crossing bid's refund, `claimTokens`, with real line numbers |
+| 4 | 5:41-6:17 | Undersubscribed sale and burn | `npm run demo` scenario 2, the 23 Oct Sepolia token |
+| 5 | 6:17-6:59 | Security and testing | Reentrancy demo, tests, coverage, CI |
+| 6 | 6:59-7:51 | AI audit: what the AI got wrong | Report summary, F1, A1 |
+| 7 | 7:51-8:21 | Deployment and verification | Live site on GitHub Pages, verified source, the three Sepolia runs |
+| 8 | 8:21-8:57 | Run it yourself | The README's commands with real output, the local dashboard and its demo tools |
+| 9 | 8:57-9:19 | Close | End card with the team's roles |
 
-Total 7:38.
+Total 9:19.
 
 ## What the brief asks for, and where it is
 
 | Requirement (brief) | Where |
 | --- | --- |
 | Video starts with a quick introduction to the architecture/design | 1 |
-| Detailed hands-on demo of the solution deployed | 2 (on Sepolia, start to withdrawal), 3 |
-| ERC20 token; auction engine in a separate contract | 1 (diagram), 2 step 12 (both contracts) |
-| Exactly 20 minutes; price descends over time | 2 steps 1, 2, 5, 8 |
-| Uniform clearing price; everyone pays the same | 2 steps 6, 9, 10 |
-| Sell out at or above reserve, or burn unsold tokens | 2 step 6 (sell-out), 3 (burn) |
-| Token claims; automatic refund of surplus ETH | 2 steps 6 and 7 (refund in the same transaction), 10 (claims), 11 (proceeds) |
-| Bonus: reentrancy resistance | 4 |
-| Tricky points: block-time decay, the bid that bridges the threshold, safe refunds, burning | 2 steps 2, 6, 7; 4; 3 |
-| Rubric: AI audit quality, testing, docs and UX | 4, 5, 6 |
+| Detailed hands-on demo of the solution deployed | 2 (on Sepolia, start to withdrawal), 4, 8 (deploying it locally) |
+| ERC20 token; auction engine in a separate contract | 1 (diagram), 2 step 12 (both contracts), 3 (the auction's code) |
+| Exactly 20 minutes; price descends over time | 2 steps 1, 2, 5, 8; 3 (`priceAt`) |
+| Uniform clearing price; everyone pays the same | 2 steps 6, 9, 10; 3 (`claimTokens`) |
+| Sell out at or above reserve, or burn unsold tokens | 2 step 6 (sell-out), 4 (burn) |
+| Token claims; automatic refund of surplus ETH | 2 steps 6 and 7 (refund in the same transaction), 10 (claims), 11 (proceeds); 3 (the code) |
+| Bonus: reentrancy resistance | 3 (refund last), 5 |
+| Tricky points: block-time decay, the bid that bridges the threshold, safe refunds, burning | 2 steps 2, 6, 7; 3; 5; 4 |
+| Rubric: AI audit quality, testing, docs and UX | 5, 6, 7, 8 |
 
 ---
 
@@ -129,7 +131,29 @@ The page shows prices to six decimal places, so the clearing price 0.0000576 app
 (and 0.0000792 as 0.000079). The captions and narration give the exact values; see
 [The numbers](#the-numbers).
 
-### 3. Undersubscribed sale and burn
+### 3. Inside the contract
+
+**On screen.** Three slides of `contracts/DutchAuction.sol` with its real line numbers: `priceAt`
+(lines 378-389), the part of `_contribute` that accepts a bid and refunds its surplus (lines 439-467),
+and `claimTokens` (lines 220-243).
+
+**Narration**
+
+> Here is the code behind that run. In DutchAuction.sol, the price depends only on the block's timestamp:
+> a straight line from the start price down to the reserve over 1,200 seconds, never below the reserve, and
+> the same for every bidder.
+
+> Each bid is checked against the room left: the ETH that would buy the whole supply at this moment's
+> price, minus what is already committed. A bid inside the room is accepted in full. The bid that reaches
+> the line is accepted only up to the room, and the auction clears at that price. Its surplus is sent back
+> last, in the same transaction, after every record is updated. If the bidder's wallet refuses the ETH, it
+> is kept as a credit to withdraw, so no bidder can block the sale.
+
+> After the auction is finalized, each bidder claims their commitment divided by the one final price. That
+> is why the first bid of 0.01 ETH received 173.61 GVRA, not the 108.7 its own price offered. No function
+> loops over the bidders, so every call costs the same gas however many people bid.
+
+### 4. Undersubscribed sale and burn
 
 **On screen.** A terminal panel with scenario 2 of `npm run demo` (its real output), then the
 23 Oct Sepolia token on Etherscan with a total supply of 750 GVRA.
@@ -142,7 +166,7 @@ The page shows prices to six decimal places, so the clearing price 0.0000576 app
 > 23 October: two bids totalling 0.015 ETH settled at the 0.00002 reserve and bought 750 GVRA, and the other
 > 250 were burned.
 
-### 4. Security and testing
+### 5. Security and testing
 
 **On screen.** `npm run demo` scenarios 4 and 5; `npm test` (63 passing) and `npm run test:frontend`
 (32 passed); the coverage table; the green CI runs on GitHub Actions (Slither).
@@ -157,7 +181,7 @@ The page shows prices to six decimal places, so the clearing price 0.0000576 app
 > Behind that: 63 contract tests, including fuzz and invariant tests, 32 frontend tests, 100% line coverage
 > of both contracts, and Slither in CI, which fails the build on any Medium or High finding.
 
-### 5. AI audit: what the AI got wrong
+### 6. AI audit: what the AI got wrong
 
 **On screen.** The AI audit report's summary on GitHub; the F1 before/after tables
 (`evidence/02` and `04`); the failing test (`evidence/01`); A1 (`evidence/12`).
@@ -174,7 +198,7 @@ The page shows prices to six decimal places, so the clearing price 0.0000576 app
 > quoted at 88.89 GVRA could end up with 69.77. Rewording made it honest; the on-chain minimum that every
 > bid now carries made it true.
 
-### 6. Deployment and verification
+### 7. Deployment and verification
 
 **On screen.** The live site on GitHub Pages; the auction's *Contract* tab on Etherscan with its verified
 source; a slide of the three Sepolia runs.
@@ -187,7 +211,22 @@ source; a slide of the three Sepolia runs.
 > Sepolia: on 23 October a sale ended at the reserve and burned 250 GVRA, and on 3 November one sold out
 > after 15 minutes with a 0.003 ETH refund.
 
-### 7. Close
+### 8. Run it yourself
+
+**On screen.** The README's commands in a terminal with the real output of `npm run deploy:local` on a
+fresh local chain, then the local dashboard, then its *Sale details* tab with the demo tools.
+
+**Narration**
+
+> You can run all of this on your own computer, with Node.js and MetaMask: no API keys and no test ETH.
+> Install with npm ci, then start a local chain with npm run node. In a second terminal, npm run
+> deploy:local creates the token and the auction and opens the 20-minute window, and npm run dev serves
+> the dashboard. Import one of the local test accounts into MetaMask, and bid.
+
+> On the local chain, the Sale details tab adds demo tools that move the chain's clock forward, so you can
+> finalize, claim and withdraw without waiting 20 minutes.
+
+### 9. Close
 
 **On screen.** The end card: repository and live-site URLs, the three names, equal contribution.
 

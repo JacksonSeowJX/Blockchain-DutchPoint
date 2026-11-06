@@ -375,7 +375,7 @@ Observations:
 
 ## 2026-10-26 - Independent Codex review (third pass) and fixes
 
-A team member (Sanjeev) audited `2e2c2a5` with Codex and also ran a MetaMask functional test. Both
+A team member (Sanjeev) audited `2e2c2a5` with Codex and also had Codex run a MetaMask functional test. Both
 reports are in `docs/ai-audit/independent-review/`. All six findings were confirmed before anything
 changed: A1 and A4 by recomputing the report's numbers, the rest by reading the code.
 
@@ -529,7 +529,7 @@ the two-week rule (E2); both fixed in `2d5ba74`. The team then decided on dark o
 keeping the summary row; a check at phone width found clipped chart labels (E3); all in `26c78bf`. The
 quick-bid amounts Sanjeev flagged were a problem on `main` already and were fixed there first. Jackson's own
 MetaMask test stalled on MetaMask keeping a separate network per site (the page stayed on the Sepolia
-auction); Sanjeev ran the real-wallet test from the pushed branch, and the branch was merged as a
+auction); Sanjeev had Codex run the real-wallet test from the pushed branch, and the branch was merged as a
 fast-forward ([`evidence/16`](evidence/16-redesign-review.txt)). This entry first named Codex as the tool, from the message
 passed on to us; Sanjeev corrected it to Claude on 6 November.
 

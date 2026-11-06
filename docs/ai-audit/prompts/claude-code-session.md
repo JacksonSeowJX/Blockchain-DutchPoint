@@ -863,3 +863,39 @@ links, and five figures drawn from the report's own data (who found what and whe
 F1 crowd-out, the three runs, gas scaling) plus a dashboard screenshot. The recording had shown two display
 defects; it fixed them with failing tests first (D3, D4, evidence 18) and updated the test counts. It listed
 what only the team can supply.
+
+119. "Is our report in line with project.pdf? You're missing Sanjeev's Codex link, right? What are the verify
+     steps?"
+
+**Agent response:** compared the report with the brief: the eight required sections, in order and under the
+brief's titles, and the four-part breakdown for every major issue. One item was missing, how AI fitted into
+the team's division of labour and decision-making, and it added that to §2. It confirmed which links were
+still missing and gave the verification commands step by step.
+
+120. (The output of both verification commands, pasted: "already verified" on Etherscan, Blockscout and
+     Sourcify.)
+121. (The output of the same commands with `--force`, pasted.)
+
+**Agent response:** checked each explorer itself rather than trusting "already verified": Blockscout had both
+contracts fully verified, Sourcify had the auction as an exact match and the token as a partial one, and
+Etherscan showed both as a *Similar Match* to the identical 31 October contracts, and refused a fresh
+submission. It recorded exactly that in §6.
+
+122. "Why does the GitHub deploy keep getting stuck? Can we make sure this doesn't happen, so the grader has no
+     issues running the project? And what are these two extra segments about?"
+
+**Agent response:** the build passed every time; GitHub's own publishing step hung ("updating_pages"),
+during a week of GitHub incidents with Actions and Pages, and one hung publish blocks the next. Graders run
+the project locally, which never touches GitHub Pages, and a failed deploy leaves the last good site online.
+It limited deployments to changes to the site, so document pushes cannot leave a failed run or a red badge,
+and gave GitHub's step 30 minutes instead of 10.
+
+123. "Sure, add both; I think it's good information." Then (passed on during the work) Sanjeev's AI links: a
+     shared Claude session and a Google Drive file.
+
+**Agent response:** built "Inside the contract" from `contracts/DutchAuction.sol` with its real line numbers,
+and "Run it yourself" from the README's commands and the real output of a fresh local deployment; the video
+is now 9:19. The Drive file was Sanjeev's Codex prompt log. It holds the prompt that produced the first
+implementation and his audit prompts, and it shows that Codex itself drove MetaMask in his wallet tests. The
+agent linked both, replaced two paraphrased quotes of the Codex prompt with its exact words, and corrected
+who ran the wallet tests.

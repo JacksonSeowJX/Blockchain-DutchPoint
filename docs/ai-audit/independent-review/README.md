@@ -6,7 +6,7 @@ kept here unchanged. Alfred's review (of `c36cb0c`, 22 October) is [below](#alfr
 ## Sanjeev: Codex audit, re-checks and MetaMask test (23 October)
 
 On 23 October 2026 a team member (Sanjeev) independently reviewed `main` at commit `2e2c2a5` with OpenAI
-Codex. This was the third AI pass over the code, after Codex (first build) and Claude Code (review and
+Codex (his prompts: P10-P21 in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view); Codex also drove the MetaMask test). This was the third AI pass over the code, after Codex (first build) and Claude Code (review and
 remediation); ChatGPT had written the plan before any code. Everything he produced is committed
 **unchanged**, in the folder layout of his own copy of the repository, so every link in his reports works:
 
