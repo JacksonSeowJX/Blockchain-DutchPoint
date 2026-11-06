@@ -5,6 +5,14 @@ name: Pages
 on:
   push:
     branches: [main]
+    # Only changes to the site start a deployment. Pushes of documents (the report, the README) leave
+    # the published site and this workflow's badge alone.
+    paths:
+      - "frontend/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 # Only what a Pages deployment needs: read the code, publish to Pages, and request the OIDC
@@ -60,3 +68,7 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          # GitHub's publishing step has hung in "updating_pages" for over 10 minutes, the default
+          # limit (5-6 Nov 2026, during GitHub incidents with Actions and Pages). Wait up to 30.
+          timeout: 1800000
