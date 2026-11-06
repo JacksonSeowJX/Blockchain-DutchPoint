@@ -51,14 +51,6 @@ export function covered(d: Dashboard): number {
   return Math.min(100, percent(snapshot.totalCommitted, view.demandTarget));
 }
 
-/** The price the sale clears at if nobody else bids, or null if that falls below the reserve. */
-export function impliedClearing(d: Dashboard): bigint | null {
-  const { snapshot } = d;
-  if (!snapshot || snapshot.totalCommitted === 0n) return null;
-  const price = (snapshot.totalCommitted * 10n ** 18n) / snapshot.saleSupply;
-  return price < snapshot.reservePrice ? null : price;
-}
-
 export function ActionPanel({ d }: DirectionProps) {
   const { panel } = nextStep(d);
   if (panel === "position" && d.snapshot?.position) return <Position d={d} />;

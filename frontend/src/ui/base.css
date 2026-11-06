@@ -120,13 +120,6 @@ code { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size:
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
-/* Preview builds only. */
-.preview-bar { position: fixed; z-index: 50; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; max-width: calc(100vw - 16px); overflow-x: auto; background: #1b1b1f; color: #fff; border-radius: 8px; padding: 4px; font: 500 13px/1 system-ui, sans-serif; box-shadow: 0 6px 20px rgb(0 0 0 / .3); }
-.preview-bar span { opacity: .65; padding: 0 10px 0 8px; white-space: nowrap; }
-.preview-bar button { background: none; border: 0; border-radius: 5px; color: inherit; cursor: pointer; padding: 8px 10px; white-space: nowrap; }
-.preview-bar button[aria-pressed="true"] { background: #fff; color: #1b1b1f; }
-@media print { .preview-bar { display: none; } }
-
 /* Secondary content, one tab at a time. */
 .tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .tabs button { background: none; border: 0; border-radius: var(--radius-control); color: var(--muted); cursor: pointer; flex: none; font-weight: 600; min-height: 44px; padding: 8px 16px; }

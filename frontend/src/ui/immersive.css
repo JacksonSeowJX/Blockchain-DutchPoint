@@ -2,7 +2,6 @@
 .immersive-canvas { display: block; height: 100%; left: 0; position: absolute; top: 0; width: 100%; }
 .lower { margin: 0 auto; max-width: 1360px; padding: 48px clamp(16px, 3vw, 40px) 88px; }
 .lower .split { display: grid; gap: clamp(24px, 4vw, 64px); grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); }
-.lower .stack { display: grid; gap: 32px; align-content: start; grid-template-columns: minmax(0, 1fr); }
 .lower .how { margin-top: 64px; }
 .lower .how ol { display: grid; gap: 24px; grid-template-columns: repeat(3, 1fr); }
 .lower .faq { margin-top: 56px; max-width: 860px; }
