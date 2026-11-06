@@ -674,8 +674,10 @@ with the price falling from 0.0001 to 0.00002 ETH per GVRA over 20 minutes.
   [auction tx](https://sepolia.etherscan.io/tx/0x9cc33f81ac3fac448b7cea29b4ddbcc3a4a5ffe63c2f3709c5ca8a38d62945fe),
   [funding tx](https://sepolia.etherscan.io/tx/0x85133cfab3b4879889ead6bfcc6787839870a79954ada71c585006a0420bb26c). Read back from the chain: the
   creation data of both deploy transactions equals the repository's build plus the constructor arguments, byte
-  for byte. Etherscan shows the source as verified by matching the identical bytecode verified on 5 November
-  ("Similar Match").
+  for byte. Source code: Blockscout lists both contracts as fully verified, and Sourcify has the auction as an
+  exact match and the token as a partial match. Etherscan shows both as "Source Code Verified" through a
+  *Similar Match* to the 31 October contracts, which have identical bytecode and are fully verified, and it
+  declined a fresh submission (`verify:sepolia --force`) as already verified.
 - The run, from three wallets of one team member: [start](https://sepolia.etherscan.io/tx/0x7cd20971ea639516bfdea9b4e896136a3243f3f6f9ff12061f3ad98a66236652);
   bids of [0.01 ETH at 0.000092](https://sepolia.etherscan.io/tx/0xed5ee4749d944154524f44441f145f1c08b0ffc3589f24e503f70f5dc9a116b5) (2:00 in) and
   [0.025 ETH at 0.0000792](https://sepolia.etherscan.io/tx/0xda432ee17fae907132e1d9efd68b99cad0e145ee156ecc1e9dc8c05109bd2fa8) (5:12 in); a
