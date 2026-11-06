@@ -1061,3 +1061,36 @@ in the same layout and type sizes: the logo, the title in bold capitals, each me
 matriculation number below, the submission statement, the course in capitals and the semester, set in
 Times. The PDF build reads the numbers from the private team-details file, so they still never enter the
 repository; the layout was checked with dummy numbers. The links table moved to the top of the Summary.
+
+147. "Just use 'Jackson Seow Jia Xian', and leave the Word copy as it is. Are there any more pending items? I'd
+     like to submit soon."
+
+**Agent response:** confirmed that the cover already used that name, checked that the repository, CI and
+both submission files were final, and listed the remaining steps.
+
+148. (The instructions of both submission portals, pasted.) "Take note of the above. Also, why is page 5 of
+     the report blank?"
+
+**Agent response:** checked both files against the portal rules: a video of at most 10 minutes and 300 MB,
+and a single zipped folder with a README and the audit report as a PDF. Page 5 held only the divider at the
+end of the Summary, which had spilled over from a full page 4. The PDF now hides the report's two dividers,
+which both come just before a section that starts on a new page.
+
+149. "For the demo submission, why do they mention the README? That submission takes an mp4, and the
+     codebase has the README." Then: "Does our codebase zip have the README and the audit report inside?"
+
+**Agent response:** explained that the README in the zip is what graders would use to reproduce the demo,
+and confirmed by listing the zip that it holds the README, the report PDF and the Markdown report.
+
+150. "Do you recommend justifying the text?"
+
+**Agent response:** rendered a justified copy before answering. With hyphenation the spacing stayed even and
+the page count unchanged, so it recommended justified text, which also matches the FYP report.
+
+151. "OK, switch to justified. Also, there are inconsistencies: findings F1-F6 are in point form, while the
+     other items are in tables."
+
+**Agent response:** justified the PDF's paragraphs and lists, keeping the references left-aligned, and
+converted the 17 later findings (A-E) from tables into the F1-F6 layout: a heading with a short title and
+the severity, then the four labels of the brief's breakdown, with the wording unchanged. A label now stays
+on the same page as its first point.

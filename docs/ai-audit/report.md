@@ -550,14 +550,89 @@ encoded as a frontend test that failed first ([`evidence/11`](evidence/11-indepe
 All six were in code written by Claude Code in the second pass, and had passed its own tests, headless
 browser runs and two MetaMask sessions.
 
-| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
-| --- | --- | --- | --- | --- |
-| A1 | It applied a true rule ("accepted ETH can only buy more as the price falls") to a bid that was not yet mined. Time alone can shrink the remaining room before inclusion | A 1 ETH bid quoted at 88.89 GVRA can be only partly accepted and claim 69.77. The UI, FAQ, README and demo script all promised a minimum | The quote reads *If fully accepted, at least*, explains partial acceptance, and every document was reworded. A real guarantee would need an on-chain minimum-tokens check, which was added next (below) | `A1` test fails, then passes; the browser shows the new label |
-| A2 | Refresh serialisation was designed for overlapping block events on *one* provider; nothing invalidated work when the provider changed | After a network switch the page could show the old chain's bids and block, and stop fetching the new chain's history | Read contexts: outdated reads finish without writing state; per-context block-time cache; queued refreshes run the current context's read | `A2` test: snapshot block 12,000,000 before the fix, 100 after; new-chain logs queried |
-| A3 | It assumed wallet responses complete in the order they were requested | The header could show account A while the wallet signs as B | Numbered syncs, newest wins. Every transaction also checks the signer and network just before sending | `A3` test: the stale answer overwrote B before the fix, not after |
-| A4 | Validation checked `amount === 0n`; ethers parses "-1" into a negative bigint | The form offered "Bid -1 ETH" and passed a negative value onwards | Amounts must be above 0 and fit uint256, with a field message | `A4` tests: negative rejected; a normal positive bid still works |
-| A5 | History inferred "refunded" from `amount - accepted` and ignored the push-or-credit fallback the contract implements | It reported money as returned that was still held for withdrawal | The history reads `RefundCredited`; the *Surplus* column marks *returned* or *held* | `A5` hook and component tests; the browser shows "0.7625 ETH held" for a rejecting contract |
-| A7 | The UI implemented the common EOA path and hard-coded the connected account as the refund recipient | A wallet that rejects ETH could not recover its refund through the dApp, although the contract supports another recipient | *Send refund to* field, validated, defaulting to the connected account | `A7` tests: other address used, default used, invalid refused |
+#### A1 - The bid quote promised a minimum that a partly accepted bid does not get (Medium)
+
+**Why the AI made the mistake.**
+- It applied a true rule ("accepted ETH can only buy more as the price falls") to a bid that was not yet mined. Time alone can shrink the remaining room before inclusion.
+
+**Why it is problematic.**
+- A 1 ETH bid quoted at 88.89 GVRA can be only partly accepted and claim 69.77. The UI, FAQ, README and demo script all promised a minimum.
+
+**How it was fixed.**
+- The quote reads *If fully accepted, at least*, explains partial acceptance, and every document was reworded. A real guarantee would need an on-chain minimum-tokens check, which was added next (below).
+
+**Evidence the fix works.**
+- `A1` test fails, then passes; the browser shows the new label.
+
+#### A2 - A network switch could show the old chain's history (Medium)
+
+**Why the AI made the mistake.**
+- Refresh serialisation was designed for overlapping block events on *one* provider; nothing invalidated work when the provider changed.
+
+**Why it is problematic.**
+- After a network switch the page could show the old chain's bids and block, and stop fetching the new chain's history.
+
+**How it was fixed.**
+- Read contexts: outdated reads finish without writing state; per-context block-time cache; queued refreshes run the current context's read.
+
+**Evidence the fix works.**
+- `A2` test: snapshot block 12,000,000 before the fix, 100 after; new-chain logs queried.
+
+#### A3 - An out-of-order wallet response could show the wrong account (Medium)
+
+**Why the AI made the mistake.**
+- It assumed wallet responses complete in the order they were requested.
+
+**Why it is problematic.**
+- The header could show account A while the wallet signs as B.
+
+**How it was fixed.**
+- Numbered syncs, newest wins. Every transaction also checks the signer and network just before sending.
+
+**Evidence the fix works.**
+- `A3` test: the stale answer overwrote B before the fix, not after.
+
+#### A4 - Negative bid amounts were accepted (Low)
+
+**Why the AI made the mistake.**
+- Validation checked `amount === 0n`; ethers parses "-1" into a negative bigint.
+
+**Why it is problematic.**
+- The form offered "Bid -1 ETH" and passed a negative value onwards.
+
+**How it was fixed.**
+- Amounts must be above 0 and fit uint256, with a field message.
+
+**Evidence the fix works.**
+- `A4` tests: negative rejected; a normal positive bid still works.
+
+#### A5 - History said "Refunded" for a surplus that was only credited (Medium)
+
+**Why the AI made the mistake.**
+- History inferred "refunded" from `amount - accepted` and ignored the push-or-credit fallback the contract implements.
+
+**Why it is problematic.**
+- It reported money as returned that was still held for withdrawal.
+
+**How it was fixed.**
+- The history reads `RefundCredited`; the *Surplus* column marks *returned* or *held*.
+
+**Evidence the fix works.**
+- `A5` hook and component tests; the browser shows "0.7625 ETH held" for a rejecting contract.
+
+#### A7 - A rejected refund could only be retried to the same wallet (Medium)
+
+**Why the AI made the mistake.**
+- The UI implemented the common EOA path and hard-coded the connected account as the refund recipient.
+
+**Why it is problematic.**
+- A wallet that rejects ETH could not recover its refund through the dApp, although the contract supports another recipient.
+
+**How it was fixed.**
+- *Send refund to* field, validated, defaulting to the connected account.
+
+**Evidence the fix works.**
+- `A7` tests: other address used, default used, invalid refused.
 
 The review's note on the invariant tests was also accepted. `invariant_EthIsFullyBacked` asserted an
 exact balance, which ETH forced in from outside (e.g. a `selfdestruct` payout) would break without any
@@ -594,9 +669,19 @@ and Gnosis Auction bids carry a minimum buy amount too. It was the one change fr
 Checking the change end to end on a local node, with ethers and the frontend's ABI, exposed a defect that
 had been in the Claude Code frontend since the second pass:
 
-| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
-| --- | --- | --- | --- | --- |
-| C1 | It assumed ethers decodes custom errors for every failure. ethers v6 does so only for read calls; for a transaction the raw revert data sits in `error.data`, or nested inside the wallet's or node's error. The table of friendly messages was never exercised by a failing transaction | No friendly contract-error message could appear for a failed transaction. A bid cancelled by its minimum would have said "Transaction failed.", and a bid after sell-out "could not coalesce error" | `describeError` finds the revert data wherever it is nested and decodes it against the auction ABI. A transaction that reverted after mining, with no data, gets a plain explanation | Error shapes recorded from the node; 3 of 4 `errors.test.ts` tests fail on `689c41f` and pass on `2765efa` |
+#### C1 - Contract errors from failed transactions were never decoded (Low)
+
+**Why the AI made the mistake.**
+- It assumed ethers decodes custom errors for every failure. ethers v6 does so only for read calls; for a transaction the raw revert data sits in `error.data`, or nested inside the wallet's or node's error. The table of friendly messages was never exercised by a failing transaction.
+
+**Why it is problematic.**
+- No friendly contract-error message could appear for a failed transaction. A bid cancelled by its minimum would have said "Transaction failed.", and a bid after sell-out "could not coalesce error".
+
+**How it was fixed.**
+- `describeError` finds the revert data wherever it is nested and decodes it against the auction ABI. A transaction that reverted after mining, with no data, gets a plain explanation.
+
+**Evidence the fix works.**
+- Error shapes recorded from the node; 3 of 4 `errors.test.ts` tests fail on `689c41f` and pass on `2765efa`.
 
 ### Second independent review (Alfred)
 
@@ -619,10 +704,33 @@ verbatim, and the architecture document claimed `ReentrancyGuard` on every state
 `start()` is not. Both were corrected. On its note that an unused compiler profile could make source
 verification fail, that profile now matches the default.
 
-| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
-| --- | --- | --- | --- | --- |
-| B1 | Claude Code's frontend rebuild (`c689e3c`) reused a display helper, which truncates to 6 decimals, to build a transaction amount | The shortcut promised the amount that sells out but filled in slightly less. Since bid protection, such a bid also carries a minimum, so if mined a block or more later it would usually be cancelled instead of selling out | The shortcut rounds the room left *up* to 6 decimals; the excess comes back with the rest of the surplus | `B1` test: the input reads 1.126543 before the fix, and 1.126544 with no minimum after ([`evidence/13`](evidence/13-alfred-review-fixes.txt)) |
-| B2 | Codex's constructor validated the price order and a zero supply, and Claude Code's revision added a check that the auction can clear. Neither asked whether the amounts fit in 256 bits | With absurd parameters (far beyond any real sale) deployment succeeded, but every bid at the start price would then fail on an arithmetic overflow | The constructor also rejects a supply whose value at the start price does not fit in 256 bits. A first version using `Math.tryMul` ignored part of its result and failed Slither's Medium gate; the committed check is a division | A new fuzz property (every accepted configuration can price its supply) found a counterexample before the fix and passes 1,000 runs after; `B2` Mocha test ([`evidence/13`](evidence/13-alfred-review-fixes.txt)) |
+#### B1 - The sell-out shortcut rounded the amount down (Low)
+
+**Why the AI made the mistake.**
+- Claude Code's frontend rebuild (`c689e3c`) reused a display helper, which truncates to 6 decimals, to build a transaction amount.
+
+**Why it is problematic.**
+- The shortcut promised the amount that sells out but filled in slightly less. Since bid protection, such a bid also carries a minimum, so if mined a block or more later it would usually be cancelled instead of selling out.
+
+**How it was fixed.**
+- The shortcut rounds the room left *up* to 6 decimals; the excess comes back with the rest of the surplus.
+
+**Evidence the fix works.**
+- `B1` test: the input reads 1.126543 before the fix, and 1.126544 with no minimum after ([`evidence/13`](evidence/13-alfred-review-fixes.txt)).
+
+#### B2 - The constructor accepted a supply whose value overflows 256 bits (Low)
+
+**Why the AI made the mistake.**
+- Codex's constructor validated the price order and a zero supply, and Claude Code's revision added a check that the auction can clear. Neither asked whether the amounts fit in 256 bits.
+
+**Why it is problematic.**
+- With absurd parameters (far beyond any real sale) deployment succeeded, but every bid at the start price would then fail on an arithmetic overflow.
+
+**How it was fixed.**
+- The constructor also rejects a supply whose value at the start price does not fit in 256 bits. A first version using `Math.tryMul` ignored part of its result and failed Slither's Medium gate; the committed check is a division.
+
+**Evidence the fix works.**
+- A new fuzz property (every accepted configuration can price its supply) found a counterexample before the fix and passes 1,000 runs after; `B2` Mocha test ([`evidence/13`](evidence/13-alfred-review-fixes.txt)).
 
 ### Found on the live site after the Sepolia run (D1, D2)
 
@@ -630,10 +738,33 @@ Two days after the 3 November run, the live site was checked while reviewing the
 Sepolia segment shows that run. The bid history was gone ([screenshot](evidence/14-live-site-before.png)).
 The earlier hosted checks had passed because they ran while the auction's logs were still recent.
 
-| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
-| --- | --- | --- | --- | --- |
-| D1 | When the Pages subagent found that the public RPC limits one `eth_getLogs` call to 50,000 blocks, the fix split the scan into 10,000-block chunks (`388399e`). Both assumed that a node keeps every log, as an archive node does, and no test modelled a node that forgets. PublicNode's keyless Sepolia RPC keeps about two days of logs, then answers "pruned history unavailable" for any range, however small | The README sends readers to the live site. For any auction older than two days, it showed "could not coalesce error" over the page and "No bids yet" under "3 bidders". The run's main result, the crossing bid and its same-transaction refund, was no longer visible | A chunk the RPC refuses is read from Blockscout's keyless, Etherscan-compatible logs API, which keeps the full history. The newest 100 blocks are scanned again over the RPC, because the explorer can trail the chain, and each bid is kept once. If no source answers, the page shows no error: the Bids panel says the history could not be loaded, links to the auction on Etherscan and keeps retrying | Three tests failed first (`ee4ddf3`); 19 pass after. The production build, run against the real Sepolia network, lists the three bids of 3 November, the last tagged *Cleared* with *0.003 ETH returned* ([`evidence/14`](evidence/14-live-site-history.txt), [screenshot](evidence/14-live-site-after.png)) |
-| D2 | The D1 fix was the agent's own. Its tests modelled an explorer that answers every request, and the live check loaded the page only a few times, so the explorer's limits were never part of the test. The fallback asked once per event and, while history was missing, again on every refresh (each block, and every 15 seconds) | Blockscout's keyless API answers HTTP 429 after about 10 requests from one address (`x-ratelimit-limit: 10`) for up to an hour. A few reloads, as when recording the demo, used them up, and the page's retries kept them at zero: the Bids panel said the history could not be loaded | One request per attempt, for all of the auction's events. After a failure the explorer is left alone for a minute, or until the 429's reset time. Bids from blocks old enough not to change are kept in the browser on Sepolia, so a reload asks the explorer nothing; not on the local node, whose addresses repeat after a restart. The fake chain now numbers logs within a block, as a real chain does | Three tests failed first (`db94b4f`), with 2 requests per attempt and 8 over three refreshes; 25 pass after ([`evidence/15`](evidence/15-explorer-rate-limit.txt)) |
+#### D1 - The bid history was lost once the public RPC pruned old logs (Medium)
+
+**Why the AI made the mistake.**
+- When the Pages subagent found that the public RPC limits one `eth_getLogs` call to 50,000 blocks, the fix split the scan into 10,000-block chunks (`388399e`). Both assumed that a node keeps every log, as an archive node does, and no test modelled a node that forgets. PublicNode's keyless Sepolia RPC keeps about two days of logs, then answers "pruned history unavailable" for any range, however small.
+
+**Why it is problematic.**
+- The README sends readers to the live site. For any auction older than two days, it showed "could not coalesce error" over the page and "No bids yet" under "3 bidders". The run's main result, the crossing bid and its same-transaction refund, was no longer visible.
+
+**How it was fixed.**
+- A chunk the RPC refuses is read from Blockscout's keyless, Etherscan-compatible logs API, which keeps the full history. The newest 100 blocks are scanned again over the RPC, because the explorer can trail the chain, and each bid is kept once. If no source answers, the page shows no error: the Bids panel says the history could not be loaded, links to the auction on Etherscan and keeps retrying.
+
+**Evidence the fix works.**
+- Three tests failed first (`ee4ddf3`); 19 pass after. The production build, run against the real Sepolia network, lists the three bids of 3 November, the last tagged *Cleared* with *0.003 ETH returned* ([`evidence/14`](evidence/14-live-site-history.txt), [screenshot](evidence/14-live-site-after.png)).
+
+#### D2 - The fallback used up Blockscout's keyless rate limit (Low)
+
+**Why the AI made the mistake.**
+- The D1 fix was the agent's own. Its tests modelled an explorer that answers every request, and the live check loaded the page only a few times, so the explorer's limits were never part of the test. The fallback asked once per event and, while history was missing, again on every refresh (each block, and every 15 seconds).
+
+**Why it is problematic.**
+- Blockscout's keyless API answers HTTP 429 after about 10 requests from one address (`x-ratelimit-limit: 10`) for up to an hour. A few reloads, as when recording the demo, used them up, and the page's retries kept them at zero: the Bids panel said the history could not be loaded.
+
+**How it was fixed.**
+- One request per attempt, for all of the auction's events. After a failure the explorer is left alone for a minute, or until the 429's reset time. Bids from blocks old enough not to change are kept in the browser on Sepolia, so a reload asks the explorer nothing; not on the local node, whose addresses repeat after a restart. The fake chain now numbers logs within a block, as a real chain does.
+
+**Evidence the fix works.**
+- Three tests failed first (`db94b4f`), with 2 requests per attempt and 8 over three refreshes; 25 pass after ([`evidence/15`](evidence/15-explorer-rate-limit.txt)).
 
 D2 was found three hours after D1, while screenshotting a teammate's redesign against the real auction:
 the Bids panel of both the redesign and `main` said the history could not be loaded, and Blockscout was
@@ -646,11 +777,47 @@ Sanjeev had the frontend redesigned with Claude and sent it as a patch (first re
 applied: frontend files only, the transaction code moved without changes, three.js and two self-hosted fonts
 added. It was applied unchanged on a branch (`895079d`), so the history shows exactly what the AI produced.
 
-| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
-| --- | --- | --- | --- | --- |
-| E1 | The patch was made from `main` before the D1 fix. It rewrote the page around the old Bids props, unaware of the two that D1 had just added | Merged by hand, the live site would lose the message that replaces "No bids yet" when the history can't be read, which is the D1 bug's visible half. Here the props are required, so typecheck failed instead (TS2739) | The dashboard hook returns `historyUnavailable`, and the Bids section passes it and the auction address (`2d5ba74`) | Typecheck and all 25 frontend tests pass, including the D1 tests ([`evidence/16`](evidence/16-redesign-review.txt)) |
-| E2 | The patch took the newest three.js, published six days earlier | The project only adopts releases at least two weeks old, so a broken or compromised release has time to be found (section 6, dependency audit) | Pinned three 0.186.1 and its types 0.186.0, both over six weeks old; the tunnel uses only long-stable APIs | `npm audit` is unchanged from `main`; 0 advisories in runtime packages ([`evidence/16`](evidence/16-redesign-review.txt)) |
-| E3 | The redesign enlarged the chart's axis labels on phones without checking that they fit the chart's padding | On a 390 px phone "0.00006" showed as ".00006", a wrong-looking price | The chart may draw its labels past its padding (`26c78bf`) | In a 390 px frame the labels show in full and the page has no sideways scroll |
+#### E1 - The redesign dropped the "history could not be loaded" state (Low)
+
+**Why the AI made the mistake.**
+- The patch was made from `main` before the D1 fix. It rewrote the page around the old Bids props, unaware of the two that D1 had just added.
+
+**Why it is problematic.**
+- Merged by hand, the live site would lose the message that replaces "No bids yet" when the history can't be read, which is the D1 bug's visible half. Here the props are required, so typecheck failed instead (TS2739).
+
+**How it was fixed.**
+- The dashboard hook returns `historyUnavailable`, and the Bids section passes it and the auction address (`2d5ba74`).
+
+**Evidence the fix works.**
+- Typecheck and all 25 frontend tests pass, including the D1 tests ([`evidence/16`](evidence/16-redesign-review.txt)).
+
+#### E2 - The redesign added a three.js release only six days old (Low)
+
+**Why the AI made the mistake.**
+- The patch took the newest three.js, published six days earlier.
+
+**Why it is problematic.**
+- The project only adopts releases at least two weeks old, so a broken or compromised release has time to be found (section 6, dependency audit).
+
+**How it was fixed.**
+- Pinned three 0.186.1 and its types 0.186.0, both over six weeks old; the tunnel uses only long-stable APIs.
+
+**Evidence the fix works.**
+- `npm audit` is unchanged from `main`; 0 advisories in runtime packages ([`evidence/16`](evidence/16-redesign-review.txt)).
+
+#### E3 - Price-chart labels were cut off on phones (Low)
+
+**Why the AI made the mistake.**
+- The redesign enlarged the chart's axis labels on phones without checking that they fit the chart's padding.
+
+**Why it is problematic.**
+- On a 390 px phone "0.00006" showed as ".00006", a wrong-looking price.
+
+**How it was fixed.**
+- The chart may draw its labels past its padding (`26c78bf`).
+
+**Evidence the fix works.**
+- In a 390 px frame the labels show in full and the page has no sideways scroll.
 
 The team also decided three changes: dark only (the hidden theme switch was removed), a shorter scroll story,
 and the summary row kept. Sanjeev's note that the quick-bid amounts did not suit the 0.1 ETH Sepolia sale
@@ -666,9 +833,19 @@ commit (`351120b`). A scripted run through a whole auction on the local chain, w
 that the first-screen card offers the right action at every stage ([`evidence/17`](evidence/17-terrain-review.txt)).
 The team merged it on that run, without a separate MetaMask test; the demo recording uses MetaMask.
 
-| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
-| --- | --- | --- | --- | --- |
-| E4 | The new next-step card's messages were written for the hosted Sepolia site: the loading line named Sepolia, and the finished-sale line assumed the result sat under *Sale details*, but the card itself shows it and that tab then leaves it out | On the local chain the page claimed to read from Sepolia; a visitor told to look in a tab finds the result missing there | The loading line names the deployment's chain; the finished-sale line says the final price and totals are below (`351120b`) | The scripted local run shows "The final price and totals are below." above the result; 25 frontend tests pass ([`evidence/17`](evidence/17-terrain-review.txt)) |
+#### E4 - Two next-step messages were wrong (Low)
+
+**Why the AI made the mistake.**
+- The new next-step card's messages were written for the hosted Sepolia site: the loading line named Sepolia, and the finished-sale line assumed the result sat under *Sale details*, but the card itself shows it and that tab then leaves it out.
+
+**Why it is problematic.**
+- On the local chain the page claimed to read from Sepolia; a visitor told to look in a tab finds the result missing there.
+
+**How it was fixed.**
+- The loading line names the deployment's chain; the finished-sale line says the final price and totals are below (`351120b`).
+
+**Evidence the fix works.**
+- The scripted local run shows "The final price and totals are below." above the result; 25 frontend tests pass ([`evidence/17`](evidence/17-terrain-review.txt)).
 
 ### Found in the recording of the third Sepolia run (D3, D4)
 
@@ -676,10 +853,33 @@ The 6 November run was recorded for the demo video (§6, *Sepolia testnet runs*)
 one more decimal than the local sale's, and the recording showed what no test or screenshot had: every price
 on the page was cut short. Both defects were fixed with tests that failed first (`7a7afc5`, then `383d23c`).
 
-| ID | Why the AI made the mistake | Why it is problematic | How it was fixed | Evidence the fix works |
-| --- | --- | --- | --- | --- |
-| D3 | Codex's `formatPrice` cut every price to six decimals (`0a75a78`). Claude Code's rebuild kept it (`c689e3c`), and the redesign's large price figure did the same (`895079d`). Every test, screenshot and local demo used the local sale's prices (0.02 to 0.005 ETH), which never need more | The sale cleared at 0.0000576 ETH per GVRA, and the page said 0.000057, a price nobody paid; the second bid's 0.0000792 showed as 0.000079. The demo video's captions had to give the real figures | Prices keep six decimals, or more when small, so that they keep four significant digits. Local prices look as before | 5 of 7 new tests fail before the fix (`expected '0.000057 ETH' to be '0.0000576 ETH'`) and all pass after; the other two check that local prices are unchanged ([`evidence/18`](evidence/18-sepolia-run-3.txt)) |
-| D4 | The label put the count before a fixed plural. Claims at one price leave rounding dust in the token's smallest units, and no test reached the state after every claim | After the three claims left 1 unit (10<sup>-18</sup> GVRA), the button read "Burn 1 units of rounding dust" | The singular for one unit | The `D4` test fails before the fix and passes after; 3 units stay plural ([`evidence/18`](evidence/18-sepolia-run-3.txt)) |
+#### D3 - Prices were cut to six decimals (Low)
+
+**Why the AI made the mistake.**
+- Codex's `formatPrice` cut every price to six decimals (`0a75a78`). Claude Code's rebuild kept it (`c689e3c`), and the redesign's large price figure did the same (`895079d`). Every test, screenshot and local demo used the local sale's prices (0.02 to 0.005 ETH), which never need more.
+
+**Why it is problematic.**
+- The sale cleared at 0.0000576 ETH per GVRA, and the page said 0.000057, a price nobody paid; the second bid's 0.0000792 showed as 0.000079. The demo video's captions had to give the real figures.
+
+**How it was fixed.**
+- Prices keep six decimals, or more when small, so that they keep four significant digits. Local prices look as before.
+
+**Evidence the fix works.**
+- 5 of 7 new tests fail before the fix (`expected '0.000057 ETH' to be '0.0000576 ETH'`) and all pass after; the other two check that local prices are unchanged ([`evidence/18`](evidence/18-sepolia-run-3.txt)).
+
+#### D4 - The dust button read "Burn 1 units" (Low)
+
+**Why the AI made the mistake.**
+- The label put the count before a fixed plural. Claims at one price leave rounding dust in the token's smallest units, and no test reached the state after every claim.
+
+**Why it is problematic.**
+- After the three claims left 1 unit (10<sup>-18</sup> GVRA), the button read "Burn 1 units of rounding dust".
+
+**How it was fixed.**
+- The singular for one unit.
+
+**Evidence the fix works.**
+- The `D4` test fails before the fix and passes after; 3 units stay plural ([`evidence/18`](evidence/18-sepolia-run-3.txt)).
 
 ## 6. Validation Process & Testing Strategy
 
