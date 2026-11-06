@@ -124,7 +124,7 @@ trace back to them:
 | Tool | Role |
 | --- | --- |
 | ChatGPT | Planning: naming, auction flow, contract and function outline, security checklist, test plan ([`prompts/chatgpt-plan.txt`](prompts/chatgpt-plan.txt)) |
-| Codex desktop agent, run by a team member (Sanjeev) | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`). The prompt is P01 in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view); Codex's own log is [`development-log.md`](development-log.md) |
+| Codex desktop agent, run by a team member (Sanjeev) | First implementation "FairLaunch": contracts, Hardhat tests, React app, docs (commit `0a75a78`). The prompt is P01 ([original wording](prompts/codex-p01-original.md); paraphrased in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view)); Codex's own log is [`development-log.md`](development-log.md) |
 | Claude Code (Claude Opus 5.5, VS Code extension) | Cross-model review of the plan and code, regression tests, contract fixes, fuzz/invariant tests, Slither triage, CI, deploy tooling, frontend rebuild, this report and its figures, and the scripts that cut the demo video (captions, narration timing, subtitles) ([`prompts/claude-code-session.md`](prompts/claude-code-session.md)) |
 | Claude Code subagent (general-purpose, in its own git worktree) | GitHub Pages hosting and the frontend's "not deployed" and offline states, built from a written brief. The main session reviewed its diff, re-checked its claims and merged it (`4d88495`, `388399e`, `9d828ae`) |
 | Codex, run independently by a team member (Sanjeev) | Independent defect audit of `main` at `2e2c2a5`, and a functional test in which Codex itself drove the real MetaMask extension on his laptop. Reported six frontend findings (A1-A5, A7) and an invariant-domain note, each with reproductions ([`independent-review/`](independent-review/README.md); prompts P10-P21 in his [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view)) |
@@ -192,9 +192,10 @@ checked by another model or another person.
 - **Prompt logs:** [`prompts/`](prompts/README.md).
   - Claude Code prompts are listed in order with what each produced. Their wording is edited for
     grammar and tone only, and the log says so.
-  - The Codex prompts are in Sanjeev's [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view): P01 is the full prompt that produced the
-    first implementation, and P10-P21 the independent audit and MetaMask test. Codex's own account is in
-    [`development-log.md`](development-log.md).
+  - The Codex prompts are in Sanjeev's [Codex prompt log](https://drive.google.com/file/d/1C8xUpdNeH2EkowMe0tveSRG3fY06Z_vd/view), which gives each prompt as an edited
+    paraphrase: P01 produced the first implementation, and P10-P21 the independent audit and MetaMask test.
+    P01's original wording, which §3, F2 and F4 quote, is kept in [`prompts/codex-p01-original.md`](prompts/codex-p01-original.md). Codex's own
+    account is in [`development-log.md`](development-log.md).
   - The ChatGPT plan is kept as-is in [`chatgpt-plan.txt`](prompts/chatgpt-plan.txt). No export or share
     link of the ChatGPT conversation is available, so the prompts behind the plan are missing; §4 audits
     the plan as output only.
@@ -219,7 +220,7 @@ checked by another model or another person.
 The session was compacted several times (see the log). Persistent memory files carried the team's decisions
 across that boundary, so the agent did not have to rediscover them.
 
-**Prompt-engineering lesson:** the Codex prompt (P01) told the agent to "Handle clearing caused by price
+**Prompt-engineering lesson:** the Codex prompt ([P01](prompts/codex-p01-original.md)) told the agent to "Handle clearing caused by price
 decay even when no new contribution arrives" and "Avoid unbounded loops over bidders during settlement,
 refunds or burning". Codex followed both instructions literally,
 but in the state-changing code paths only (F2), and by deferring proceeds to per-bidder settlement (F4).
@@ -311,7 +312,7 @@ replaces per-bidder proceeds accrual with aggregate accounting ([`architecture.m
 
 **Why the AI made the mistake.**
 - The prompt explicitly required it: "Handle clearing caused by price decay even when no new contribution
-  arrives" (P01). Codex
+  arrives" ([P01](prompts/codex-p01-original.md)). Codex
   implemented this in `_syncTimeClearing`, but only on *state-changing* paths (`finalize`, `contribute`).
 - The view functions read only the stored `clearingTime`, which stays 0 until a transaction writes it.
 - The AI treated "the auction has cleared" as an event that happens in a transaction, when for time-only
@@ -372,7 +373,7 @@ replaces per-bidder proceeds accrual with aggregate accounting ([`architecture.m
 **Where:** `0a75a78` `DutchAuction.sol:443`: `issuerProceedsAvailable += acceptedEth` inside per-bidder `_settleAccount`.
 
 **Why the AI made the mistake.**
-- The prompt said "Avoid unbounded loops over bidders during settlement, refunds or burning" (P01). Under
+- The prompt said "Avoid unbounded loops over bidders during settlement, refunds or burning" ([P01](prompts/codex-p01-original.md)). Under
   pro-rata settlement
   each bidder's accepted ETH is unknown until that bidder settles. Codex therefore accrued proceeds one
   bidder at a time, which avoids a loop but makes revenue depend on bidder behaviour.
